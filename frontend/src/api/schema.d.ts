@@ -431,6 +431,8 @@ export interface components {
             };
             /** Provider */
             provider: string | null;
+            /** Model */
+            model: string | null;
             /** Usage */
             usage: {
                 [key: string]: number;
@@ -802,6 +804,15 @@ export interface operations {
             };
             /** @description 과제·세션·결과가 없음 */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -274,3 +274,35 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
     response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
     assert response.status_code == 502
     assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
+
+
+def test_failed_regenerate_serves_previous_result_as_stale():
+    provider = MockProvider()
+    client = TestClient(create_app(provider=provider, debug=True))
+    sid = create_session(client)["session_id"]
+    first = client.post(f"{BASE}/sessions/{sid}/generate").json()
+    assert first["stale"] is False
+
+    provider.fail_stages.add("generate")
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+
+    kept = client.get(f"{BASE}/sessions/{sid}/result").json()
+    assert kept["result"] == first["result"]
+    assert kept["stale"] is True
+    view = client.get(f"{BASE}/sessions/{sid}").json()
+    assert (view["status"], view["error"], view["result_stale"]) == ("failed", GENERATION_FAILED_MESSAGE, True)
+
+
+def test_harness_error_in_generate_is_422(client, monkeypatch):
+    from app.harness.errors import HarnessError
+
+    harness = client.app.state.registry.get("product_planning")
+
+    def rule_problem(state):
+        raise HarnessError("결과를 만들 수 없는 입력입니다.")
+
+    sid = create_session(client)["session_id"]
+    monkeypatch.setattr(harness, "generate", rule_problem)
+    response = client.post(f"{BASE}/sessions/{sid}/generate")
+    assert response.status_code == 422
+    assert response.json() == {"detail": "결과를 만들 수 없는 입력입니다."}

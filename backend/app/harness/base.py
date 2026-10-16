@@ -412,16 +412,20 @@ class BaseHarness:
 
         먼저 계산하고 마지막에 반영한다. 실패하면 질문·입력은 그대로 두고 FAILED로만 표시한다.
         사용자에게 보일 문구는 하네스가 정하지 않는다. 뷰가 FAILED 상태에서 만든다.
+        HarnessError(사용자 입력·규칙 문제)는 세션을 되돌린 채 그대로 올린다(API 422).
         """
-        state.status = SessionStatus.GENERATING
         try:
-            result = to_generation_result(
-                self._call_retrying_bad_output(state, "generate", self.result_model)
-            )
-            result.assumptions = merge_assumptions(
-                result.assumptions, state.assumptions, self.policy.labels
-            )
-            report = self.validate(state, result)
+            with _atomic(state):
+                state.status = SessionStatus.GENERATING
+                result = to_generation_result(
+                    self._call_retrying_bad_output(state, "generate", self.result_model)
+                )
+                result.assumptions = merge_assumptions(
+                    result.assumptions, state.assumptions, self.policy.labels
+                )
+                report = self.validate(state, result)
+        except HarnessError:
+            raise
         except Exception as exc:
             self._fail_generation(state, exc)
             raise GenerationFailed from exc
@@ -434,9 +438,15 @@ class BaseHarness:
 
     @staticmethod
     def _fail_generation(state: SessionState, exc: Exception) -> None:
-        """[코드] 실패를 trace에 기록하고 FAILED로 표시한다. 내부 사정은 trace에만 남는다."""
+        """[코드] 실패를 trace에 기록하고 FAILED로 표시한다. 내부 사정은 trace에만 남는다.
+
+        이전 결과가 있으면 남기되 최신이 아니라고 표시한다(새로 만들려던 결과가 아니므로).
+        FAILED는 다음 답변·수정·성공한 생성까지 이어진다.
+        """
         if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
             state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
+        if state.result is not None:
+            state.result_stale = True
         state.status = SessionStatus.FAILED
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
@@ -492,6 +502,7 @@ class BaseHarness:
                 input={"prompt": prompt},
                 output=response.parsed.model_dump(mode="json"),
                 provider=self.provider.name,
+                model=response.model,
                 usage=response.usage.model_dump(),
             )
         )

@@ -119,7 +119,7 @@ def revise_answer(
 
 
 @router.post(
-    "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 502)
+    "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 422, 502)
 )
 def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)

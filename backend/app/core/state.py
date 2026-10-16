@@ -94,7 +94,8 @@ class TraceEntry(ContractModel):
     stage: str
     input: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)
-    provider: str | None = None
+    provider: str | None = None  # 제공자 이름(mock, claude 등)
+    model: str | None = None  # 실제로 응답한 모델 id. 호출이 실패하면 None
     usage: dict[str, int] = Field(default_factory=dict)
     at: datetime = Field(default_factory=utcnow)
 

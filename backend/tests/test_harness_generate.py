@@ -3,7 +3,7 @@ import pytest
 from app.core.results import GenerationResult, ResultAssumption, ValidationIssue
 from app.core.state import Answer, AnswerType, Assumption, InfoSource, SessionState, SessionStatus
 from app.harness.base import merge_assumptions
-from app.harness.errors import GenerationFailed
+from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.evals import load_scenarios, run_scenario
 from app.harness.validation import check_assumptions_marked
 from app.providers.mock import MockProvider
@@ -303,3 +303,84 @@ def test_scenario_mode_and_expect_status_are_honored(harness):
     state = run_scenario(harness, scenario)
     assert state.mode is CoachingMode.QUICK
     assert state.status is scenario.expect_status
+
+
+# ── 실패한 생성의 규칙(#15, #16) ─────────────────────────────
+
+
+def test_failed_regenerate_keeps_previous_result_marked_stale(harness, reply):
+    state = harness.start("향초")
+    harness.generate(state)
+    previous = state.result
+
+    harness.provider = MockProvider(fail_stages={"generate"})
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+
+    assert state.result == previous
+    assert state.result_stale is True
+    assert state.status is SessionStatus.FAILED
+
+
+def test_failed_status_lasts_until_next_revise(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    harness.generate(state)
+    harness.provider = MockProvider(fail_stages={"generate"})
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status is SessionStatus.FAILED
+
+    harness.provider = MockProvider()
+    harness.revise_answer(
+        state,
+        Answer(
+            question_id=state.asked_questions[0].question.question_id,
+            answer_type=AnswerType.FREE_TEXT,
+            value="부모",
+        ),
+    )
+    assert state.status is SessionStatus.CLARIFYING  # 남은 질문(problem)으로 돌아간다
+    assert state.result_stale is True
+
+
+def test_first_failed_generate_has_no_result_to_mark():
+    harness = SampleHarness(SAMPLE_TASK_DIR, MockProvider(fail_stages={"generate"}))
+    state = harness.start("향초")
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.result is None
+    assert state.result_stale is False
+
+
+def test_harness_error_in_generate_propagates_and_leaves_session_unchanged(provider):
+    def rule_problem(state, result, policy):
+        raise HarnessError("결과를 만들 수 없는 입력입니다.")
+
+    class RuleHarness(SampleHarness):
+        validators = [rule_problem]
+
+    harness = RuleHarness(SAMPLE_TASK_DIR, provider)
+    state = harness.start("향초")
+    before = state.model_dump(exclude={"trace"})
+
+    with pytest.raises(HarnessError):
+        harness.generate(state)
+
+    assert state.model_dump(exclude={"trace"}) == before
+    assert state.status is SessionStatus.CLARIFYING
+
+
+def test_other_generate_errors_become_generation_failed_with_cause(provider):
+    def boom(state, result, policy):
+        raise RuntimeError("secret internal detail")
+
+    class BoomHarness(SampleHarness):
+        validators = [boom]
+
+    harness = BoomHarness(SAMPLE_TASK_DIR, provider)
+    state = harness.start("향초")
+    with pytest.raises(GenerationFailed) as caught:
+        harness.generate(state)
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert "secret internal detail" in state.trace[-1].output["error"]
