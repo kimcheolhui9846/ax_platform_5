@@ -1,0 +1,19 @@
+/* 갤러리 전용. 프레임 안의 앱 스타일은 그대로 두고 바깥 배치만 정한다. */
+.gallery { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-10); }
+.gallery-row { gap: var(--space-4); }
+.gallery-title { font-size: var(--text-lg); line-height: var(--text-lg-line); }
+.gallery-frames { display: flex; align-items: flex-start; gap: var(--space-10); overflow-x: auto; }
+.gallery-frame { flex-shrink: 0; border: 1px solid var(--color-line); background: var(--color-paper); overflow: hidden; }
+.gallery-frame .app-shell { min-height: 0; }
+.gallery-frame .rail { position: static; height: auto; }
+
+/* 미디어 쿼리는 브라우저 창 기준이라 390px 프레임이 스스로 모바일로 바뀌지 않는다. layout.css의 719px 이하 규칙을 모바일 프레임에만 옮긴다. */
+[data-screen$="-mobile"] .app-shell { flex-direction: column-reverse; }
+[data-screen$="-mobile"] .rail { position: static; height: auto; width: 100%; flex-direction: row; justify-content: space-around; padding: var(--space-2); border-right: 0; border-top: 1px solid var(--color-line); }
+[data-screen$="-mobile"] .rail-logo, [data-screen$="-mobile"] .rail-help, [data-screen$="-mobile"] .header-steps { display: none; }
+[data-screen$="-mobile"] .app-header { flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+[data-screen$="-mobile"] .header-brand { width: auto; flex: 1; font-size: 17px; }
+[data-screen$="-mobile"] .header-project { order: 3; width: 100%; font-size: var(--text-xs); }
+[data-screen$="-mobile"] .app-header .btn { width: auto; min-height: var(--control-height-compact); }
+[data-screen$="-mobile"] .app-body { flex-direction: column; align-items: stretch; padding: var(--space-6) var(--space-4); }
+[data-screen$="-mobile"] .app-side { width: auto; }
