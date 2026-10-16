@@ -89,3 +89,19 @@ def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, 
     assert response.status_code == 200, response.text
     assert seen == [True]
     assert not app.state.locks.is_held(sid)
+
+
+def test_unknown_session_ids_create_no_locks():
+    app = create_app(provider=MockProvider(), debug=True)
+    client = TestClient(app)
+    for i in range(3):
+        sid = f"sess_없음{i}"
+        assert client.post(f"{BASE}/sessions/{sid}/answers", json={"question_id": "q", "answer_type": "skip"}).status_code == 404
+        assert client.patch(f"{BASE}/sessions/{sid}/answers/q", json={"answer_type": "free_text", "value": "x"}).status_code == 404
+        assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 404
+        assert client.post(f"{BASE}/sessions/{sid}/continue").status_code == 404
+    assert len(app.state.locks) == 0
+
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()["session_id"]
+    client.post(f"{BASE}/sessions/{sid}/continue")
+    assert len(app.state.locks) == 1

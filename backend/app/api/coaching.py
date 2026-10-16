@@ -55,7 +55,11 @@ def _session_update(
 
     AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
     응답 문구는 app/api/errors.py의 예외 처리기가 정한다(둘 다 502). 그 밖의 오류(422 등)는 저장하지 않는다.
+
+    잠금은 있는 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다(세션은 지우지 않으므로 확인과 잠금 사이에
+    사라질 일이 없다). 잠근 뒤 다시 읽어 앞선 요청이 저장한 최신 상태로 일한다.
     """
+    _load(registry, store, session_id)
     with locks.hold(session_id):
         state, harness = _load(registry, store, session_id)
         try:
