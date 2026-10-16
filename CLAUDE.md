@@ -22,6 +22,8 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 설정은 `backend/.env`(실행 위치와 상관없이 이 파일)나 환경 변수에서 읽는다. `DEBUG` 기본값은 `false`이고, `.env.example`을 복사하면 로컬 개발용으로 `DEBUG=true`가 된다.
 
+배포: 세션별 잠금(`app/api/locks.py`)과 메모리 저장소(`InMemorySessionStore`)는 서버 프로세스 하나를 전제로 한다. 인스턴스(워커)는 하나만 띄우고, 공유 저장소가 생기면 둘 다 그쪽으로 바꾼다.
+
 줄바꿈은 `.gitattributes`가 LF로 고정한다(`design/**`는 받은 바이트 그대로, PDF·이미지는 바이너리).
 
 ## 구조
