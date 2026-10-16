@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+
+import { HEADER_STEPS, headerSteps, phaseOf, railItems } from "./shell";
+
+describe("headerSteps", () => {
+  it("과제 밖(null)이면 단계가 없다", () => {
+    expect(headerSteps(null)).toEqual([]);
+  });
+
+  it("현재 단계만 current다", () => {
+    expect(headerSteps(1)).toEqual([
+      { label: HEADER_STEPS[0], current: false },
+      { label: HEADER_STEPS[1], current: true },
+      { label: HEADER_STEPS[2], current: false },
+    ]);
+  });
+});
+
+describe("phaseOf", () => {
+  it("과제 고르기는 과제 밖, 요청은 1단계, 질문·확인은 2단계, 결과는 3단계다", () => {
+    expect(phaseOf("pick_task")).toBeNull();
+    expect(phaseOf("idea")).toBe(0);
+    for (const kind of ["clarifying", "ready", "revising", "completed", "generating", "failed"] as const) {
+      expect(phaseOf(kind)).toBe(1);
+    }
+    expect(phaseOf("result")).toBe(2);
+  });
+});
+
+describe("railItems", () => {
+  it("홈·내 작업·결과물 순서이고, 활성과 사용 가능 여부를 표시한다", () => {
+    expect(railItems("home", new Set(["home"]))).toEqual([
+      { key: "home", label: "홈", active: true, disabled: false },
+      { key: "work", label: "내 작업", active: false, disabled: true },
+      { key: "documents", label: "결과물", active: false, disabled: true },
+    ]);
+  });
+
+  it("아무 것도 활성이 아닐 수 있다", () => {
+    expect(railItems(null, new Set(["home", "work", "documents"])).every((i) => !i.active && !i.disabled)).toBe(true);
+  });
+});

@@ -18,9 +18,12 @@ import { QuestionCard } from "./components/QuestionCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SummaryList } from "./components/SummaryList";
 import { TaskPicker } from "./components/TaskPicker";
+import { AppShell } from "./layout/AppShell";
 import { formatProgress } from "./lib/progress";
 import { STALE_HINT, screenOf, sessionActions } from "./lib/screen";
 import type { SessionAction } from "./lib/screen";
+import { phaseOf, railItems } from "./lib/shell";
+import type { NavKey } from "./lib/shell";
 
 const CONNECTION_ERROR = "서버에 연결하지 못했습니다. 백엔드가 켜져 있는지 확인해 주세요.";
 
@@ -110,6 +113,11 @@ export default function App() {
     setError(null);
   }
 
+  /** 묶음 0에서는 홈만 연다. 내 작업·결과물은 묶음 2에서 연다. */
+  function navigate(key: NavKey) {
+    if (key === "home") reset();
+  }
+
   function act({ action }: SessionAction) {
     if (action === "show_result") showResult();
     else generate();
@@ -122,16 +130,10 @@ export default function App() {
   const question = screen.kind === "clarifying" || screen.kind === "failed" ? screen.question : null;
 
   return (
-    <main>
-      <header>
-        <h1>AX 코칭</h1>
-        {task && (
-          <button type="button" className="ghost" disabled={busy} onClick={reset}>
-            처음으로
-          </button>
-        )}
-      </header>
-
+    <AppShell
+      rail={{ items: railItems(screen.kind === "pick_task" ? "home" : null, new Set<NavKey>(["home"])), onNavigate: navigate }}
+      header={{ project: task?.title ?? null, phase: phaseOf(screen.kind), onPickTask: reset, pickDisabled: busy }}
+    >
       {banner && <p className="error">{banner}</p>}
 
       {screen.kind === "pick_task" && <TaskPicker tasks={tasks} onPick={setTask} />}
@@ -179,6 +181,6 @@ export default function App() {
           )}
         </>
       )}
-    </main>
+    </AppShell>
   );
 }
