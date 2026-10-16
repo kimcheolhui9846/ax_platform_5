@@ -1,4 +1,5 @@
 from app.core.state import AnswerType, CoachingMode, InfoSource
+from app.harness.policy import LadderStep
 
 
 def test_dont_know_walks_down_the_ladder_and_stays_on_field(harness, reply):
@@ -70,3 +71,43 @@ def test_skip_leaves_the_ladder(harness, reply):
     assert state.unknowns == ["customer"]
     assert state.dont_know_levels == {}
     assert state.pending_question.field == "problem"
+
+
+# ── 사다리 질문의 다중 선택(#10) ─────────────────────────────
+
+
+def _walk_to(harness, state, reply, level):
+    for _ in range(level):
+        reply(harness, state, AnswerType.DONT_KNOW)
+    assert state.pending_question.level == level
+    return state.pending_question
+
+
+def test_comparison_step_is_single_select_even_for_multi_field(harness, reply):
+    harness.policy.field("customer").multi_select = True
+    state = harness.start("향초")
+    q2 = _walk_to(harness, state, reply, 2)
+    assert [o.label for o in q2.options] == ["나 자신", "다른 사람"]
+    assert q2.multi_select is False
+
+
+def test_ladder_step_can_declare_multi_select(harness, reply):
+    harness.policy.field("customer").easier_questions[0] = LadderStep(
+        question="해당하는 사람을 모두 골라 주세요.", options=["가족", "친구"], multi_select=True
+    )
+    state = harness.start("향초")
+    assert _walk_to(harness, state, reply, 1).multi_select is True
+
+
+def test_llm_easier_question_follows_field_multi_select(harness, reply):
+    harness.policy.field("customer").multi_select = True
+    state = harness.start("향초")
+    q3 = _walk_to(harness, state, reply, 3)
+    assert (q3.is_ai_proposal, q3.multi_select) == (False, True)
+
+
+def test_ai_proposal_follows_field_multi_select(harness, reply):
+    harness.policy.field("customer").multi_select = True
+    state = harness.start("향초")
+    q4 = _walk_to(harness, state, reply, 4)
+    assert (q4.is_ai_proposal, q4.multi_select) == (True, True)

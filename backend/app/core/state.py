@@ -86,6 +86,8 @@ class AskedQuestion(BaseModel):
     answer_type: AnswerType | None = None
     value: str | None = None
     answered_at: datetime | None = None
+    # 같은 필드에 나중 답(또는 수정)이 값을 정했으면 True. 지금 값은 언제나 facts가 기준이다.
+    superseded: bool = False
 
 
 class TraceEntry(ContractModel):

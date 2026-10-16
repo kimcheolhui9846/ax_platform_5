@@ -121,7 +121,6 @@ def test_trace_provider_name_is_consistent(harness, provider):
     state = harness.start("향초")
     assert state.trace[0].provider == "mock"
     provider.fail_stages.add("diagnose")
-    failed = []
     with pytest.raises(ProviderError):
         harness.diagnose(state)
     failed = state.trace[-1]

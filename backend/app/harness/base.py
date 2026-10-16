@@ -127,10 +127,38 @@ def _validation_trace(report: ValidationReport) -> TraceEntry:
     )
 
 
+def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | None:
+    """[코드·순수] 값을 정하는 답이면 (값, 출처), '모르겠어요'·건너뛰기면 None. 잘못된 입력은 HarnessError."""
+    if answer.answer_type in (AnswerType.DONT_KNOW, AnswerType.SKIP):
+        return None
+    return answer_to_fact(question, answer)
+
+
+@contextmanager
+def _atomic(state: SessionState) -> Iterator[None]:
+    """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)만 남긴다."""
+    snapshot = state.model_copy(deep=True)
+    try:
+        yield
+    except Exception:
+        for name in SessionState.model_fields:
+            if name != "trace":
+                setattr(state, name, getattr(snapshot, name))
+        raise
+
+
 def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | None) -> None:
     record.answer_type = answer_type
     record.value = value
     record.answered_at = utcnow()
+
+
+def _supersede_others(records: list[AskedQuestion], current: AskedQuestion) -> None:
+    """current가 필드 값을 정했다. 같은 필드의 다른 답한 기록은 지난 것으로 표시한다."""
+    for record in records:
+        if record is not current and record.question.field == current.question.field and record.answer_type:
+            record.superseded = True
+    current.superseded = False
 
 
 class BaseHarness:
@@ -243,7 +271,7 @@ class BaseHarness:
                 field=field.name,
                 text=step.question,
                 options=_options(step.options),
-                multi_select=field.multi_select,
+                multi_select=step.multi_select,
                 level=level,
             )
         generated = self._call(
@@ -277,31 +305,27 @@ class BaseHarness:
             for i, label in enumerate(proposed.candidates, start=1)
         ]
         return Question(
-            field=field.name, text=proposed.text, options=options, level=level, is_ai_proposal=True
+            field=field.name,
+            text=proposed.text,
+            options=options,
+            multi_select=field.multi_select,
+            level=level,
+            is_ai_proposal=True,
         )
 
     # ── 답변 ──────────────────────────────────────────────────
-
-    @contextmanager
-    def _atomic(self, state: SessionState) -> Iterator[None]:
-        """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)만 남긴다."""
-        snapshot = state.model_copy(deep=True)
-        try:
-            yield
-        except Exception:
-            for name in SessionState.model_fields:
-                if name != "trace":
-                    setattr(state, name, getattr(snapshot, name))
-            raise
 
     def apply_answer(self, state: SessionState, answer: Answer) -> None:
         question = state.pending_question
         if question is None or question.question_id != answer.question_id:
             raise HarnessError("지금 답할 수 있는 질문이 아닙니다.")
         record = self._asked_record(state, question.question_id)
-        with self._atomic(state):
-            value = self._record_reply(state, question, answer)
-            _mark_answered(record, answer.answer_type, value)
+        fact = reply_fact(question, answer)
+        with _atomic(state):
+            self._apply_reply(state, question, answer.answer_type, fact)
+            _mark_answered(record, answer.answer_type, fact[0] if fact else None)
+            if fact is not None:
+                _supersede_others(state.asked_questions, record)
             self.advance(state)
 
     def revise_answer(self, state: SessionState, answer: Answer) -> None:
@@ -311,32 +335,38 @@ class BaseHarness:
             raise HarnessError("수정할 수 있는 답변이 아닙니다.")
         field = record.question.field
         value, source = answer_to_fact(record.question, answer)
-        with self._atomic(state):
+        with _atomic(state):
             self._set_fact(state, field, value, source)
             _mark_answered(record, answer.answer_type, value)
+            _supersede_others(state.asked_questions, record)
             pending = state.pending_question
             if pending is not None and pending.field != field:
-                # 다른 필드 질문이 이미 화면에 있다: 그대로 둔다(LLM 재호출·question_id 변경 없음).
+                # 다른 필드 질문이 이미 화면에 있으면 그대로 둔다(LLM 재호출·question_id 변경 없음).
+                # 다만 수정으로 이제 멈출 때가 됐고 그 질문이 기본 질문이면 내리고 질문을 끝낸다.
+                # 사다리 질문(level ≥ 1)은 사용자가 답하는 중이고 다시 만들려면 호출이 들므로 둔다.
                 state.readiness = self.readiness(state)
+                if pending.level == 0 and self.should_stop(state):
+                    self.advance(state)
             else:
                 self.advance(state)
 
-    def _record_reply(self, state: SessionState, question: Question, answer: Answer) -> str | None:
-        """답변 종류에 맞게 state를 바꾸고, 기록할 값(없으면 None)을 돌려준다."""
+    def _apply_reply(
+        self,
+        state: SessionState,
+        question: Question,
+        answer_type: AnswerType,
+        fact: tuple[str, InfoSource] | None,
+    ) -> None:
+        """답변 종류에 맞게 state를 바꾼다. 값은 reply_fact가 미리 계산해 둔다."""
         name = question.field
-        match answer.answer_type:
-            case AnswerType.DONT_KNOW:
-                state.dont_know_levels[name] = question.level + 1
-                return None
-            case AnswerType.SKIP:
-                state.dont_know_levels.pop(name, None)
-                if name not in state.unknowns:
-                    state.unknowns.append(name)
-                return None
-            case _:
-                value, source = answer_to_fact(question, answer)
-                self._set_fact(state, name, value, source)
-                return value
+        if fact is not None:
+            self._set_fact(state, name, *fact)
+        elif answer_type is AnswerType.DONT_KNOW:
+            state.dont_know_levels[name] = question.level + 1
+        else:
+            state.dont_know_levels.pop(name, None)
+            if name not in state.unknowns:
+                state.unknowns.append(name)
 
     @staticmethod
     def _asked_record(state: SessionState, question_id: str) -> AskedQuestion:
