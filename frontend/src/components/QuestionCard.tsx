@@ -68,11 +68,11 @@ export function QuestionCard({ question, busy, onAnswer }: Props) {
       </button>
 
       <div className="row">
-        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "dont_know" })}>
-          모르겠어요
+        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "easier" })}>
+          다른 예시 보기
         </button>
         <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "skip" })}>
-          건너뛰기
+          아직 모르겠어요
         </button>
       </div>
     </section>

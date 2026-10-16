@@ -80,7 +80,7 @@ def test_full_flow(client):
 
     q = view["next_question"]
     view = client.post(
-        f"{BASE}/sessions/{sid}/answers", json={"question_id": q["question_id"], "answer_type": "dont_know"}
+        f"{BASE}/sessions/{sid}/answers", json={"question_id": q["question_id"], "answer_type": "easier"}
     ).json()
     assert view["next_question"]["field"] == "usage_context"
     assert view["next_question"]["level"] == 1
@@ -108,6 +108,26 @@ def test_full_flow(client):
     assert client.get(f"{BASE}/sessions/{sid}/result").json()["result"] == body["result"]
     trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
     assert [t["stage"] for t in trace][0] == "diagnose"
+
+
+def test_original_question_endpoint(client):
+    view = create_session(client)
+    sid = view["session_id"]
+    first = view["next_question"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers", json={"question_id": first["question_id"], "answer_type": "easier"}
+    ).json()
+    assert view["next_question"]["level"] == 1
+
+    back = client.post(f"{BASE}/sessions/{sid}/question/original")
+    assert back.status_code == 200
+    question = back.json()["next_question"]
+    assert (question["field"], question["level"]) == (first["field"], 0)
+
+    again = client.post(f"{BASE}/sessions/{sid}/question/original")
+    assert again.status_code == 422
+    assert again.json() == {"detail": "기본 질문으로 돌아갈 사다리 질문이 없습니다."}
+    assert client.post(f"{BASE}/sessions/sess_없음/question/original").status_code == 404
 
 
 def test_harness_errors_are_422(client):
@@ -249,7 +269,7 @@ def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
         before = view
         response = client.post(
             f"{BASE}/sessions/{sid}/answers",
-            json={"question_id": view["next_question"]["question_id"], "answer_type": "dont_know"},
+            json={"question_id": view["next_question"]["question_id"], "answer_type": "easier"},
         )
         if response.status_code == 502:
             break

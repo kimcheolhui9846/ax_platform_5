@@ -5,8 +5,8 @@ answers:
     - answer_type: option
       option_indexes: [1]
   customer_problem:
-    - answer_type: dont_know
-    - answer_type: dont_know
+    - answer_type: easier
+    - answer_type: easier
     - answer_type: option
       option_indexes: [3]
   core_value:

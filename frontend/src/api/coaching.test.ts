@@ -13,6 +13,7 @@ import {
   getTaskForm,
   listTasks,
   reviseAnswer,
+  showOriginalQuestion,
   submitAnswer,
 } from "./coaching";
 import type { ResultView, SessionView, TaskForm, TaskSummary } from "./types";
@@ -65,6 +66,14 @@ describe("coaching API 래퍼", () => {
       params: { path: { session_id: "sess_1" } },
     });
     expectTypeOf(continueSession).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
+  });
+
+  it("원래 예시 보기", async () => {
+    await showOriginalQuestion("sess_1");
+    expect(api.POST).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/question/original`, {
+      params: { path: { session_id: "sess_1" } },
+    });
+    expectTypeOf(showOriginalQuestion).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
   });
 
   it("결과 만들기·조회", async () => {

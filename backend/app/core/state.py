@@ -52,7 +52,7 @@ def source_label(source: InfoSource) -> str:
 class AnswerType(StrEnum):
     OPTION = "option"
     FREE_TEXT = "free_text"
-    DONT_KNOW = "dont_know"
+    EASIER = "easier"
     SKIP = "skip"
 
 
@@ -85,7 +85,7 @@ class Question(ContractModel):
     text: str
     options: list[QuestionOption] = Field(default_factory=list)
     multi_select: bool = False
-    level: int = 0  # 0 = 기본 질문, 1 이상 = '모르겠어요' 사다리 단계
+    level: int = 0  # 0 = 기본 질문, 1 이상 = '다른 예시 보기' 사다리 단계
     is_ai_proposal: bool = False
 
 
@@ -140,7 +140,7 @@ class SessionState(BaseModel):
     facts: dict[str, InfoItem] = Field(default_factory=dict)
     assumptions: dict[str, Assumption] = Field(default_factory=dict)
     unknowns: list[str] = Field(default_factory=list)
-    dont_know_levels: dict[str, int] = Field(default_factory=dict)  # 모르겠어요 사다리 현재 단계
+    easier_levels: dict[str, int] = Field(default_factory=dict)  # 다른 예시 보기 사다리 현재 단계
     conflicts: list[Conflict] = Field(default_factory=list)
     asked_questions: list[AskedQuestion] = Field(default_factory=list)
     pending_question: Question | None = None

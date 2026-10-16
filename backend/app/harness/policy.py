@@ -18,7 +18,7 @@ class FieldKind(StrEnum):
 
 
 class LadderStep(BaseModel):
-    """'모르겠어요' 사다리의 고정 질문. 비교·선택형 단계라 필드와 달리 기본은 하나만 고른다."""
+    """'다른 예시 보기' 사다리의 고정 질문. 비교·선택형 단계라 필드와 달리 기본은 하나만 고른다."""
 
     model_config = ConfigDict(extra="forbid")
 

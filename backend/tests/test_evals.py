@@ -38,7 +38,7 @@ def test_leftover_answers_fail_with_scenario_name(harness):
         answers={
             "customer": [
                 ScenarioAnswer(value="부모"),
-                ScenarioAnswer(answer_type=AnswerType.DONT_KNOW),
+                ScenarioAnswer(answer_type=AnswerType.EASIER),
             ]
         },
     )

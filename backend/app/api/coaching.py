@@ -150,6 +150,18 @@ def continue_session(session_id: str, registry: Registry, store: Store, locks: L
     return to_session_view(state, harness)
 
 
+@router.post(
+    "/sessions/{session_id}/question/original",
+    response_model=SessionView,
+    responses=error_responses(404, 422),
+)
+def show_original_question(session_id: str, registry: Registry, store: Store, locks: Locks) -> SessionView:
+    """'원래 예시 보기'. 사다리 질문을 기본 질문으로 되돌린다(LLM 호출 없음)."""
+    with _session_update(locks, registry, store, session_id) as (state, harness):
+        harness.show_original(state)
+    return to_session_view(state, harness)
+
+
 @router.get("/sessions/{session_id}/result", response_model=ResultView, responses=error_responses(404))
 def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)

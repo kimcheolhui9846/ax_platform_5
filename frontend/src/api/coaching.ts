@@ -70,6 +70,13 @@ export function continueSession(sessionId: string): Promise<ApiResult<SessionVie
   });
 }
 
+/** '원래 예시 보기'. 사다리 질문을 기본 질문으로 되돌린다(LLM 호출 없음). */
+export function showOriginalQuestion(sessionId: string): Promise<ApiResult<SessionView>> {
+  return api.POST(`${BASE}/sessions/{session_id}/question/original`, {
+    params: { path: { session_id: sessionId } },
+  });
+}
+
 export function generateResult(sessionId: string): Promise<ApiResult<ResultView>> {
   return api.POST(`${BASE}/sessions/{session_id}/generate`, {
     params: { path: { session_id: sessionId } },

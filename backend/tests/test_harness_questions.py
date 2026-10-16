@@ -137,7 +137,7 @@ def test_revise_rejects_unknown_unanswered_and_non_value_answers(harness, reply)
     with pytest.raises(HarnessError):
         harness.revise_answer(
             state,
-            Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.DONT_KNOW),
+            Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.EASIER),
         )
 
 
@@ -179,12 +179,12 @@ def _current(state, field):
 
 def test_later_answer_supersedes_earlier_records_of_field(harness, reply):
     state = harness.start("향초")
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     reply(harness, state, AnswerType.FREE_TEXT, value="30대 직장인")
 
     records = [a for a in state.asked_questions if a.question.field == "customer"]
     assert [(a.answer_type, a.superseded) for a in records] == [
-        (AnswerType.DONT_KNOW, True),
+        (AnswerType.EASIER, True),
         (AnswerType.FREE_TEXT, False),
     ]
     assert [a.value for a in _current(state, "customer")] == [state.facts["customer"].value]
@@ -192,7 +192,7 @@ def test_later_answer_supersedes_earlier_records_of_field(harness, reply):
 
 def test_revise_makes_revised_record_the_only_current_one(harness, reply):
     state = harness.start("향초")
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     reply(harness, state, AnswerType.FREE_TEXT, value="30대 직장인")
     first = state.asked_questions[0]
 
@@ -248,7 +248,7 @@ def test_revise_that_completes_stale_session_goes_to_revising(harness, reply):
 def test_revise_keeps_pending_ladder_question_even_if_session_could_stop(harness, reply):
     state = harness.start("향초", mode=CoachingMode.QUICK)  # 질문 상한 2
     reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     pending = state.pending_question
     assert (pending.field, pending.level) == ("problem", 1)
 

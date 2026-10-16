@@ -50,7 +50,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 결과물에서 거꾸로 따라간다.
 
 1. `output_schema.py` — 원하는 결과물이 바뀌었나?
-2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '모르겠어요' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 금지 규칙(`rules`)
+2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '다른 예시 보기' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 금지 규칙(`rules`)
 3. `prompts/` — 이 과제에서만 다르게 할 단계 템플릿 (`diagnose`, `easier_question`, `propose_value`, `generate`, `validate`). 과제마다 고정인 내용은 `system` 블록, 세션 값은 `user` 블록에 둔다(`generate`는 보통 `task_guidance` 블록만 덮는다). 단계마다 쓸 수 있는 변수는 `prompting.py`의 `STAGE_CONTEXT`에 있다.
 4. `validators.py` — 결과를 기계적으로 확인할 규칙. '이 표현이 있으면 경고'는 `validation.term_rule(rule, terms, message_template)`로 만든다.
 5. `harness.py` — 위로 표현할 수 없는 로직만 `BaseHarness` 메서드를 오버라이드
@@ -70,7 +70,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 ## 하네스 원칙 (설계서 2.2, 16장)
 
 - 부족한 정보는 질문하고, 모호한 정보는 확인한다. 선택지는 제안일 뿐이며 직접 입력을 항상 허용한다.
-- '모르겠어요'는 포기가 아니라 질문이 어렵다는 신호다. 같은 필드를 더 쉽게 물어 답을 얻을 때까지 머문다(policy 사다리 → LLM 쉬운 질문 → AI 후보 제안). 빠져나가는 길은 답하기·건너뛰기·결과 만들기뿐이다.
+- 질문 화면의 '아직 모르겠어요'(`skip`)는 그 필드를 미정(`unknowns`)으로 두고 다음 질문으로 넘어간다. 질문이 어려우면 '다른 예시 보기'(`easier`)로 같은 필드를 한 단계 더 쉽게 묻는다(policy 사다리 → LLM 쉬운 질문 → AI 후보 제안). 사다리에 있는 동안은 그 필드에 머물고, '원래 예시 보기'(`POST /sessions/{id}/question/original`, LLM 호출 없음)는 사다리를 지우고 기본 질문으로 돌아간다. 질문 상한은 기본 질문(level 0)에 답한 필드 수로 센다(같은 필드는 한 번).
 - AI가 보완한 정보는 가정(`assumptions`)으로 두고 사실(`facts`)과 섞지 않는다. 모든 정보에 출처를 남긴다. 세션의 가정은 LLM이 다시 적어 주길 믿지 않고 `generate`가 코드로 결과 가정에 합친다.
 - 필드는 내부 이름(`name`)으로 다룬다. 프롬프트는 `이름 (라벨)`로 보여 주고, 화면용 라벨은 API 뷰가 붙인다.
 - 사용자는 언제든 현재 정보로 결과를 만들 수 있다. 일찍 만들어도 질문은 끝나지 않는다: `POST /sessions/{id}/continue`(`BaseHarness.resume`)가 평소 규칙으로 다음 질문을 걸고, 남은 질문이 없으면 세션을 그대로 둔다. 결과는 그대로 남고 새 답이 생기면 stale이 된다.
