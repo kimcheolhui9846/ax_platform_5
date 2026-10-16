@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { toOutcome } from "./api/client";
+import { BACKEND_UNREACHABLE, toOutcome } from "./api/client";
 import type { ApiResult } from "./api/client";
 import {
   continueSession,
@@ -25,8 +25,6 @@ import type { SessionAction } from "./lib/screen";
 import { phaseOf, railItems } from "./lib/shell";
 import type { NavKey } from "./lib/shell";
 
-const CONNECTION_ERROR = "서버에 연결하지 못했습니다. 백엔드가 켜져 있는지 확인해 주세요.";
-
 /** 화면 상태(과제, 세션, 결과)와 요청 상태(busy/error)는 이 컴포넌트에서만 바꾼다. 어떤 화면인지는 screenOf가 정한다. */
 export default function App() {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -48,7 +46,7 @@ export default function App() {
         onFail?.();
       }
     } catch {
-      setError(CONNECTION_ERROR);
+      setError(BACKEND_UNREACHABLE);
     } finally {
       setBusy(false);
     }
