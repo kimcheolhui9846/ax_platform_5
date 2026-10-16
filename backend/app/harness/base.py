@@ -3,6 +3,7 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,7 +11,13 @@ from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
-from app.core.results import utcnow
+from app.core.results import (
+    GenerationResult,
+    TaskResult,
+    ValidationIssue,
+    ValidationReport,
+    utcnow,
+)
 from app.core.state import (
     Answer,
     AnswerType,
@@ -26,10 +33,11 @@ from app.core.state import (
     SessionStatus,
     TraceEntry,
 )
-from app.harness.errors import HarnessError
+from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.prompting import PromptRenderer
-from app.harness.stage_models import Diagnosis, GeneratedQuestion, ProposedValues
+from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
+from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
 
 M = TypeVar("M", bound=BaseModel)
@@ -69,6 +77,16 @@ def _free_text(value: str | None) -> str:
     return text
 
 
+def to_generation_result(parsed: TaskResult) -> GenerationResult:
+    """[코드·순수] LLM이 만든 TaskResult를 세션에 저장할 GenerationResult로 바꾼다."""
+    return GenerationResult(
+        cards=parsed.cards,
+        assumptions=parsed.assumptions,
+        full_text=parsed.full_text,
+        content=parsed.content.model_dump(mode="json"),
+    )
+
+
 def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | None) -> None:
     record.answer_type = answer_type
     record.value = value
@@ -77,12 +95,14 @@ def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | 
 
 class BaseHarness:
     content_model: ClassVar[type[BaseModel]]
+    validators: ClassVar[list[Validator]] = []
 
     def __init__(self, task_dir: Path, provider: LLMProvider) -> None:
         self.task_dir = task_dir
         self.policy = load_policy(task_dir / "policy.yaml")
         self.provider = provider
         self.prompts = PromptRenderer(task_dir / "prompts")
+        self.result_model = TaskResult[self.content_model]
 
     @property
     def task_type(self) -> str:
@@ -315,7 +335,54 @@ class BaseHarness:
             and state.readiness >= self.policy.readiness_threshold
         )
 
+    # ── 생성·검증 ─────────────────────────────────────────────
+
+    def generate(self, state: SessionState) -> None:
+        """[LLM] 현재 정보로 결과를 만든다. 언제든 부를 수 있다(설계서 원칙 8)."""
+        self._drop_unanswered(state)
+        state.status = SessionStatus.GENERATING
+        try:
+            parsed = self._call_retrying_bad_output(state, "generate", self.result_model)
+        except ProviderError as exc:
+            state.status = SessionStatus.FAILED
+            state.error = str(exc)
+            raise GenerationFailed(str(exc)) from exc
+        result = to_generation_result(parsed)
+        report = self.validate(state, result)
+        state.trace.append(
+            TraceEntry(stage="validate", output={"issues": [i.model_dump() for i in report.issues]})
+        )
+        state.result = result
+        state.result_stale = False
+        state.error = None
+        state.validation = report
+        state.status = SessionStatus.COMPLETED
+
+    def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
+        """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""
+        issues = collect_issues([*COMMON_VALIDATORS, *self.validators], state, result, self.policy)
+        if self.policy.llm_validation:
+            issues.extend(self._llm_review(state, result))
+        return ValidationReport(issues=issues)
+
+    def _llm_review(self, state: SessionState, result: GenerationResult) -> list[ValidationIssue]:
+        """[LLM] AI 검토는 보조 수단이다. 실패해도 경고 하나로 줄이고 결과는 살린다."""
+        try:
+            return self._call(state, "validate", LLMReview, result_text=result.full_text).issues
+        except ProviderError:
+            return [ValidationIssue(rule="llm_review_unavailable", message="AI 검토를 하지 못했습니다.")]
+
     # ── 내부 도우미 ───────────────────────────────────────────
+
+    def _call_retrying_bad_output(
+        self, state: SessionState, stage: str, response_model: type[M]
+    ) -> M:
+        """스키마를 지키지 않은 응답(ProviderOutputError)이면 한 번만 다시 부른다."""
+        schema = json.dumps(response_model.model_json_schema(), ensure_ascii=False, indent=2)
+        try:
+            return self._call(state, stage, response_model, output_schema=schema)
+        except ProviderOutputError:
+            return self._call(state, stage, response_model, output_schema=schema)
 
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
