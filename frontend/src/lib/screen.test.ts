@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Question, ResultView, SessionView, TaskSummary } from "../api/types";
-import { STALE_HINT, screenOf, sessionActions } from "./screen";
+import { STALE_HINT, actionButton, screenOf, sessionActions } from "./screen";
 
 const task: TaskSummary = { task_type: "branding", title: "브랜딩", description: "" };
 
@@ -110,5 +110,21 @@ describe("sessionActions", () => {
       primary: { action: "regenerate", label: "결과 다시 만들기" },
       secondary: { action: "show_result", label: "이전 결과 보기" },
     });
+  });
+});
+
+describe("actionButton", () => {
+  const generate = { action: "generate", label: "이대로 결과 만들기" } as const;
+  const show = { action: "show_result", label: "결과 보기" } as const;
+
+  it("생성 버튼은 처리 중이거나 생성할 수 없으면 막고, 처리 중에는 처리 중이라고 쓴다", () => {
+    expect(actionButton(generate, { busy: false, canGenerate: true })).toEqual({ label: "이대로 결과 만들기", disabled: false });
+    expect(actionButton(generate, { busy: false, canGenerate: false })).toEqual({ label: "이대로 결과 만들기", disabled: true });
+    expect(actionButton(generate, { busy: true, canGenerate: true })).toEqual({ label: "처리 중…", disabled: true });
+  });
+
+  it("결과 보기는 생성 가능 여부와 상관없고, 처리 중이어도 이름이 바뀌지 않는다", () => {
+    expect(actionButton(show, { busy: false, canGenerate: false })).toEqual({ label: "결과 보기", disabled: false });
+    expect(actionButton(show, { busy: true, canGenerate: true })).toEqual({ label: "결과 보기", disabled: true });
   });
 });

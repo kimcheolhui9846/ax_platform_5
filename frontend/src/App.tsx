@@ -12,6 +12,7 @@ import {
   submitAnswer,
 } from "./api/coaching";
 import type { AnswerBody, ResultView, SessionView, TaskSummary } from "./api/types";
+import { ActionButton } from "./components/ActionButton";
 import { IdeaForm } from "./components/IdeaForm";
 import { QuestionCard } from "./components/QuestionCard";
 import { ResultPanel } from "./components/ResultPanel";
@@ -160,18 +161,19 @@ export default function App() {
 
           {actions && (
             <>
-              <button
-                type="button"
+              <ActionButton
+                action={actions.primary}
                 className="primary"
-                disabled={busy || (actions.primary.action !== "show_result" && !screen.session.can_generate)}
-                onClick={() => act(actions.primary)}
-              >
-                {busy ? "처리 중…" : actions.primary.label}
-              </button>
+                state={{ busy, canGenerate: screen.session.can_generate }}
+                onAct={act}
+              />
               {secondary && (
-                <button type="button" className="ghost" disabled={busy} onClick={() => act(secondary)}>
-                  {secondary.label}
-                </button>
+                <ActionButton
+                  action={secondary}
+                  className="ghost"
+                  state={{ busy, canGenerate: screen.session.can_generate }}
+                  onAct={act}
+                />
               )}
             </>
           )}

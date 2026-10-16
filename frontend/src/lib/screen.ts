@@ -62,3 +62,15 @@ export function sessionActions(
     secondary: { action: "regenerate", label: "다시 만들기" },
   };
 }
+
+/** 세션 화면 버튼 하나의 이름과 막힘. 결과 보기는 LLM을 부르지 않으므로 생성 가능 여부와 상관없다. */
+export function actionButton(
+  action: SessionAction,
+  { busy, canGenerate }: { busy: boolean; canGenerate: boolean },
+): { label: string; disabled: boolean } {
+  const calls = action.action !== "show_result";
+  return {
+    label: busy && calls ? "처리 중…" : action.label,
+    disabled: busy || (calls && !canGenerate),
+  };
+}
