@@ -1,0 +1,70 @@
+/* 디자인 V2(design/2026-10-16-ux-v2)의 원시 값. 디자이너가 피그마에서 바꾼 값은 여기 한 곳만 고친다. */
+:root {
+  /* 색 */
+  --color-paper: #f7f7f7;
+  --color-surface: #ffffff;
+  --color-ink: #202020;
+  --color-muted: #707070;
+  --color-line: #bfbfbf;
+  --color-line-soft: #e0e0e0;
+  --color-accent: #800122;
+  --color-tint: #f5f5f5;
+  --color-soft: #f2f2f2;
+  --color-error: #a31b25;
+  --color-on-accent: #ffffff;
+  --color-backdrop: rgba(0, 0, 0, 0.16);
+  --shadow-raised: 0 24px 70px rgba(0, 0, 0, 0.13);
+  --shadow-toast: 0 8px 28px rgba(0, 0, 0, 0.13);
+
+  /* 글꼴 */
+  --font-family: "Noto Sans KR", sans-serif;
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-bold: 700;
+
+  /* 글자 크기 / 줄 높이 */
+  --text-xs: 12px;
+  --text-xs-line: 18px;
+  --text-sm: 14px;
+  --text-sm-line: 21px;
+  --text-md: 16px;
+  --text-md-line: 26px;
+  --text-lg: 20px;
+  --text-lg-line: 30px;
+  --text-xl: 24px;
+  --text-xl-line: 36px;
+  --text-2xl: 28px;
+  --text-2xl-line: 42px;
+  --text-3xl: 36px;
+  --text-3xl-line: 54px;
+
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* 모서리 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* 크기 */
+  --control-height: 48px;
+  --control-height-compact: 36px;
+  --border-width: 1.5px;
+  --focus-ring: 3px;
+
+  /* 레이아웃 */
+  --rail-width: 80px;
+  --header-height: 72px;
+  --side-width: 384px;
+  --content-max: 1432px;
+  --preview-desktop: 1512px;
+  --preview-mobile: 390px;
+}
