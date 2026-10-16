@@ -1,9 +1,7 @@
 import type { Route } from "./routes";
-import type { screenOf } from "./screen";
 
 export type NavKey = "home" | "work" | "documents";
 export type Phase = 0 | 1 | 2;
-export type ScreenKind = ReturnType<typeof screenOf>["kind"];
 export type RailItem = { key: NavKey; label: string; active: boolean; disabled: boolean };
 
 export const HEADER_STEPS = ["내 요청", "함께 구체화", "결과 만들기"] as const;
@@ -15,14 +13,6 @@ const NAV_ORDER: readonly NavKey[] = ["home", "work", "documents"];
 export function headerSteps(phase: Phase | null): { label: string; current: boolean }[] {
   if (phase === null) return [];
   return HEADER_STEPS.map((label, i) => ({ label, current: i === phase }));
-}
-
-/** 화면 종류가 헤더의 몇 번째 단계인지. 과제를 고르기 전에는 과제 밖이다. */
-export function phaseOf(kind: ScreenKind): Phase | null {
-  if (kind === "pick_task") return null;
-  if (kind === "idea") return 0;
-  if (kind === "result") return 2;
-  return 1;
 }
 
 const BUILT_NAV: ReadonlySet<NavKey> = new Set<NavKey>(["home"]);

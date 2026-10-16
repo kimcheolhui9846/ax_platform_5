@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HEADER_STEPS, enabledNav, headerSteps, phaseOf, railActive, railItems, routePhase } from "./shell";
+import { HEADER_STEPS, enabledNav, headerSteps, railActive, railItems, routePhase } from "./shell";
 
 describe("headerSteps", () => {
   it("과제 밖(null)이면 단계가 없다", () => {
@@ -13,17 +13,6 @@ describe("headerSteps", () => {
       { label: HEADER_STEPS[1], current: true },
       { label: HEADER_STEPS[2], current: false },
     ]);
-  });
-});
-
-describe("phaseOf", () => {
-  it("과제 고르기는 과제 밖, 요청은 1단계, 질문·확인은 2단계, 결과는 3단계다", () => {
-    expect(phaseOf("pick_task")).toBeNull();
-    expect(phaseOf("idea")).toBe(0);
-    for (const kind of ["clarifying", "ready", "revising", "completed", "generating", "failed"] as const) {
-      expect(phaseOf(kind)).toBe(1);
-    }
-    expect(phaseOf("result")).toBe(2);
   });
 });
 
