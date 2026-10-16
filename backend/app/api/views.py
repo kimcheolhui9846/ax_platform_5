@@ -3,7 +3,14 @@ from collections.abc import Mapping, Sequence
 
 from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.results import GenerationResult, ResultAssumption
-from app.core.state import Assumption, CoachingMode, InfoItem, SessionState, SessionStatus
+from app.core.state import (
+    Assumption,
+    CoachingMode,
+    InfoItem,
+    SessionState,
+    SessionStatus,
+    source_label,
+)
 from app.harness.base import BaseHarness
 from app.harness.policy import FieldPolicy, TaskPolicy
 from app.schemas.coaching import (
@@ -54,6 +61,7 @@ def build_summary(
                 label=f.label,
                 value=item.value,
                 source=item.source,
+                source_label=source_label(item.source),
                 confidence=item.confidence,
                 is_assumption=f.name not in facts,
             )

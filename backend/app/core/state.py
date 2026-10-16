@@ -34,6 +34,21 @@ class InfoSource(StrEnum):
     DEFAULT = "default"
 
 
+# 정보 출처의 한국어 라벨. 프롬프트와 API 응답(SummaryItem.source_label)이 함께 쓴다.
+SOURCE_LABELS: dict[InfoSource, str] = {
+    InfoSource.USER_FREE_TEXT: "직접 입력",
+    InfoSource.USER_SELECTED_AI_OPTION: "선택지에서 고름",
+    InfoSource.PREVIOUS_TASK: "이전 과제",
+    InfoSource.AI_ASSUMPTION: "AI 가정",
+    InfoSource.DEFAULT: "기본값",
+}
+
+
+def source_label(source: InfoSource) -> str:
+    """[순수] 정보 출처를 사람이 읽는 한국어로."""
+    return SOURCE_LABELS[source]
+
+
 class AnswerType(StrEnum):
     OPTION = "option"
     FREE_TEXT = "free_text"

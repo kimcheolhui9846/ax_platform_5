@@ -386,6 +386,8 @@ export interface components {
             /** Value */
             value: string;
             source: components["schemas"]["InfoSource"];
+            /** Source Label */
+            source_label: string;
             /** Confidence */
             confidence: number;
             /** Is Assumption */

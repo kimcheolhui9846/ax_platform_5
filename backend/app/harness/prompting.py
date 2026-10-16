@@ -8,6 +8,8 @@ from typing import Any
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, StrictUndefined
 
+from app.core.state import source_label
+
 COMMON_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 COMMON_CONTEXT = frozenset({"state", "policy", "profile"})  # 모든 단계 공통
@@ -52,8 +54,11 @@ class PromptRenderer:
             ),
             undefined=StrictUndefined,
             keep_trailing_newline=True,
+            trim_blocks=True,  # {% %} 태그 줄이 빈 줄을 남기지 않는다
+            lstrip_blocks=True,
             autoescape=False,
         )
+        self.env.filters["source_label"] = source_label
 
     def render(self, stage: str, **context: Any) -> str:
         check_context(stage, set(context))

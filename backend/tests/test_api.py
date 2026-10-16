@@ -61,6 +61,7 @@ def test_create_session_returns_first_question(client):
     assert view["progress"] == {"asked": 0, "cap": 5, "readiness": view["progress"]["readiness"]}
     assert view["summary"][0]["field"] == "product_idea"
     assert view["summary"][0]["source"] == "user_free_text"
+    assert view["summary"][0]["source_label"] == "직접 입력"
     assert view["can_generate"] is True
     assert "trace" not in view
 

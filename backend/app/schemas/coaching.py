@@ -75,6 +75,7 @@ class SummaryItem(ContractModel):
     label: str
     value: str
     source: InfoSource
+    source_label: str
     confidence: float
     is_assumption: bool
 

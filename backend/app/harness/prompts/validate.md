@@ -1,10 +1,12 @@
 {% include "_context.md" %}
+
 ## 지켜야 할 규칙
-{% for rule in policy.rules -%}
+{% for rule in policy.rules %}
 - {{ rule }}
-{% else -%}
+{% else %}
 - (없음)
 {% endfor %}
+
 ## 검토할 결과
 {{ result_text }}
 

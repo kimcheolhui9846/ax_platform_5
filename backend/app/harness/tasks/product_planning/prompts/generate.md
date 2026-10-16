@@ -1,5 +1,6 @@
 {% extends "_generate_base.md" %}
 {% block task_guidance %}
+
 ## 상품기획 지침
 - 가치제안은 확인된 고객 문제와 직접 연결한다.
 - MVP는 제작 제약 안에서 가장 작게 시작할 수 있는 범위로 제안한다.

@@ -5,7 +5,15 @@ import yaml
 from jinja2 import UndefinedError
 from pydantic import ValidationError
 
-from app.core.state import Assumption, CoachingMode, InfoItem, InfoSource, SessionState
+from app.core.state import (
+    SOURCE_LABELS,
+    Assumption,
+    CoachingMode,
+    InfoItem,
+    InfoSource,
+    SessionState,
+    source_label,
+)
 from app.harness.policy import FieldKind, load_policy
 from app.harness.prompting import STAGES, PromptContextError, PromptRenderer, context_keys
 
@@ -204,3 +212,26 @@ def test_context_shows_field_name_and_label():
 def test_generate_prompt_lists_allowed_assumption_fields():
     text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
     assert "idea, customer, problem, tone, length" in text
+
+
+
+# ── 템플릿 모양: 빈 줄 두 개 연속 없음, 출처는 한국어 라벨(#9) ──────
+
+
+@pytest.mark.parametrize("stage", STAGES)
+def test_rendered_prompt_has_no_double_blank_lines(stage):
+    context = sample_context(stage)
+    context["state"].unknowns.append("problem")
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **context)
+    assert "\n\n\n" not in text
+
+
+def test_context_shows_source_as_korean_label():
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **sample_context("diagnose"))
+    assert "(출처: 직접 입력)" in text
+    assert "user_free_text" not in text
+
+
+def test_source_labels_cover_every_source():
+    assert set(SOURCE_LABELS) == set(InfoSource)
+    assert source_label(InfoSource.AI_ASSUMPTION) == "AI 가정"

@@ -55,6 +55,7 @@ def test_every_stage_template_renders(registry, task_type, stage):
     }
     text = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert "테스트 입력" in text
+    assert "\n\n\n" not in text
 
 
 @pytest.mark.parametrize("task_type", TASK_TYPES)
