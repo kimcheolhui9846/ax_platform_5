@@ -1,0 +1,13 @@
+name: 수제 향초 기본 흐름
+raw_input: 집들이 선물용 수제 향초
+answers:
+  user:
+    - answer_type: option
+      option_indexes: [1]
+  customer_problem:
+    - answer_type: dont_know
+    - answer_type: dont_know
+    - answer_type: option
+      option_indexes: [3]
+  core_value:
+    - value: 집 분위기에 맞춰 향을 골라 준다

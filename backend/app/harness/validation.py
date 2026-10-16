@@ -1,5 +1,5 @@
 """모든 과제에 공통으로 적용하는 출력 검증 규칙. 과제 전용 규칙은 tasks/<task>/validators.py."""
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 
 from app.core.results import GenerationResult, ValidationIssue
 from app.core.state import SessionState
@@ -39,3 +39,8 @@ def collect_issues(
 ) -> list[ValidationIssue]:
     """[코드·순수] 규칙을 차례로 돌려 문제를 모은다."""
     return [issue for check in validators for issue in check(state, result, policy)]
+
+
+def find_terms(text: str, terms: Sequence[str]) -> list[str]:
+    """[코드·순수] terms 중 text에 들어 있는 것을 terms의 순서대로 돌려준다."""
+    return [term for term in terms if term in text]
