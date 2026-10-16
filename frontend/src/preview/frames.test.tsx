@@ -5,20 +5,42 @@ import previewCss from "../styles/preview.css?raw";
 import { FRAMES, FRAME_SIZES } from "./frames";
 import { Gallery } from "./Gallery";
 
+// 디자인 V2(design/2026-10-16-ux-v2)의 화면 가운데 지금까지 만든 것. 묶음마다 늘린다.
+const DESIGN_SCREENS = ["home", "request", "mode", "question", "confirm", "result", "guide"];
+
 describe("미리보기 프레임", () => {
-  it("이름이 겹치지 않고 비어 있지 않다", () => {
+  it("이름이 겹치지 않는다", () => {
     const ids = FRAMES.map((f) => f.id);
-    expect(ids.length).toBeGreaterThan(0);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("묶음 0 화면 상태를 모두 담는다", () => {
-    expect(FRAMES.map((f) => f.id)).toEqual(["home", "idea", "question", "question-ladder", "ready", "result"]);
+  it("묶음 1 화면 상태를 모두 담는다", () => {
+    expect(FRAMES.map((f) => f.id)).toEqual([
+      "home",
+      "request",
+      "mode",
+      "question",
+      "question-ladder",
+      "question-proposal",
+      "revise",
+      "confirm",
+      "confirm-generating",
+      "confirm-failed",
+      "result",
+      "result-stale",
+      "guide",
+      "unavailable",
+    ]);
+  });
+
+  it("디자인 V2 화면이 갤러리에 빠짐없이 있다", () => {
+    for (const screen of DESIGN_SCREENS) {
+      expect(FRAMES.some((f) => f.id === screen || f.id.startsWith(`${screen}-`)), screen).toBe(true);
+    }
   });
 
   it.each(FRAMES)("$id 프레임이 깨지지 않고 그려진다", (frame) => {
-    const html = renderToString(frame.render(`${frame.id}-main`));
-    expect(html.length).toBeGreaterThan(0);
+    expect(renderToString(frame.render(`${frame.id}-main`)).length).toBeGreaterThan(0);
   });
 
   it("갤러리는 프레임마다 PC·모바일 폭 두 개를 이름표와 함께 그린다", () => {
@@ -38,8 +60,9 @@ describe("미리보기 프레임", () => {
   it("한 페이지에 여러 프레임을 그려도 id가 겹치지 않고 각 본문 바로가기는 자기 본문을 가리킨다", () => {
     const html = renderToString(<Gallery />);
     const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
-    expect(ids.length).toBe(FRAMES.length * 2);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(html).toContain(`href="#${id}"`);
+    const mains = [...html.matchAll(/<main id="([^"]+)"/g)].map((m) => m[1]);
+    expect(mains).toHaveLength(FRAMES.length * FRAME_SIZES.length);
+    for (const id of mains) expect(html).toContain(`href="#${id}"`);
   });
 });

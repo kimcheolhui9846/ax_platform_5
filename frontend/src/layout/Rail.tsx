@@ -7,11 +7,12 @@ export type RailProps = {
   items: RailItem[];
   onNavigate: (key: NavKey) => void;
   onGuide?: () => void;
+  guideDisabled?: boolean;
 };
 
 const ICONS: Record<NavKey, () => JSX.Element> = { home: HomeIcon, work: WorkIcon, documents: DocumentsIcon };
 
-export function Rail({ items, onNavigate, onGuide }: RailProps) {
+export function Rail({ items, onNavigate, onGuide, guideDisabled = false }: RailProps) {
   return (
     <nav className="rail" aria-label="주 메뉴">
       <div className="rail-logo">AX</div>
@@ -32,7 +33,7 @@ export function Rail({ items, onNavigate, onGuide }: RailProps) {
         );
       })}
       {onGuide && (
-        <button type="button" className="rail-help" onClick={onGuide}>
+        <button type="button" className="rail-help" disabled={guideDisabled} onClick={onGuide}>
           흐름 안내
         </button>
       )}
