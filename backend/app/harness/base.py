@@ -214,12 +214,14 @@ class BaseHarness:
         raw_input: str,
         mode: CoachingMode = CoachingMode.STANDARD,
         profile: HarnessProfile | None = None,
+        owner_id: str = "",
     ) -> SessionState:
         state = SessionState(
             task_type=self.task_type,
             mode=mode,
             raw_input=raw_input,
             profile=profile or HarnessProfile(),
+            owner_id=owner_id,
         )
         self.apply_defaults(state)
         self.diagnose(state)

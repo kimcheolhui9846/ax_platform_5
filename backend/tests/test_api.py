@@ -1,5 +1,5 @@
 import pytest
-from fastapi.testclient import TestClient
+from tests.conftest import api_client
 
 from app.core.messages import (
     GENERATION_FAILED_MESSAGE,
@@ -16,7 +16,7 @@ BASE = "/api/v1/coaching"
 
 @pytest.fixture
 def client():
-    return TestClient(create_app(provider=MockProvider(), debug=True))
+    return api_client(create_app(provider=MockProvider(), debug=True))
 
 
 def create_session(client, task_type="product_planning", raw_input="수제 향초"):
@@ -164,7 +164,7 @@ class UserDiagnosisProvider(MockProvider):
 
 
 def test_labels_reach_assumptions_and_unknowns():
-    client = TestClient(create_app(provider=UserDiagnosisProvider(), debug=True))
+    client = api_client(create_app(provider=UserDiagnosisProvider(), debug=True))
     view = create_session(client)
     sid = view["session_id"]
     q = view["next_question"]
@@ -195,7 +195,7 @@ def test_result_before_generate_is_404(client):
 
 
 def test_generate_failure_is_502_and_session_preserved():
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
     sid = create_session(client)["session_id"]
 
     response = client.post(f"{BASE}/sessions/{sid}/generate")
@@ -210,7 +210,7 @@ def test_generate_failure_is_502_and_session_preserved():
 
 def test_answering_kept_question_after_failed_generate_clears_error():
     """error는 저장값이 아니라 상태에서 나온다. FAILED를 벗어나면 함께 사라진다."""
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
     view = create_session(client)
     sid = view["session_id"]
     assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
@@ -226,7 +226,7 @@ def test_answering_kept_question_after_failed_generate_clears_error():
 
 
 def test_trace_hidden_without_debug():
-    client = TestClient(create_app(provider=MockProvider(), debug=False))
+    client = api_client(create_app(provider=MockProvider(), debug=False))
     sid = create_session(client)["session_id"]
     assert client.get(f"{BASE}/sessions/{sid}/trace").status_code == 404
 
@@ -276,7 +276,7 @@ def test_request_format_errors_are_korean_422(client):
 
 
 def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"easier_question"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"easier_question"}), debug=True))
     sid = create_session(client)["session_id"]
     view = client.get(f"{BASE}/sessions/{sid}").json()
     for _ in range(6):
@@ -313,7 +313,7 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
 
 def test_failed_regenerate_serves_previous_result_unchanged():
     provider = MockProvider()
-    client = TestClient(create_app(provider=provider, debug=True))
+    client = api_client(create_app(provider=provider, debug=True))
     sid = create_session(client)["session_id"]
     first = client.post(f"{BASE}/sessions/{sid}/generate").json()
     assert first["stale"] is False
@@ -387,7 +387,7 @@ def test_continue_unknown_session_is_404(client):
 
 def _failed_session_with_pending_question():
     provider = MockProvider()
-    client = TestClient(create_app(provider=provider, debug=True))
+    client = api_client(create_app(provider=provider, debug=True))
     view = create_session(client)
     sid = view["session_id"]
     first_qid = view["next_question"]["question_id"]

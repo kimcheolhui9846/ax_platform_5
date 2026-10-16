@@ -1,5 +1,8 @@
 import createClient from "openapi-fetch";
+import type { Middleware } from "openapi-fetch";
 
+import { loadClientId, makeClientId } from "../lib/clientId";
+import { browserStorage } from "../lib/storage";
 import type { paths } from "./schema";
 
 /** API 주소. 버셀에서 백엔드(렌더)를 따로 둘 때 VITE_API_BASE로 바꾼다. 비어 있으면 같은 출처다. */
@@ -9,7 +12,20 @@ export function apiBaseUrl(env: string | undefined): string {
   return `${value.replace(/\/+$/, "")}/`;
 }
 
+export const CLIENT_ID_HEADER = "X-Client-Id";
+
+/** 모든 요청에 익명 사용자 ID를 붙인다. 백엔드는 이 값으로 세션 주인을 가린다(app/api/owner.py). */
+export function withClientId(clientId: string): Middleware {
+  return {
+    onRequest({ request }) {
+      request.headers.set(CLIENT_ID_HEADER, clientId);
+      return request;
+    },
+  };
+}
+
 export const api = createClient<paths>({ baseUrl: apiBaseUrl(import.meta.env.VITE_API_BASE) });
+api.use(withClientId(loadClientId(browserStorage(), makeClientId)));
 
 const FALLBACK_MESSAGE = "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 

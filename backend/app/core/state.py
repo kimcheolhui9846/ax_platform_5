@@ -132,6 +132,7 @@ class HarnessProfile(BaseModel):
 
 class SessionState(BaseModel):
     session_id: str = Field(default_factory=lambda: f"sess_{uuid4().hex[:12]}")
+    owner_id: str = ""  # 익명 사용자 ID(X-Client-Id). 로그인을 붙이면 계정 ID가 된다
     task_type: str
     mode: CoachingMode = CoachingMode.STANDARD
     status: SessionStatus = SessionStatus.DRAFTING

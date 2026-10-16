@@ -2,9 +2,9 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import Locks, Registry, Store
+from app.api.deps import Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
@@ -40,16 +40,19 @@ def _harness(registry: Registry, task_type: str) -> BaseHarness:
         raise HTTPException(status_code=404, detail=unknown_task_message(task_type)) from None
 
 
-def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionState, BaseHarness]:
+def _load(
+    registry: Registry, store: Store, session_id: str, owner: str
+) -> tuple[SessionState, BaseHarness]:
+    """남의 세션은 없는 세션과 같은 404다(있는지조차 알리지 않는다)."""
     state = store.get(session_id)
-    if state is None:
+    if state is None or state.owner_id != owner:
         raise HTTPException(status_code=404, detail=SESSION_NOT_FOUND_MESSAGE)
     return state, _harness(registry, state.task_type)
 
 
 @contextmanager
 def _session_update(
-    locks: SessionLocks, registry: Registry, store: SessionStore, session_id: str
+    locks: SessionLocks, registry: Registry, store: SessionStore, session_id: str, owner: str
 ) -> Iterator[tuple[SessionState, BaseHarness]]:
     """세션을 잠그고 읽어 블록에 넘긴 뒤 저장한다. 같은 세션을 바꾸는 요청은 한 번에 하나씩 돈다.
 
@@ -57,12 +60,12 @@ def _session_update(
     던진다. 하네스는 이런 실패에서 state를 시작 때로 되돌리고 trace(성공한 LLM 호출 기록 포함)와 FAILED 표시만
     남기므로, 저장해도 바뀌는 것은 그 기록뿐이다. 응답 문구는 app/api/errors.py의 예외 처리기가 정한다.
 
-    잠금은 있는 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다(세션은 지우지 않으므로 확인과 잠금 사이에
+    잠금은 있는(그리고 내) 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다(세션은 지우지 않으므로 확인과 잠금 사이에
     사라질 일이 없다). 잠근 뒤 다시 읽어 앞선 요청이 저장한 최신 상태로 일한다.
     """
-    _load(registry, store, session_id)
+    _load(registry, store, session_id, owner)
     with locks.hold(session_id):
-        state, harness = _load(registry, store, session_id)
+        state, harness = _load(registry, store, session_id, owner)
         try:
             yield state, harness
         except (ProviderError, GenerationFailed, HarnessError):
@@ -88,17 +91,17 @@ def get_task_form(task_type: str, registry: Registry) -> TaskForm:
     responses=error_responses(404, 422, 502),
 )
 def create_session(
-    task_type: str, body: CreateSessionRequest, registry: Registry, store: Store
+    task_type: str, body: CreateSessionRequest, registry: Registry, store: Store, owner: Owner
 ) -> SessionView:
     harness = _harness(registry, task_type)
-    state = harness.start(body.raw_input, body.mode)
+    state = harness.start(body.raw_input, body.mode, owner_id=owner)
     store.save(state)
     return to_session_view(state, harness)
 
 
-@router.get("/sessions/{session_id}", response_model=SessionView, responses=error_responses(404))
-def get_session(session_id: str, registry: Registry, store: Store) -> SessionView:
-    state, harness = _load(registry, store, session_id)
+@router.get("/sessions/{session_id}", response_model=SessionView, responses=error_responses(404, 422))
+def get_session(session_id: str, registry: Registry, store: Store, owner: Owner) -> SessionView:
+    state, harness = _load(registry, store, session_id, owner)
     return to_session_view(state, harness)
 
 
@@ -106,9 +109,9 @@ def get_session(session_id: str, registry: Registry, store: Store) -> SessionVie
     "/sessions/{session_id}/answers", response_model=SessionView, responses=error_responses(404, 422, 502)
 )
 def submit_answer(
-    session_id: str, body: AnswerRequest, registry: Registry, store: Store, locks: Locks
+    session_id: str, body: AnswerRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
 ) -> SessionView:
-    with _session_update(locks, registry, store, session_id) as (state, harness):
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.apply_answer(state, Answer(**body.model_dump()))
     return to_session_view(state, harness)
 
@@ -125,8 +128,9 @@ def revise_answer(
     registry: Registry,
     store: Store,
     locks: Locks,
+    owner: Owner,
 ) -> SessionView:
-    with _session_update(locks, registry, store, session_id) as (state, harness):
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
     return to_session_view(state, harness)
 
@@ -134,18 +138,20 @@ def revise_answer(
 @router.post(
     "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 422, 502)
 )
-def generate(session_id: str, registry: Registry, store: Store, locks: Locks) -> ResultView:
-    with _session_update(locks, registry, store, session_id) as (state, harness):
+def generate(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> ResultView:
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.generate(state)
     return to_result_view(state, harness.policy.labels)
 
 
 @router.post(
-    "/sessions/{session_id}/continue", response_model=SessionView, responses=error_responses(404, 502)
+    "/sessions/{session_id}/continue", response_model=SessionView, responses=error_responses(404, 422, 502)
 )
-def continue_session(session_id: str, registry: Registry, store: Store, locks: Locks) -> SessionView:
+def continue_session(
+    session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> SessionView:
     """결과를 만든 뒤 질문을 이어 간다. 남은 질문이 없으면 세션은 그대로다."""
-    with _session_update(locks, registry, store, session_id) as (state, harness):
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.resume(state)
     return to_session_view(state, harness)
 
@@ -155,27 +161,30 @@ def continue_session(session_id: str, registry: Registry, store: Store, locks: L
     response_model=SessionView,
     responses=error_responses(404, 422),
 )
-def show_original_question(session_id: str, registry: Registry, store: Store, locks: Locks) -> SessionView:
+def show_original_question(
+    session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> SessionView:
     """'원래 예시 보기'. 사다리 질문을 기본 질문으로 되돌린다(LLM 호출 없음)."""
-    with _session_update(locks, registry, store, session_id) as (state, harness):
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.show_original(state)
     return to_session_view(state, harness)
 
 
-@router.get("/sessions/{session_id}/result", response_model=ResultView, responses=error_responses(404))
-def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
-    state, harness = _load(registry, store, session_id)
+@router.get("/sessions/{session_id}/result", response_model=ResultView, responses=error_responses(404, 422))
+def get_result(session_id: str, registry: Registry, store: Store, owner: Owner) -> ResultView:
+    state, harness = _load(registry, store, session_id, owner)
     if state.result is None:
         raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
     return to_result_view(state, harness.policy.labels)
 
 
 @router.get(
-    "/sessions/{session_id}/trace", response_model=list[TraceEntry], responses=error_responses(404)
+    "/sessions/{session_id}/trace",
+    response_model=list[TraceEntry],
+    responses=error_responses(404, 422),
+    dependencies=[Depends(require_debug)],
 )
-def get_trace(session_id: str, request: Request, registry: Registry, store: Store) -> list[TraceEntry]:
-    """하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다."""
-    if not request.app.state.debug:
-        raise HTTPException(status_code=404)
-    state, _ = _load(registry, store, session_id)
+def get_trace(session_id: str, registry: Registry, store: Store, owner: Owner) -> list[TraceEntry]:
+    """하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 owner 검사 전에 없는 경로와 같은 404다."""
+    state, _ = _load(registry, store, session_id, owner)
     return state.trace

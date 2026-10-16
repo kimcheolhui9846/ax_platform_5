@@ -189,7 +189,7 @@ export interface paths {
         };
         /**
          * Get Trace
-         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다.
+         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 owner 검사 전에 없는 경로와 같은 404다.
          */
         get: operations["get_trace_api_v1_coaching_sessions__session_id__trace_get"];
         put?: never;
@@ -680,7 +680,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -738,6 +738,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -782,7 +791,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -845,7 +854,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -903,7 +912,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -961,6 +970,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -1010,7 +1028,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1059,6 +1077,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -1097,6 +1124,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */

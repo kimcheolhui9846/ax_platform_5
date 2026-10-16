@@ -1,6 +1,7 @@
+import type { Middleware } from "openapi-fetch";
 import { describe, expect, it } from "vitest";
 
-import { BACKEND_UNREACHABLE, apiBaseUrl, errorMessage, toOutcome } from "./client";
+import { BACKEND_UNREACHABLE, CLIENT_ID_HEADER, apiBaseUrl, errorMessage, toOutcome, withClientId } from "./client";
 
 const FALLBACK = "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 
@@ -87,5 +88,14 @@ describe("apiBaseUrl", () => {
 describe("BACKEND_UNREACHABLE", () => {
   it("미리보기 주소를 안내한다", () => {
     expect(BACKEND_UNREACHABLE).toContain("/preview");
+  });
+});
+
+describe("withClientId", () => {
+  it("요청마다 익명 사용자 ID 헤더를 붙인다", async () => {
+    const request = new Request("http://localhost/api/v1/coaching/sessions/sess_1");
+    const onRequest = withClientId("client-0001").onRequest!;
+    const sent = await onRequest({ request } as Parameters<NonNullable<Middleware["onRequest"]>>[0]);
+    expect((sent as Request).headers.get(CLIENT_ID_HEADER)).toBe("client-0001");
   });
 });

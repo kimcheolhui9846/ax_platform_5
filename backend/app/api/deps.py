@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from app.api.locks import SessionLocks
+from app.api.owner import current_owner
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
 
@@ -22,3 +23,12 @@ def get_locks(request: Request) -> SessionLocks:
 Registry = Annotated[HarnessRegistry, Depends(get_registry)]
 Store = Annotated[SessionStore, Depends(get_store)]
 Locks = Annotated[SessionLocks, Depends(get_locks)]
+
+
+def require_debug(request: Request) -> None:
+    """DEBUG가 아니면 없는 경로와 같은 404. 라우트 dependencies에 두면 owner 검사보다 먼저 돈다."""
+    if not request.app.state.debug:
+        raise HTTPException(status_code=404)
+
+
+Owner = Annotated[str, Depends(current_owner)]

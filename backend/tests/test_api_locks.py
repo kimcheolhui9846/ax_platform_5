@@ -2,7 +2,7 @@
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.conftest import api_client
 
 from app.api.locks import SessionLocks
 from app.main import create_app
@@ -60,7 +60,7 @@ def test_different_sessions_do_not_block_each_other():
 @pytest.mark.parametrize("route", ["answer", "revise", "generate", "continue"])
 def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, route):
     app = create_app(provider=MockProvider(), debug=True)
-    client = TestClient(app)
+    client = api_client(app)
     view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()
     sid, qid = view["session_id"], view["next_question"]["question_id"]
     harness = app.state.registry.get("product_planning")
@@ -93,7 +93,7 @@ def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, 
 
 def test_unknown_session_ids_create_no_locks():
     app = create_app(provider=MockProvider(), debug=True)
-    client = TestClient(app)
+    client = api_client(app)
     for i in range(3):
         sid = f"sess_없음{i}"
         assert client.post(f"{BASE}/sessions/{sid}/answers", json={"question_id": "q", "answer_type": "skip"}).status_code == 404

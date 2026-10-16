@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
 from app.core.state import Answer, AnswerType, SessionState
@@ -51,3 +52,13 @@ def reply():
         )
 
     return _reply
+
+
+CLIENT_ID = "test-client-0001"
+OTHER_CLIENT_ID = "test-client-0002"
+
+
+def api_client(app, client_id: str | None = CLIENT_ID) -> TestClient:
+    """익명 사용자 ID(X-Client-Id)를 붙여 보내는 테스트 클라이언트. None이면 헤더를 보내지 않는다."""
+    headers = {} if client_id is None else {"X-Client-Id": client_id}
+    return TestClient(app, headers=headers)
