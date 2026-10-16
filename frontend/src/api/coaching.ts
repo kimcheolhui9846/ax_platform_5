@@ -1,7 +1,10 @@
 import { api } from "./client";
 import type { AnswerBody, CoachingMode, ResultView, SessionView, TaskSummary } from "./types";
 
-/** openapi-fetch 응답 중 화면이 쓰는 부분. error는 런타임 본문이 생성 타입과 달라 unknown으로 둔다. */
+/**
+ * openapi-fetch 응답 중 화면이 쓰는 부분. 백엔드 오류 본문은 계약상 ErrorBody({detail})지만
+ * 개발 프록시·게이트웨이 오류처럼 계약 밖 본문도 올 수 있어 error는 unknown으로 받고 errorMessage가 거른다.
+ */
 export type ApiResult<T> = { data?: T; error?: unknown };
 
 const BASE = "/api/v1/coaching";

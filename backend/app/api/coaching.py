@@ -6,6 +6,11 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.api.deps import Registry, Store
 from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
+from app.core.messages import (
+    RESULT_NOT_READY_MESSAGE,
+    SESSION_NOT_FOUND_MESSAGE,
+    unknown_task_message,
+)
 from app.core.state import Answer, SessionState, TraceEntry
 from app.core.store import SessionStore
 from app.harness.base import BaseHarness
@@ -14,6 +19,7 @@ from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
+    ErrorBody,
     ResultView,
     ReviseAnswerRequest,
     SessionView,
@@ -21,20 +27,29 @@ from app.schemas.coaching import (
     TaskSummary,
 )
 
-router = APIRouter(prefix="/api/v1/coaching", tags=["coaching"])
+# 오류 본문은 app/api/errors.py가 모두 ErrorBody 모양으로 만든다. FastAPI 기본 422(HTTPValidationError)는
+# 런타임 응답과 다르므로 문서에서도 ErrorBody로 덮는다.
+ERROR_RESPONSES: dict[int | str, dict] = {
+    404: {"model": ErrorBody, "description": "과제·세션·결과가 없음"},
+    422: {"model": ErrorBody, "description": "요청 형식이나 답변이 규칙에 맞지 않음"},
+    500: {"model": ErrorBody, "description": "예상하지 못한 서버 오류"},
+    502: {"model": ErrorBody, "description": "AI 호출 또는 결과 생성 실패"},
+}
+
+router = APIRouter(prefix="/api/v1/coaching", tags=["coaching"], responses=ERROR_RESPONSES)
 
 
 def _harness(registry: Registry, task_type: str) -> BaseHarness:
     try:
         return registry.get(task_type)
     except UnknownTaskError:
-        raise HTTPException(status_code=404, detail=f"없는 과제입니다: {task_type}") from None
+        raise HTTPException(status_code=404, detail=unknown_task_message(task_type)) from None
 
 
 def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionState, BaseHarness]:
     state = store.get(session_id)
     if state is None:
-        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=SESSION_NOT_FOUND_MESSAGE)
     return state, _harness(registry, state.task_type)
 
 
@@ -112,14 +127,14 @@ def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
 def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)
     if state.result is None:
-        raise HTTPException(status_code=404, detail="아직 생성된 결과가 없습니다.")
+        raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
     return to_result_view(state, harness.policy.labels)
 
 
 @router.get("/sessions/{session_id}/trace", response_model=list[TraceEntry])
 def get_trace(session_id: str, request: Request, registry: Registry, store: Store) -> list[TraceEntry]:
-    """하네스 튜닝용. DEBUG=true일 때만 열린다."""
+    """하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다."""
     if not request.app.state.debug:
-        raise HTTPException(status_code=404, detail="Not Found")
+        raise HTTPException(status_code=404)
     state, _ = _load(registry, store, session_id)
     return state.trace

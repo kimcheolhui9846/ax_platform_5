@@ -13,6 +13,12 @@ from app.core.state import AnswerType, CoachingMode, InfoSource, Question, Sessi
 from app.harness.policy import FieldKind
 
 
+class ErrorBody(ContractModel):
+    """모든 오류 응답 본문(404·405·422·500·502). detail은 사용자에게 보여 줄 한국어 문장이다."""
+
+    detail: str
+
+
 class TaskSummary(ContractModel):
     task_type: str
     title: str

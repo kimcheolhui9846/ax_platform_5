@@ -27,6 +27,14 @@ class ProviderOutputError(ProviderError):
 
 
 class LLMProvider(Protocol):
+    """모델 어댑터 계약.
+
+    complete()는 SDK 예외(네트워크·인증·한도·타임아웃 등)를 모두 ProviderError로, 응답을
+    response_model로 파싱하지 못한 경우를 ProviderOutputError로 감싸서 던져야 한다. 감싸지 않은
+    예외는 실패 trace가 남지 않고 502 대신 500으로 끝난다(생성 단계에서는 일반 실패로 뭉개진다).
+    원문 오류 문구는 trace에만 남고 사용자에게는 고정 문구만 나간다.
+    """
+
     name: str
 
     def complete(
