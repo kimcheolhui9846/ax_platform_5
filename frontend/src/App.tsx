@@ -48,7 +48,6 @@ export default function App() {
     if (!session?.next_question) return;
     const { session_id } = session;
     const { question_id } = session.next_question;
-    if (!question_id) return; // 생성 타입상 선택 필드지만 서버는 항상 채워 보낸다
     void run(() => submitAnswer(session_id, question_id, body), setSession);
   }
 
@@ -71,7 +70,7 @@ export default function App() {
       <header>
         <h1>AX 코칭</h1>
         {task && (
-          <button type="button" className="ghost" onClick={reset}>
+          <button type="button" className="ghost" disabled={busy} onClick={reset}>
             처음으로
           </button>
         )}

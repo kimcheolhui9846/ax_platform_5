@@ -28,7 +28,7 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10
 .chip.on { background: #1d1d1f; color: #fff; }
 .row { display: flex; gap: 8px; }
 .hint { color: #6e6e73; font-size: 13px; margin: 0 0 6px; }
-.badge { margin-left: 6px; font-size: 11px; color: #6e6e73; }
+.badge { display: inline-block; margin-left: 8px; font-size: 11px; color: #6e6e73; }
 .progress { color: #6e6e73; font-size: 13px; }
 .error { background: #ffe5e5; color: #a1001b; padding: 12px; border-radius: 10px; }
 .full-text { white-space: pre-wrap; font-family: inherit; }

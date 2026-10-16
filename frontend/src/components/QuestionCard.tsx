@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { AnswerBody, Question } from "../api/types";
 import { questionHint } from "../lib/questionHint";
+import { toggleSelection } from "../lib/selection";
 
 type Props = {
   question: Question;
@@ -19,14 +20,10 @@ export function QuestionCard({ question, busy, onAnswer }: Props) {
   }, [question.question_id]);
 
   function toggle(id: string) {
-    if (!question.multi_select) {
-      setSelected([id]);
-      return;
-    }
-    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+    setSelected((prev) => toggleSelection(prev, id, question.multi_select));
   }
 
-  const options = question.options ?? [];
+  const options = question.options;
   const hint = questionHint(question);
 
   return (

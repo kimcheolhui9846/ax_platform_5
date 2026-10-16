@@ -157,6 +157,17 @@ def test_openapi_has_contract_schemas(client):
     assert "passed" in report["required"]
 
 
+def test_openapi_marks_defaulted_response_fields_required(client):
+    """응답 필드는 항상 채워져 나가므로 프론트 타입에서 선택 필드가 되면 안 된다."""
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    assert {"question_id", "options"} <= set(schemas["Question"]["required"])
+    assert "assumptions" in schemas["GenerationResult"]["required"]
+    assert "issues" in schemas["ValidationReport"]["required"]
+    # 요청 모델의 기본값 필드는 그대로 선택이다.
+    assert "value" not in schemas["AnswerRequest"].get("required", [])
+    assert "option_ids" not in schemas["AnswerRequest"].get("required", [])
+
+
 def test_request_format_errors_are_korean_422(client):
     empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
     assert empty.status_code == 422

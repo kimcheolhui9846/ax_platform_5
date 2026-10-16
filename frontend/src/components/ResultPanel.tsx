@@ -4,7 +4,7 @@ import { cardLabel } from "../lib/labels";
 export function ResultPanel({ view }: { view: ResultView }) {
   const { result, validation } = view;
   const cards = [...result.cards].sort((a, b) => a.order - b.order);
-  const assumptions = result.assumptions ?? [];
+  const assumptions = result.assumptions;
   const issues = validation?.issues ?? [];
 
   return (

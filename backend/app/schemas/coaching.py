@@ -6,29 +6,30 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.contract import ContractModel
 from app.core.results import GenerationResult, ValidationReport
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.policy import FieldKind
 
 
-class TaskSummary(BaseModel):
+class TaskSummary(ContractModel):
     task_type: str
     title: str
     description: str
 
 
-class ModeInfo(BaseModel):
+class ModeInfo(ContractModel):
     mode: CoachingMode
     question_cap: int
 
 
-class FieldSummary(BaseModel):
+class FieldSummary(ContractModel):
     name: str
     label: str
     kind: FieldKind
 
 
-class TaskForm(BaseModel):
+class TaskForm(ContractModel):
     task_type: str
     title: str
     description: str
@@ -56,13 +57,13 @@ class ReviseAnswerRequest(BaseModel):
     option_ids: list[str] = Field(default_factory=list)
 
 
-class Progress(BaseModel):
+class Progress(ContractModel):
     asked: int
     cap: int
     readiness: float
 
 
-class SummaryItem(BaseModel):
+class SummaryItem(ContractModel):
     field: str
     label: str
     value: str
@@ -71,7 +72,7 @@ class SummaryItem(BaseModel):
     is_assumption: bool
 
 
-class SessionView(BaseModel):
+class SessionView(ContractModel):
     session_id: str
     task_type: str
     mode: CoachingMode
@@ -85,7 +86,7 @@ class SessionView(BaseModel):
     error: str | None
 
 
-class ResultView(BaseModel):
+class ResultView(ContractModel):
     session_id: str
     status: SessionStatus
     result: GenerationResult

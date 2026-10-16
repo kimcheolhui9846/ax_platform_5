@@ -217,7 +217,7 @@ export interface components {
             /** Cards */
             cards: components["schemas"]["ResultCard"][];
             /** Assumptions */
-            assumptions?: components["schemas"]["ResultAssumption"][];
+            assumptions: components["schemas"]["ResultAssumption"][];
             /** Full Text */
             full_text: string;
             /** Content */
@@ -228,7 +228,7 @@ export interface components {
              * Generated At
              * Format: date-time
              */
-            generated_at?: string;
+            generated_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -258,13 +258,13 @@ export interface components {
         /** Question */
         Question: {
             /** Question Id */
-            question_id?: string;
+            question_id: string;
             /** Field */
             field: string;
             /** Text */
             text: string;
             /** Options */
-            options?: components["schemas"]["QuestionOption"][];
+            options: components["schemas"]["QuestionOption"][];
             /**
              * Multi Select
              * @default false
@@ -425,24 +425,24 @@ export interface components {
             /** Stage */
             stage: string;
             /** Input */
-            input?: {
+            input: {
                 [key: string]: unknown;
             };
             /** Output */
-            output?: {
+            output: {
                 [key: string]: unknown;
             };
             /** Provider */
-            provider?: string | null;
+            provider: string | null;
             /** Usage */
-            usage?: {
+            usage: {
                 [key: string]: number;
             };
             /**
              * At
              * Format: date-time
              */
-            at?: string;
+            at: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -480,7 +480,7 @@ export interface components {
         /** ValidationReport */
         ValidationReport: {
             /** Issues */
-            issues?: components["schemas"]["ValidationIssue"][];
+            issues: components["schemas"]["ValidationIssue"][];
             /** Passed */
             readonly passed: boolean;
         };
