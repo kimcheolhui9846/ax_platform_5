@@ -35,6 +35,12 @@ def load_scenarios(task_dir: Path) -> list[Scenario]:
 
 def build_answer(question: Question, planned: ScenarioAnswer) -> Answer:
     """[코드·순수] 시나리오의 계획된 답을 질문에 대한 Answer로 바꾼다."""
+    bad = [i for i in planned.option_indexes if not 0 <= i < len(question.options)]
+    if bad:
+        raise ValueError(
+            f"필드 '{question.field}' 질문의 선택지는 {len(question.options)}개인데 "
+            f"시나리오가 {bad}번을 골랐습니다."
+        )
     return Answer(
         question_id=question.question_id,
         answer_type=planned.answer_type,

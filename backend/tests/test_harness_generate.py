@@ -142,14 +142,16 @@ def test_to_generation_result_maps_parsed_fields():
     assert result.content == {"summary": "요", "actions": ["a"]}
 
 
-def test_collect_issues_runs_every_validator():
+def test_collect_issues_runs_every_validator(harness):
     from app.core.results import GenerationResult
     from app.core.state import SessionState
     from app.harness.validation import check_cards_present, collect_issues
 
     state = SessionState(task_type="sample_task", raw_input="x")
     result = GenerationResult(cards=[], full_text="", content={})
-    issues = collect_issues([check_cards_present, check_cards_present], state, result, None)
+    issues = collect_issues(
+        [check_cards_present, check_cards_present], state, result, harness.policy
+    )
     assert [i.rule for i in issues] == ["cards_present", "cards_present"]
 
 
@@ -163,3 +165,90 @@ def test_scenario_answer_to_answer_maps_option_indexes():
     answer = build_answer(question, ScenarioAnswer(answer_type=AnswerType.OPTION, option_indexes=[1]))
     assert answer.question_id == question.question_id
     assert answer.option_ids == ["o2"]
+
+
+# ── 실패 처리·보강 ────────────────────────────────────────
+
+
+def test_validator_exception_fails_generation_and_keeps_pending_question(provider):
+    def boom(state, result, policy):
+        raise RuntimeError("secret internal detail")
+
+    class BoomHarness(SampleHarness):
+        validators = [boom]
+
+    harness = BoomHarness(SAMPLE_TASK_DIR, provider)
+    state = harness.start("향초")
+    pending = state.pending_question
+    assert pending is not None
+
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+
+    assert state.status is SessionStatus.FAILED
+    assert state.error
+    assert "secret" not in state.error
+    assert state.result is None
+    assert state.pending_question == pending
+    assert state.asked_questions[-1].answer_type is None
+    assert "secret internal detail" in str(state.trace[-1].output)
+
+
+def test_template_error_fails_generation_without_leaking(tmp_path):
+    import shutil
+
+    task_dir = tmp_path / "task"
+    shutil.copytree(SAMPLE_TASK_DIR, task_dir)
+    (task_dir / "prompts" / "generate.md").write_text("{{ nope.x }}", encoding="utf-8")
+    harness = SampleHarness(task_dir, MockProvider())
+    state = harness.start("향초")
+
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status is SessionStatus.FAILED
+    assert "nope" not in state.error
+
+
+def test_can_answer_kept_question_after_failed_generate():
+    harness = SampleHarness(SAMPLE_TASK_DIR, MockProvider(fail_stages={"generate"}))
+    state = harness.start("향초")
+    question = state.pending_question
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+
+    harness.apply_answer(
+        state,
+        Answer(question_id=question.question_id, answer_type=AnswerType.FREE_TEXT, value="직접 답"),
+    )
+    assert state.facts[question.field].value == "직접 답"
+    assert state.status is not SessionStatus.FAILED
+
+
+def test_summary_trace_is_distinguishable_from_llm_review_trace(harness):
+    harness.policy.llm_validation = True
+    state = harness.start("향초")
+    harness.generate(state)
+    validate_entries = [t for t in state.trace if t.stage == "validate"]
+    assert len(validate_entries) == 2
+    assert [t.output.get("kind") for t in validate_entries] == [None, "summary"]
+
+
+def test_build_answer_rejects_out_of_range_option_index():
+    from app.core.state import Question, QuestionOption
+    from app.harness.evals import ScenarioAnswer, build_answer
+
+    question = Question(field="customer", text="q", options=[QuestionOption(id="o1", label="a")])
+    with pytest.raises(ValueError, match="customer.*5"):
+        build_answer(question, ScenarioAnswer(answer_type=AnswerType.OPTION, option_indexes=[5]))
+
+
+def test_scenario_mode_and_expect_status_are_honored(harness):
+    from app.core.state import CoachingMode
+    from app.harness.evals import Scenario
+
+    scenario = Scenario(
+        name="빠른 모드", raw_input="향초", mode=CoachingMode.QUICK, expect_status=SessionStatus.COMPLETED
+    )
+    state = run_scenario(harness, scenario)
+    assert state.mode is CoachingMode.QUICK
+    assert state.status is scenario.expect_status
