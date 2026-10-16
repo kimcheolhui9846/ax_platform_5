@@ -1,0 +1,85 @@
+task_type: product_planning
+title: 상품기획
+description: 고객 문제를 해결하는 상품과 MVP를 정의합니다.
+input_placeholder: 예) 집들이 선물용 수제 향초
+input_examples:
+  - 집들이 선물용 수제 향초
+  - 반려견 이름을 새긴 가죽 목걸이
+raw_input_field: product_idea
+readiness_threshold: 0.7
+question_caps: { quick: 3, standard: 5, precise: 10 }
+max_easier_level: 4
+fields:
+  - name: product_idea
+    label: 상품 아이디어
+    kind: must_confirm
+    weight: 3
+    question: 어떤 상품을 만들고 싶으신가요?
+    easier_questions:
+      - question: 지금 만들고 있거나 만들 수 있는 물건을 하나만 말해 주세요.
+      - question: 아래 중 가장 가까운 걸 골라 주세요.
+        options: [향초·디퓨저, 액세서리, 문구·굿즈, 의류·패브릭]
+  - name: user
+    label: 사용자
+    kind: must_confirm
+    weight: 3
+    question: 이 상품을 주로 쓰는 사람은 누구인가요?
+    options: [20~30대 1인 가구, 선물을 사는 사람, 아이를 키우는 부모, 반려동물 보호자]
+    easier_questions:
+      - question: 이 상품을 받으면 가장 좋아할 사람 한 명을 떠올려 보세요. 어떤 사람인가요?
+      - question: 둘 중 더 가까운 쪽을 골라 주세요.
+        options: [본인이 직접 쓰는 사람, 남에게 선물하는 사람]
+  - name: usage_context
+    label: 사용 상황
+    kind: ai_suggest
+    weight: 1
+    question: 언제, 어디서 이 상품을 쓰나요?
+    options: [집에서 쉴 때, 선물할 때, 출퇴근·이동 중, 특별한 날]
+    easier_questions:
+      - question: 이 상품이 가장 필요해지는 순간은 언제인가요?
+  - name: customer_problem
+    label: 고객 문제
+    kind: must_confirm
+    weight: 3
+    question: 사용자가 지금 겪는 불편은 무엇인가요?
+    easier_questions:
+      - question: 이 상품이 없을 때 사용자는 무엇이 아쉬울까요?
+      - question: 아래 중 가장 가까운 불편을 골라 주세요.
+        options: [마음에 드는 디자인이 없다, 품질을 믿기 어렵다, 가격이 부담된다, 고르기가 어렵다]
+  - name: core_value
+    label: 핵심 가치
+    kind: must_confirm
+    weight: 2
+    question: 이 상품이 다른 상품보다 나은 점 하나는 무엇인가요?
+    easier_questions:
+      - question: 친구에게 이 상품을 추천한다면 뭐라고 말하겠어요?
+  - name: mvp
+    label: MVP 구성
+    kind: ai_suggest
+    weight: 2
+    question: 처음 판매할 때 꼭 들어가야 하는 구성은 무엇인가요?
+    options: [단일 상품 1종, 용량·색상 2~3종, 선물 포장 포함, 맞춤 각인]
+    multi_select: true
+    easier_questions:
+      - question: 딱 하나만 먼저 판다면 어떤 걸 팔겠어요?
+  - name: production_constraints
+    label: 제작 제약
+    kind: ai_suggest
+    weight: 1
+    question: 제작할 때 제약이 있나요?
+    options: [혼자 손으로 만든다, 하루 생산량이 적다, 재료비가 비싸다, 외주 제작이 필요하다]
+    multi_select: true
+    easier_questions:
+      - question: 일주일에 몇 개까지 만들 수 있나요?
+  - name: price_direction
+    label: 가격 방향
+    kind: ai_suggest
+    weight: 1
+    question: 어느 정도 가격대를 생각하나요?
+    options: [1만원 이하, 1~3만원, 3~5만원, 5만원 이상]
+    easier_questions:
+      - question: 비슷한 상품을 산다면 얼마까지 내겠어요?
+rules:
+  - 고객 문제와 무관한 기능 확대를 제안하지 않는다
+  - 제작 조건을 무시한 제안을 하지 않는다
+  - MVP를 지나치게 크게 잡지 않는다

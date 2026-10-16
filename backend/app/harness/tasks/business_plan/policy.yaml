@@ -1,0 +1,82 @@
+task_type: business_plan
+title: 사업계획
+description: 사업 가설과 실행 구조를 정리합니다.
+input_placeholder: 예) 직접 만든 향초를 온라인으로 팔고 싶어요
+input_examples:
+  - 직접 만든 향초를 온라인으로 팔고 싶어요
+  - 동네 반려견 산책 대행을 시작하려고 해요
+raw_input_field: business_idea
+readiness_threshold: 0.7
+question_caps: { quick: 3, standard: 5, precise: 10 }
+max_easier_level: 4
+fields:
+  - name: business_idea
+    label: 사업 아이디어
+    kind: must_confirm
+    weight: 3
+    question: 어떤 사업을 하고 싶으신가요?
+    easier_questions:
+      - question: 팔고 싶은 물건이나 서비스를 하나만 말해 주세요.
+  - name: customer_problem
+    label: 고객 문제
+    kind: must_confirm
+    weight: 3
+    question: 고객이 지금 겪고 있는 불편이나 문제는 무엇인가요?
+    easier_questions:
+      - question: 이 사업이 없으면 고객은 어떤 점이 아쉬울까요?
+      - question: 아래 중 가장 가까운 불편을 골라 주세요.
+        options: [시간이 오래 걸린다, 비용이 비싸다, 마음에 드는 선택지가 없다, 방법을 잘 모른다]
+  - name: target_customer
+    label: 목표 고객
+    kind: must_confirm
+    weight: 3
+    question: 가장 먼저 팔고 싶은 고객은 누구인가요?
+    options: [20~30대 직장인, 자녀를 둔 부모, 대학생, 소상공인]
+    easier_questions:
+      - question: 이 사업을 가장 반가워할 주변 사람 한 명을 떠올려 보세요. 어떤 사람인가요?
+      - question: 둘 중 더 가까운 쪽을 골라 주세요.
+        options: [개인 고객, 가게·회사 같은 사업자]
+  - name: current_alternatives
+    label: 현재 대안
+    kind: ai_suggest
+    weight: 1
+    question: 고객은 지금 이 문제를 어떻게 해결하고 있나요?
+    options: [비슷한 제품을 사서 쓴다, 직접 해결한다, 그냥 참는다]
+    easier_questions:
+      - question: 이 사업이 없다면 고객은 대신 무엇을 살까요?
+  - name: solution
+    label: 해결 방식
+    kind: must_confirm
+    weight: 2
+    question: 이 문제를 어떤 방식으로 해결하나요?
+    easier_questions:
+      - question: 다른 곳과 비교해 이 사업만 다르게 하는 점 하나를 말해 주세요.
+  - name: revenue_model
+    label: 수익모델
+    kind: ai_suggest
+    weight: 2
+    question: 어떻게 돈을 벌 계획인가요?
+    options: [제품 판매, 구독, 수수료, 광고]
+    easier_questions:
+      - question: 고객이 돈을 내는 순간은 언제인가요?
+  - name: resources
+    label: 보유 자원·제약
+    kind: ai_suggest
+    weight: 1
+    question: 지금 가진 자원(시간, 돈, 기술, 사람)과 제약은 무엇인가요?
+    options: [혼자 운영, 초기 자금 적음, 제작 기술 보유, 주말에만 가능]
+    multi_select: true
+    easier_questions:
+      - question: 일주일에 이 사업에 쓸 수 있는 시간은 얼마인가요?
+  - name: validation_method
+    label: 검증 방법
+    kind: ai_suggest
+    weight: 1
+    question: 이 사업이 될지 먼저 확인해 볼 방법이 있나요?
+    options: [지인에게 먼저 팔아보기, SNS로 반응 보기, 플리마켓 참가]
+    easier_questions:
+      - question: 처음 10명의 고객을 어디서 만날 수 있을까요?
+rules:
+  - 근거 없는 시장 규모를 사실처럼 제시하지 않는다
+  - 임의의 매출 전망을 만들지 않는다
+  - 확인하지 않은 경쟁사를 사실처럼 제시하지 않는다

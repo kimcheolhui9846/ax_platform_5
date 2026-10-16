@@ -1,0 +1,11 @@
+name: 1인 가구 향초 브랜딩 기본 흐름
+raw_input: 30대 1인 가구를 위한 수제 향초
+answers:
+  customer_value:
+    - answer_type: dont_know
+    - answer_type: dont_know
+    - answer_type: option
+      option_indexes: [0]
+  differentiation:
+    - answer_type: dont_know
+    - value: 퇴근 시간대별로 향을 추천한다

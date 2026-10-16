@@ -1,0 +1,12 @@
+name: 겨울 한정 향초 홍보 기본 흐름
+raw_input: 새로 나온 겨울 한정 향초를 알리고 싶어요
+answers:
+  target_customer:
+    - answer_type: option
+      option_indexes: [2]
+  content_goal:
+    - answer_type: option
+      option_indexes: [3]
+  channel:
+    - answer_type: dont_know
+    - value: 인스타그램 릴스

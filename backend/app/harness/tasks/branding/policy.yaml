@@ -1,0 +1,80 @@
+task_type: branding
+title: 브랜딩
+description: 차별화된 정체성과 표현 체계를 세웁니다.
+input_placeholder: 예) 30대 1인 가구를 위한 수제 향초
+input_examples:
+  - 30대 1인 가구를 위한 수제 향초
+  - 반려견 보호자를 위한 가죽 소품
+raw_input_field: product_and_customer
+readiness_threshold: 0.7
+question_caps: { quick: 3, standard: 5, precise: 10 }
+max_easier_level: 4
+fields:
+  - name: product_and_customer
+    label: 상품과 고객
+    kind: must_confirm
+    weight: 3
+    question: 어떤 상품을 누구에게 파나요?
+    easier_questions:
+      - question: 상품 이름과 그걸 살 사람을 한 줄로 말해 주세요.
+  - name: customer_value
+    label: 고객이 느낄 가치
+    kind: must_confirm
+    weight: 3
+    question: 고객이 이 상품을 쓰고 어떤 기분이 들면 좋겠나요?
+    easier_questions:
+      - question: 고객이 후기에 써 줬으면 하는 한 문장은 무엇인가요?
+      - question: 아래 중 가장 가까운 걸 골라 주세요.
+        options: [편안하다, 특별하다, 믿을 수 있다, 재미있다]
+  - name: differentiation
+    label: 차별점
+    kind: must_confirm
+    weight: 3
+    question: 비슷한 브랜드와 다른 점은 무엇인가요?
+    easier_questions:
+      - question: 다른 가게 대신 여기서 사야 하는 이유 하나를 말해 주세요.
+  - name: desired_impression
+    label: 원하는 인상
+    kind: ai_suggest
+    weight: 2
+    question: 브랜드가 어떤 인상으로 보이면 좋겠나요?
+    options: [따뜻한, 세련된, 자연스러운, 유쾌한, 고급스러운]
+    multi_select: true
+    easier_questions:
+      - question: 이 브랜드를 사람으로 치면 어떤 사람일까요?
+  - name: avoided_impression
+    label: 피할 인상
+    kind: ai_suggest
+    weight: 1
+    question: 피하고 싶은 인상이 있나요?
+    options: [유치한, 차가운, 흔한, 비싸 보이는]
+    multi_select: true
+    easier_questions:
+      - question: 이런 느낌만은 싫다 하는 브랜드가 있나요?
+  - name: brand_personality
+    label: 브랜드 성격
+    kind: ai_suggest
+    weight: 1
+    question: 브랜드 성격에 가장 가까운 것은 무엇인가요?
+    options: [다정한 친구, 믿음직한 전문가, 감각적인 예술가, 활발한 이웃]
+    easier_questions:
+      - question: 브랜드가 고객에게 말을 건다면 어떤 말투일까요?
+  - name: tone_and_manner
+    label: 톤앤매너
+    kind: ai_suggest
+    weight: 1
+    question: 글과 이미지의 톤은 어떤 쪽이 좋을까요?
+    options: [부드럽고 차분하게, 짧고 감각적으로, 친근하고 수다스럽게, 정돈되고 신뢰감 있게]
+    easier_questions:
+      - question: 좋아하는 브랜드의 SNS 말투를 하나 떠올려 보세요.
+  - name: naming_slogan
+    label: 네이밍·슬로건 방향
+    kind: ai_suggest
+    weight: 1
+    question: 이름과 슬로건 중 무엇이 필요하나요?
+    options: [이름부터 정하고 싶다, 슬로건부터 정하고 싶다, 둘 다 필요하다, 이미 이름이 있다]
+    easier_questions:
+      - question: 지금 가장 고민되는 건 이름인가요, 소개 문구인가요?
+rules:
+  - 흔한 감성 키워드를 나열하지 않는다
+  - 상표·도메인 검토 없이 이름 사용을 확정적으로 권고하지 않는다
