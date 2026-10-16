@@ -17,7 +17,7 @@
 | 프론트 타입 재생성 | `npm --prefix frontend run gen:api` |
 | 프론트 개발 서버 | `npm --prefix frontend run dev` → http://localhost:5173 (`/api`는 8000으로 프록시) |
 | 프론트 빌드·타입 검사 | `npm --prefix frontend run build` |
-| 화면 미리보기 갤러리 | `npm --prefix frontend run dev` → http://localhost:5173/preview.html (백엔드 없이 모든 화면 상태) |
+| 화면 미리보기 갤러리 | `npm --prefix frontend run dev` → http://localhost:5173/preview (백엔드 없이 모든 화면 상태) |
 
 Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행을 막으면 `uv run --directory backend python -m uvicorn app.main:app --port 8000`을 쓴다.
 

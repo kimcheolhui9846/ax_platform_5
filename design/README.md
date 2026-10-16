@@ -13,7 +13,7 @@
 ## 개발 화면을 피그마로 가져가기 (html.to.design)
 
 1. 미리보기 주소를 연다. 버셀 정식 주소의 `/preview`를 쓰고, PR이면 그 PR의 미리보기 주소에 `/preview`를 붙인다.
-   - 로컬에서는 `npm --prefix frontend run dev`를 켜고 `http://localhost:5173/preview.html`을 연다.
+   - 로컬에서는 `npm --prefix frontend run dev`를 켜고 `http://localhost:5173/preview`을 연다.
 2. 피그마에서 html.to.design 플러그인으로 그 주소를 가져온다.
    - 로컬 주소는 플러그인의 Chrome 확장으로 현재 페이지를 가져온다.
    - 프레임마다 `data-screen` 이름표(예: `question-desktop`)가 붙어 있다.
