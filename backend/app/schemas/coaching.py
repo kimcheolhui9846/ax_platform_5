@@ -111,6 +111,7 @@ class SessionView(ContractModel):
     summary: list[SummaryItem]
     unknowns: list[UnknownItem]
     can_generate: bool
+    has_result: bool  # 이전에 만든 결과가 있어 GET /result로 다시 볼 수 있다
     result_stale: bool
     error: str | None
 

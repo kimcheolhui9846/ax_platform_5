@@ -135,6 +135,16 @@ def generate(session_id: str, registry: Registry, store: Store, locks: Locks) ->
     return to_result_view(state, harness.policy.labels)
 
 
+@router.post(
+    "/sessions/{session_id}/continue", response_model=SessionView, responses=error_responses(404, 502)
+)
+def continue_session(session_id: str, registry: Registry, store: Store, locks: Locks) -> SessionView:
+    """결과를 만든 뒤 질문을 이어 간다. 남은 질문이 없으면 세션은 그대로다."""
+    with _session_update(locks, registry, store, session_id) as (state, harness):
+        harness.resume(state)
+    return to_session_view(state, harness)
+
+
 @router.get("/sessions/{session_id}/result", response_model=ResultView, responses=error_responses(404))
 def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)

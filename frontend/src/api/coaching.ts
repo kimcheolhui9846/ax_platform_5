@@ -63,6 +63,13 @@ export function reviseAnswer(
   });
 }
 
+/** 결과를 만든 뒤 질문을 이어 간다. 남은 질문이 있으면 next_question에 걸려 돌아온다. */
+export function continueSession(sessionId: string): Promise<ApiResult<SessionView>> {
+  return api.POST(`${BASE}/sessions/{session_id}/continue`, {
+    params: { path: { session_id: sessionId } },
+  });
+}
+
 export function generateResult(sessionId: string): Promise<ApiResult<ResultView>> {
   return api.POST(`${BASE}/sessions/{session_id}/generate`, {
     params: { path: { session_id: sessionId } },

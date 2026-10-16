@@ -26,6 +26,7 @@ function session(overrides: Partial<SessionView> = {}): SessionView {
     summary: [],
     unknowns: [],
     can_generate: true,
+    has_result: false,
     result_stale: false,
     error: null,
     ...overrides,
@@ -56,6 +57,16 @@ describe("screenOf", () => {
   it("질문이 없고 결과가 최신이 아니면 수정", () => {
     const s = session({ status: "revising", next_question: null, result_stale: true });
     expect(screenOf(task, s, null)).toEqual({ kind: "revising", session: s });
+  });
+
+  it("결과가 최신이고 더 물을 것이 없으면 완료된 세션", () => {
+    const s = session({ status: "completed", next_question: null, has_result: true });
+    expect(screenOf(task, s, null)).toEqual({ kind: "completed", session: s });
+  });
+
+  it("결과를 만든 뒤 이어 간 질문은 정보 부족", () => {
+    const s = session({ status: "clarifying", has_result: true });
+    expect(screenOf(task, s, null)).toEqual({ kind: "clarifying", session: s, question });
   });
 
   it("생성 중 상태는 생성 중", () => {

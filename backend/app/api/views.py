@@ -115,6 +115,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         summary=build_summary(harness.policy.fields, state.facts, state.assumptions),
         unknowns=label_unknowns(state.unknowns, harness.policy.labels),
         can_generate=state.status is not SessionStatus.GENERATING,
+        has_result=state.result is not None,
         result_stale=state.result_stale,
         error=session_error(state.status),
     )

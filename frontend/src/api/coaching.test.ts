@@ -5,6 +5,7 @@ vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn() 
 import { api } from "./client";
 import type { ApiResult } from "./coaching";
 import {
+  continueSession,
   createSession,
   generateResult,
   getResult,
@@ -56,6 +57,14 @@ describe("coaching API 래퍼", () => {
       params: { path: { session_id: "sess_1", question_id: "q_1" } },
       body: { answer_type: "free_text", value: "부모" },
     });
+  });
+
+  it("결과 뒤 질문 이어 가기", async () => {
+    await continueSession("sess_1");
+    expect(api.POST).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/continue`, {
+      params: { path: { session_id: "sess_1" } },
+    });
+    expectTypeOf(continueSession).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
   });
 
   it("결과 만들기·조회", async () => {

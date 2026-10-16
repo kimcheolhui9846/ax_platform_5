@@ -57,7 +57,7 @@ def test_different_sessions_do_not_block_each_other():
         t.join(timeout=5)
 
 
-@pytest.mark.parametrize("route", ["answer", "revise", "generate"])
+@pytest.mark.parametrize("route", ["answer", "revise", "generate", "continue"])
 def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, route):
     app = create_app(provider=MockProvider(), debug=True)
     client = TestClient(app)
@@ -69,7 +69,7 @@ def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, 
     if route == "revise":
         client.post(f"{BASE}/sessions/{sid}/answers", json={"question_id": qid, "answer_type": "option", "option_ids": ["o1"]})
 
-    method = {"answer": "apply_answer", "revise": "revise_answer", "generate": "generate"}[route]
+    method = {"answer": "apply_answer", "revise": "revise_answer", "generate": "generate", "continue": "resume"}[route]
     original = getattr(harness, method)
 
     def spy(*args, **kwargs):
@@ -81,6 +81,8 @@ def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, 
         response = client.post(f"{BASE}/sessions/{sid}/answers", json={"question_id": qid, "answer_type": "skip"})
     elif route == "revise":
         response = client.patch(f"{BASE}/sessions/{sid}/answers/{qid}", json={"answer_type": "free_text", "value": "부모"})
+    elif route == "continue":
+        response = client.post(f"{BASE}/sessions/{sid}/continue")
     else:
         response = client.post(f"{BASE}/sessions/{sid}/generate")
 

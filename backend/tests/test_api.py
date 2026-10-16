@@ -307,3 +307,45 @@ def test_harness_error_in_generate_is_422(client, monkeypatch):
     response = client.post(f"{BASE}/sessions/{sid}/generate")
     assert response.status_code == 422
     assert response.json() == {"detail": "결과를 만들 수 없는 입력입니다."}
+
+
+def test_continue_after_early_result_returns_next_question(client):
+    view = create_session(client)
+    sid = view["session_id"]
+    assert view["has_result"] is False
+    result = client.post(f"{BASE}/sessions/{sid}/generate").json()
+
+    view = client.post(f"{BASE}/sessions/{sid}/continue").json()
+    assert view["status"] == "clarifying"
+    assert view["next_question"]["field"] == "user"
+    assert (view["has_result"], view["result_stale"]) == (True, False)
+    assert client.get(f"{BASE}/sessions/{sid}/result").json()["result"] == result["result"]
+
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "option", "option_ids": ["o1"]},
+    ).json()
+    assert view["result_stale"] is True
+
+
+def test_continue_when_nothing_is_left_keeps_session(client):
+    sid = create_session(client)["session_id"]
+    for _ in range(10):
+        view = client.get(f"{BASE}/sessions/{sid}").json()
+        if view["next_question"] is None:
+            break
+        client.post(
+            f"{BASE}/sessions/{sid}/answers",
+            json={"question_id": view["next_question"]["question_id"], "answer_type": "free_text", "value": "답"},
+        )
+    client.post(f"{BASE}/sessions/{sid}/generate")
+    before = client.get(f"{BASE}/sessions/{sid}").json()
+    assert before["status"] == "completed"
+
+    after = client.post(f"{BASE}/sessions/{sid}/continue")
+    assert after.status_code == 200
+    assert after.json() == before
+
+
+def test_continue_unknown_session_is_404(client):
+    assert client.post(f"{BASE}/sessions/sess_없음/continue").status_code == 404

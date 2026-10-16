@@ -2,8 +2,9 @@ import type { Question, ResultView, SessionView, TaskSummary } from "../api/type
 
 /**
  * 지금 보여 줄 화면. 설계서 9.3의 여섯 상태와 맞춘다.
- * 초기 = pick_task·idea, 정보 부족 = clarifying, 생성 중 = generating, 완료 = result, 실패 = failed, 수정 = revising.
+ * 초기 = pick_task·idea, 정보 부족 = clarifying, 생성 중 = generating, 완료 = result·completed, 실패 = failed, 수정 = revising.
  * ready는 정보가 모여 결과를 만들기만 하면 되는 상태(초기와 생성 중 사이)다.
+ * completed는 결과가 지금 답과 맞고 더 물을 것도 없는 세션 화면이다(결과 보기로 돌아갈 수 있다).
  */
 export type Screen =
   | { kind: "pick_task" }
@@ -11,6 +12,7 @@ export type Screen =
   | { kind: "clarifying"; session: SessionView; question: Question }
   | { kind: "ready"; session: SessionView }
   | { kind: "revising"; session: SessionView }
+  | { kind: "completed"; session: SessionView }
   | { kind: "generating"; session: SessionView }
   | { kind: "failed"; session: SessionView; question: Question | null }
   | { kind: "result"; result: ResultView };
@@ -27,8 +29,9 @@ export function screenOf(
   if (session.status === "failed") return { kind: "failed", session, question: session.next_question };
   if (session.next_question) return { kind: "clarifying", session, question: session.next_question };
   if (session.result_stale) return { kind: "revising", session };
+  if (session.status === "completed") return { kind: "completed", session };
   return { kind: "ready", session };
 }
 
-/** 결과가 지금 답과 맞지 않을 때(답을 고쳤거나 재생성이 실패했을 때) 보여 줄 안내. */
+/** 결과가 지금 답과 맞지 않을 때(결과를 만든 뒤 답을 고치거나 더 답했을 때) 보여 줄 안내. */
 export const STALE_HINT = "결과가 최신이 아님 — 바뀐 답을 반영하려면 결과를 다시 만들어 주세요.";

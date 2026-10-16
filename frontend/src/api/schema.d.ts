@@ -123,6 +123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Continue Session
+         * @description 결과를 만든 뒤 질문을 이어 간다. 남은 질문이 없으면 세션은 그대로다.
+         */
+        post: operations["continue_session_api_v1_coaching_sessions__session_id__continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/result": {
         parameters: {
             query?: never;
@@ -394,6 +414,8 @@ export interface components {
             unknowns: components["schemas"]["UnknownItem"][];
             /** Can Generate */
             can_generate: boolean;
+            /** Has Result */
+            has_result: boolean;
             /** Result Stale */
             result_stale: boolean;
             /** Error */
@@ -842,6 +864,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    continue_session_api_v1_coaching_sessions__session_id__continue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */

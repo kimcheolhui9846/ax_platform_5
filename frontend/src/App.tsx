@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 
 import { toOutcome } from "./api/client";
 import type { ApiResult } from "./api/client";
-import { createSession, generateResult, getSession, listTasks, submitAnswer } from "./api/coaching";
+import {
+  continueSession,
+  createSession,
+  generateResult,
+  getResult,
+  getSession,
+  listTasks,
+  submitAnswer,
+} from "./api/coaching";
 import type { AnswerBody, ResultView, SessionView, TaskSummary } from "./api/types";
 import { IdeaForm } from "./components/IdeaForm";
 import { QuestionCard } from "./components/QuestionCard";
@@ -73,16 +81,23 @@ export default function App() {
     void run(() => generateResult(session_id), setResult, () => void refreshSession(session_id));
   }
 
+  /** 결과에서 질문으로 돌아간다. 남은 질문이 있으면 서버가 다음 질문을 걸어 돌려준다. */
   function backToQuestions() {
     if (!result) return;
     const { session_id } = result;
     void run(
-      () => getSession(session_id),
+      () => continueSession(session_id),
       (fresh) => {
         setSession(fresh);
         setResult(null);
       },
     );
+  }
+
+  function showResult() {
+    if (!session) return;
+    const { session_id } = session;
+    void run(() => getResult(session_id), setResult);
   }
 
   function reset() {
@@ -127,15 +142,24 @@ export default function App() {
             <QuestionCard key={question.question_id} question={question} busy={busy} onAnswer={answer} />
           ) : screen.kind === "generating" ? (
             <p className="card">결과를 만드는 중이에요…</p>
+          ) : screen.kind === "completed" ? (
+            <p className="card">더 물어볼 것이 없어요. 결과는 지금 답과 맞아요.</p>
           ) : (
             <p className="card">필요한 정보가 모였어요. 결과를 만들어 볼까요?</p>
           )}
 
           <SummaryList items={screen.session.summary} />
 
-          <button type="button" className="primary" disabled={busy || !screen.session.can_generate} onClick={generate}>
-            {busy ? "처리 중…" : screen.session.result_stale ? "결과 다시 만들기" : "이대로 결과 만들기"}
-          </button>
+          {screen.session.has_result && (
+            <button type="button" className="ghost" disabled={busy} onClick={showResult}>
+              결과 보기
+            </button>
+          )}
+          {screen.kind !== "completed" && (
+            <button type="button" className="primary" disabled={busy || !screen.session.can_generate} onClick={generate}>
+              {busy ? "처리 중…" : screen.session.result_stale ? "결과 다시 만들기" : "이대로 결과 만들기"}
+            </button>
+          )}
         </>
       )}
     </main>

@@ -401,3 +401,44 @@ def test_other_generate_errors_become_generation_failed_with_cause(provider):
         harness.generate(state)
     assert isinstance(caught.value.__cause__, RuntimeError)
     assert "secret internal detail" in state.trace[-1].output["error"]
+
+
+# ── 이른 결과 뒤 질문 이어 가기(resume) ─────────────────────
+
+
+def test_resume_after_early_result_poses_next_question_and_keeps_result(harness, reply):
+    state = harness.start("향초")
+    harness.generate(state)  # 질문을 다 하기 전에 결과를 만든다
+    result = state.result
+    assert state.pending_question is None
+
+    harness.resume(state)
+
+    assert state.status is SessionStatus.CLARIFYING
+    assert state.pending_question.field == "customer"
+    assert state.asked_questions[-1].question == state.pending_question
+    assert state.result == result
+    assert state.result_stale is False
+
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    assert state.result_stale is True
+
+
+def test_resume_when_nothing_is_left_keeps_session_unchanged(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    reply(harness, state, AnswerType.FREE_TEXT, value="선물 고르기가 어렵다")
+    harness.generate(state)
+    assert state.status is SessionStatus.COMPLETED
+    before = state.model_dump()
+
+    harness.resume(state)
+
+    assert state.model_dump() == before
+
+
+def test_resume_with_pending_question_keeps_it(harness):
+    state = harness.start("향초")
+    before = state.model_dump()
+    harness.resume(state)
+    assert state.model_dump() == before
