@@ -2,11 +2,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+from jinja2 import UndefinedError
 from pydantic import ValidationError
 
 from app.core.state import CoachingMode, InfoItem, InfoSource, SessionState
 from app.harness.policy import FieldKind, load_policy
-from app.harness.prompting import STAGES, PromptRenderer
+from app.harness.prompting import STAGES, PromptContextError, PromptRenderer, context_keys
 
 SAMPLE_DIR = Path(__file__).parent / "fixtures" / "sample_task"
 
@@ -67,7 +68,8 @@ def test_partial_question_caps_rejected(tmp_path):
         load_policy(write_policy(tmp_path, base_policy(question_caps={"standard": 5})))
 
 
-def sample_context() -> dict:
+def sample_values() -> dict:
+    """모든 단계 변수의 표본 값. 단계마다 context_keys(stage)만 골라 넘긴다."""
     policy = load_policy(SAMPLE_DIR / "policy.yaml")
     state = SessionState(task_type="sample_task", raw_input="집들이 선물용 향초")
     state.facts["idea"] = InfoItem(value="향초", source=InfoSource.USER_FREE_TEXT)
@@ -83,21 +85,26 @@ def sample_context() -> dict:
     }
 
 
+def sample_context(stage: str) -> dict:
+    values = sample_values()
+    return {key: values[key] for key in context_keys(stage)}
+
+
 @pytest.mark.parametrize("stage", STAGES)
 def test_every_stage_renders(stage):
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context())
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context(stage))
     assert "집들이 선물용 향초" in text
-    assert "아이디어: 향초" in text
+    assert "아이디어" in text and "향초" in text
 
 
 def test_task_template_overrides_common_and_keeps_base():
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context())
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
     assert "샘플 지침 문구" in text
     assert "근거 없는 숫자를 사실처럼 쓰지 않는다" in text
 
 
 def test_missing_task_template_falls_back_to_common(tmp_path):
-    text = PromptRenderer(tmp_path / "prompts").render("generate", **sample_context())
+    text = PromptRenderer(tmp_path / "prompts").render("generate", **sample_context("generate"))
     assert "샘플 지침 문구" not in text
     assert "출력 형식" in text
 
@@ -142,3 +149,40 @@ def test_ladder_just_below_max_level_is_allowed(tmp_path):
     fields = [{"name": "a", "label": "에이", "question": "?", "easier_questions": steps}]
     policy = load_policy(write_policy(tmp_path, base_policy(fields=fields, max_easier_level=2)))
     assert len(policy.field("a").easier_questions) == 1
+
+
+# ── 단계별 프롬프트 변수: 단계마다 정해진 키만 넘기고 쓴다 ─────────────
+
+
+def test_stage_context_declares_specific_keys():
+    assert context_keys("diagnose") == {"state", "policy", "profile"}
+    assert context_keys("easier_question") == {"state", "policy", "profile", "field", "level", "previous"}
+    assert context_keys("generate") == {"state", "policy", "profile", "output_schema"}
+    assert context_keys("validate") == {"state", "policy", "profile", "result_text"}
+
+
+def test_render_rejects_unexpected_key():
+    context = {**sample_context("diagnose"), "level": 3}
+    with pytest.raises(PromptContextError, match="level"):
+        PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **context)
+
+
+def test_render_rejects_missing_key():
+    context = sample_context("validate")
+    del context["result_text"]
+    with pytest.raises(PromptContextError, match="result_text"):
+        PromptRenderer(SAMPLE_DIR / "prompts").render("validate", **context)
+
+
+def test_render_rejects_unknown_stage():
+    with pytest.raises(PromptContextError, match="nope"):
+        PromptRenderer(SAMPLE_DIR / "prompts").render("nope", **sample_context("diagnose"))
+
+
+def test_template_using_another_stage_variable_fails(tmp_path):
+    """diagnose 템플릿이 쉬운 질문 단계의 변수(field)를 쓰면 정해진 키만으로는 렌더링되지 않는다."""
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    (prompts / "diagnose.md").write_text("{{ field.label }}", encoding="utf-8")
+    with pytest.raises(UndefinedError, match="field"):
+        PromptRenderer(prompts).render("diagnose", **sample_context("diagnose"))

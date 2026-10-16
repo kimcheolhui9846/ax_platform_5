@@ -5,7 +5,7 @@ from app.core.state import SessionState
 from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
 from app.harness.policy import FieldKind
-from app.harness.prompting import STAGES
+from app.harness.prompting import STAGES, context_keys
 from app.harness.registry import TASK_TYPES, TASKS_DIR, HarnessRegistry, build_harness
 from app.harness.tasks.business_plan.validators import check_unsupported_market_claims
 from app.harness.tasks.branding.validators import check_naming_not_definitive
@@ -40,19 +40,20 @@ def test_policy_is_complete(registry, task_type):
 @pytest.mark.parametrize("task_type", TASK_TYPES)
 @pytest.mark.parametrize("stage", STAGES)
 def test_every_stage_template_renders(registry, task_type, stage):
+    """단계마다 STAGE_CONTEXT에 선언된 키만 넘긴다. 다른 단계 변수를 쓰는 템플릿은 여기서 실패한다."""
     harness = registry.get(task_type)
     state = harness.start("테스트 입력")
-    text = harness.prompts.render(
-        stage,
-        state=state,
-        policy=harness.policy,
-        profile=state.profile,
-        field=harness.policy.fields[0],
-        level=3,
-        previous=[],
-        output_schema="{}",
-        result_text="결과",
-    )
+    values = {
+        "state": state,
+        "policy": harness.policy,
+        "profile": state.profile,
+        "field": harness.policy.fields[0],
+        "level": 3,
+        "previous": [],
+        "output_schema": "{}",
+        "result_text": "결과",
+    }
+    text = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert "테스트 입력" in text
 
 
