@@ -1,0 +1,58 @@
+/* 앱 뼈대: 왼쪽 메뉴 | (헤더 / 본문 + 오른쪽 패널). flex로만 짠다(피그마 오토 레이아웃). */
+/* 배치는 창(@media)이 아니라 뼈대 폭(@container app)으로 바뀐다. 미리보기의 390px 프레임도 그대로 모바일 배치가 된다. */
+.app-viewport { container: app / inline-size; }
+.app-shell { display: flex; min-height: 100vh; }
+
+.rail {
+  position: sticky; top: 0; height: 100vh; width: var(--rail-width); flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+  padding: var(--space-6) var(--space-2);
+  background: var(--color-surface); border-right: var(--line-width) solid var(--color-line);
+}
+.rail-logo { font-size: var(--text-lg); line-height: var(--text-lg-line); font-weight: var(--font-bold); margin-bottom: var(--space-3); }
+.rail-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: var(--rail-item-width); padding: var(--space-2); border: 0; border-radius: var(--radius-lg);
+  background: none; color: var(--color-muted); font-size: var(--text-xs); line-height: var(--text-xs-line);
+}
+.rail-item.is-active { background: var(--color-tint); color: var(--color-ink); }
+.rail-item.is-active svg { color: var(--color-accent); }
+.rail-item:disabled { opacity: 0.45; }
+.rail-help { margin-top: auto; border: 0; background: transparent; color: var(--color-muted); font-size: var(--text-2xs); padding: var(--space-3) 0; }
+
+.app-frame { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-header {
+  min-height: var(--header-height); display: flex; align-items: center; gap: var(--space-6);
+  padding: var(--space-3) var(--space-12) var(--space-3) var(--space-6);
+  background: var(--color-surface); border-radius: 0 0 var(--radius-lg) 0;
+}
+.header-brand { font-size: var(--text-lg); line-height: var(--text-lg-line); font-weight: var(--font-bold); width: var(--header-brand-width); flex-shrink: 0; white-space: nowrap; }
+.header-project { width: var(--header-project-width); flex-shrink: 0; font-weight: var(--font-medium); }
+.header-steps { flex: 1; display: flex; align-items: center; gap: var(--space-3); color: var(--color-muted); white-space: nowrap; }
+.header-step.is-current { font-weight: var(--font-bold); color: var(--color-ink); }
+.app-header .btn { width: var(--header-action-width); }
+
+.app-body { flex: 1; display: flex; align-items: flex-start; gap: var(--space-6); padding: var(--space-10) var(--space-12) var(--space-8); max-width: var(--content-max); }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+.app-side { width: var(--side-width); flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+
+@container app (max-width: 1099px) {
+  .header-steps { display: none; }
+  .app-body { flex-direction: column; align-items: stretch; padding: var(--space-8); }
+  .app-side { width: auto; }
+}
+
+@container app (max-width: 719px) {
+  .app-shell { flex-direction: column-reverse; }
+  .rail {
+    position: sticky; bottom: 0; top: auto; height: auto; width: 100%;
+    flex-direction: row; justify-content: space-around; padding: var(--space-2);
+    border-right: 0; border-top: var(--line-width) solid var(--color-line); z-index: 10;
+  }
+  .rail-logo, .rail-help { display: none; }
+  .app-header { flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+  .header-brand { width: auto; flex: 1; font-size: var(--text-brand-compact); }
+  .header-project { order: 3; width: 100%; font-size: var(--text-xs); }
+  .app-header .btn { width: auto; min-height: var(--control-height-compact); }
+  .app-body { padding: var(--space-6) var(--space-4); }
+}

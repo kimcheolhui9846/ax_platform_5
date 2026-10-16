@@ -2,9 +2,19 @@ import createClient from "openapi-fetch";
 
 import type { paths } from "./schema";
 
-export const api = createClient<paths>({ baseUrl: "/" });
+/** API 주소. 버셀에서 백엔드(렌더)를 따로 둘 때 VITE_API_BASE로 바꾼다. 비어 있으면 같은 출처다. */
+export function apiBaseUrl(env: string | undefined): string {
+  const value = (env ?? "").trim();
+  if (!value) return "/";
+  return `${value.replace(/\/+$/, "")}/`;
+}
+
+export const api = createClient<paths>({ baseUrl: apiBaseUrl(import.meta.env.VITE_API_BASE) });
 
 const FALLBACK_MESSAGE = "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+
+export const BACKEND_UNREACHABLE =
+  "백엔드가 연결되어 있지 않습니다 — 화면 미리보기는 /preview에서 볼 수 있어요.";
 
 /**
  * openapi-fetch 응답 중 화면이 쓰는 부분. 백엔드 오류 본문은 계약상 ErrorBody({detail})지만
@@ -23,8 +33,14 @@ export function errorMessage(error: unknown): string {
   return FALLBACK_MESSAGE;
 }
 
-/** 성공 여부는 응답 상태와 오류 유무로 판단한다(본문이 비어 있는 성공도 성공이다). */
+/** 우리 백엔드는 실패도 언제나 JSON(ErrorBody)으로 답한다. JSON이 아닌 실패는 버셀 404·프록시·게이트웨이가 낸 것이다. */
+function fromBackend(response: Response): boolean {
+  return (response.headers.get("content-type") ?? "").includes("application/json");
+}
+
+/** 성공 여부는 응답 상태와 오류 유무로 판단한다(본문이 비어 있는 성공도 성공이다). JSON이 아닌 실패는 백엔드 미연결로 본다. */
 export function toOutcome<T>({ data, error, response }: ApiResult<T>): Outcome<T> {
   if (response.ok && error === undefined) return { ok: true, data: data as T };
+  if (!fromBackend(response)) return { ok: false, message: BACKEND_UNREACHABLE };
   return { ok: false, message: errorMessage(error) };
 }
