@@ -1,0 +1,87 @@
+import { useEffect, useState } from "react";
+
+import type { AnswerBody, Question } from "../api/types";
+import { questionHint } from "../lib/questionHint";
+
+type Props = {
+  question: Question;
+  busy: boolean;
+  onAnswer: (body: AnswerBody) => void;
+};
+
+export function QuestionCard({ question, busy, onAnswer }: Props) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    setSelected([]);
+    setText("");
+  }, [question.question_id]);
+
+  function toggle(id: string) {
+    if (!question.multi_select) {
+      setSelected([id]);
+      return;
+    }
+    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  }
+
+  const options = question.options ?? [];
+  const hint = questionHint(question);
+
+  return (
+    <section className="card">
+      {hint && <p className="hint">{hint}</p>}
+      <h2>{question.text}</h2>
+      {question.multi_select && <p className="hint">여러 개 고를 수 있어요</p>}
+
+      {options.length > 0 && (
+        <div className="chips">
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className={selected.includes(o.id) ? "chip on" : "chip"}
+              onClick={() => toggle(o.id)}
+            >
+              {o.label}
+              {o.ai_suggested && <span className="badge">AI 제안</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {selected.length > 0 && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onAnswer({ answer_type: "option", option_ids: selected })}
+        >
+          선택 완료
+        </button>
+      )}
+
+      <textarea
+        value={text}
+        placeholder="직접 입력"
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+      />
+      <button
+        type="button"
+        disabled={busy || !text.trim()}
+        onClick={() => onAnswer({ answer_type: "free_text", value: text })}
+      >
+        직접 입력으로 답하기
+      </button>
+
+      <div className="row">
+        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "dont_know" })}>
+          모르겠어요
+        </button>
+        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "skip" })}>
+          건너뛰기
+        </button>
+      </div>
+    </section>
+  );
+}
