@@ -3,6 +3,8 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
@@ -28,13 +30,49 @@ from app.harness.errors import HarnessError
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, ProposedValues
-from app.providers.base import LLMProvider, ProviderError
+from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
 
 M = TypeVar("M", bound=BaseModel)
 
 
 def _options(labels: list[str]) -> list[QuestionOption]:
     return [QuestionOption(id=f"o{i}", label=label) for i, label in enumerate(labels, start=1)]
+
+
+def answer_to_fact(question: Question, answer: Answer) -> tuple[str, InfoSource]:
+    """[코드·순수] 값을 담은 답변(선택·직접 입력)을 (값, 출처)로 바꾼다. 잘못된 입력은 HarnessError."""
+    match answer.answer_type:
+        case AnswerType.OPTION:
+            return _option_value(question, answer.option_ids), InfoSource.USER_SELECTED_AI_OPTION
+        case AnswerType.FREE_TEXT:
+            return _free_text(answer.value), InfoSource.USER_FREE_TEXT
+        case _:
+            raise HarnessError("선택지나 직접 입력으로만 값을 답할 수 있습니다.")
+
+
+def _option_value(question: Question, option_ids: list[str]) -> str:
+    if not option_ids:
+        raise HarnessError("선택한 선택지가 없습니다.")
+    if len(option_ids) > 1 and not question.multi_select:
+        raise HarnessError("이 질문은 하나만 고를 수 있습니다.")
+    labels = {o.id: o.label for o in question.options}
+    unknown = [i for i in option_ids if i not in labels]
+    if unknown:
+        raise HarnessError(f"없는 선택지입니다: {unknown}")
+    return ", ".join(labels[i] for i in option_ids)
+
+
+def _free_text(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        raise HarnessError("직접 입력한 내용이 비어 있습니다.")
+    return text
+
+
+def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | None) -> None:
+    record.answer_type = answer_type
+    record.value = value
+    record.answered_at = utcnow()
 
 
 class BaseHarness:
@@ -184,54 +222,68 @@ class BaseHarness:
 
     # ── 답변 ──────────────────────────────────────────────────
 
+    @contextmanager
+    def _atomic(self, state: SessionState) -> Iterator[None]:
+        """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)만 남긴다."""
+        snapshot = state.model_copy(deep=True)
+        try:
+            yield
+        except Exception:
+            for name in SessionState.model_fields:
+                if name != "trace":
+                    setattr(state, name, getattr(snapshot, name))
+            raise
+
     def apply_answer(self, state: SessionState, answer: Answer) -> None:
         question = state.pending_question
         if question is None or question.question_id != answer.question_id:
             raise HarnessError("지금 답할 수 있는 질문이 아닙니다.")
-        name = question.field
-        value: str | None = None
-
-        match answer.answer_type:
-            case AnswerType.OPTION:
-                value = self._option_value(question, answer.option_ids)
-                self._set_fact(state, name, value, InfoSource.USER_SELECTED_AI_OPTION)
-            case AnswerType.FREE_TEXT:
-                value = self._free_text(answer.value)
-                self._set_fact(state, name, value, InfoSource.USER_FREE_TEXT)
-            case AnswerType.DONT_KNOW:
-                state.dont_know_levels[name] = question.level + 1
-            case AnswerType.SKIP:
-                state.dont_know_levels.pop(name, None)
-                if name not in state.unknowns:
-                    state.unknowns.append(name)
-
-        record = state.asked_questions[-1]
-        record.answer_type = answer.answer_type
-        record.value = value
-        record.answered_at = utcnow()
-        self.advance(state)
+        record = self._asked_record(state, question.question_id)
+        with self._atomic(state):
+            value = self._record_reply(state, question, answer)
+            _mark_answered(record, answer.answer_type, value)
+            self.advance(state)
 
     def revise_answer(self, state: SessionState, answer: Answer) -> None:
         """이전 답변 수정(IV-08). 결과가 이미 있으면 재생성이 필요하다고 표시한다."""
         record = state.find_asked(answer.question_id)
         if record is None or record.answer_type is None:
             raise HarnessError("수정할 수 있는 답변이 아닙니다.")
-        name = record.question.field
+        field = record.question.field
+        value, source = answer_to_fact(record.question, answer)
+        with self._atomic(state):
+            self._set_fact(state, field, value, source)
+            _mark_answered(record, answer.answer_type, value)
+            pending = state.pending_question
+            if pending is not None and pending.field != field:
+                # 다른 필드 질문이 이미 화면에 있다: 그대로 둔다(LLM 재호출·question_id 변경 없음).
+                state.readiness = self.readiness(state)
+            else:
+                self.advance(state)
 
+    def _record_reply(self, state: SessionState, question: Question, answer: Answer) -> str | None:
+        """답변 종류에 맞게 state를 바꾸고, 기록할 값(없으면 None)을 돌려준다."""
+        name = question.field
         match answer.answer_type:
-            case AnswerType.OPTION:
-                value = self._option_value(record.question, answer.option_ids)
-                self._set_fact(state, name, value, InfoSource.USER_SELECTED_AI_OPTION)
-            case AnswerType.FREE_TEXT:
-                value = self._free_text(answer.value)
-                self._set_fact(state, name, value, InfoSource.USER_FREE_TEXT)
+            case AnswerType.DONT_KNOW:
+                state.dont_know_levels[name] = question.level + 1
+                return None
+            case AnswerType.SKIP:
+                state.dont_know_levels.pop(name, None)
+                if name not in state.unknowns:
+                    state.unknowns.append(name)
+                return None
             case _:
-                raise HarnessError("수정은 선택지나 직접 입력으로만 할 수 있습니다.")
+                value, source = answer_to_fact(question, answer)
+                self._set_fact(state, name, value, source)
+                return value
 
-        record.answer_type = answer.answer_type
-        record.value = value
-        record.answered_at = utcnow()
-        self.advance(state)
+    @staticmethod
+    def _asked_record(state: SessionState, question_id: str) -> AskedQuestion:
+        record = state.find_asked(question_id)
+        if record is None:
+            raise HarnessError("질문 기록을 찾을 수 없습니다.")
+        return record
 
     # ── 준비도·종료 ───────────────────────────────────────────
 
@@ -274,6 +326,8 @@ class BaseHarness:
             response = self.provider.complete(
                 task_type=self.task_type, stage=stage, prompt=prompt, response_model=response_model
             )
+            if response.parsed is None:
+                raise ProviderOutputError(f"{stage} 단계 응답에 구조화된 결과가 없습니다.")
         except ProviderError as exc:
             state.trace.append(
                 TraceEntry(
@@ -288,8 +342,8 @@ class BaseHarness:
             TraceEntry(
                 stage=stage,
                 input={"prompt": prompt},
-                output=response.parsed.model_dump(mode="json") if response.parsed else {"text": response.text},
-                provider=response.model,
+                output=response.parsed.model_dump(mode="json"),
+                provider=self.provider.name,
                 usage=response.usage.model_dump(),
             )
         )
@@ -308,25 +362,6 @@ class BaseHarness:
             state.unknowns.remove(name)
         if state.result is not None:
             state.result_stale = True
-
-    @staticmethod
-    def _option_value(question: Question, option_ids: list[str]) -> str:
-        if not option_ids:
-            raise HarnessError("선택한 선택지가 없습니다.")
-        if len(option_ids) > 1 and not question.multi_select:
-            raise HarnessError("이 질문은 하나만 고를 수 있습니다.")
-        labels = {o.id: o.label for o in question.options}
-        unknown = [i for i in option_ids if i not in labels]
-        if unknown:
-            raise HarnessError(f"없는 선택지입니다: {unknown}")
-        return ", ".join(labels[i] for i in option_ids)
-
-    @staticmethod
-    def _free_text(value: str | None) -> str:
-        text = (value or "").strip()
-        if not text:
-            raise HarnessError("직접 입력한 내용이 비어 있습니다.")
-        return text
 
     @staticmethod
     def _asked_texts(state: SessionState, name: str) -> list[str]:
