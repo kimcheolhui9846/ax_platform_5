@@ -1,0 +1,42 @@
+task_type: sample_task
+title: 샘플 과제
+description: 하네스 공통 로직 테스트용 과제
+raw_input_field: idea
+readiness_threshold: 0.8
+question_caps: { quick: 2, standard: 3, precise: 5 }
+max_easier_level: 4
+fields:
+  - name: idea
+    label: 아이디어
+    kind: must_confirm
+    weight: 3
+    question: 어떤 아이디어인가요?
+  - name: customer
+    label: 목표 고객
+    kind: must_confirm
+    weight: 3
+    question: 누구를 위한 건가요?
+    options: [20대 직장인, 부모, 학생]
+    easier_questions:
+      - question: 이걸 가장 먼저 선물하고 싶은 사람은 누구인가요?
+      - question: 둘 중 더 가까운 쪽을 골라 주세요.
+        options: [나 자신, 다른 사람]
+  - name: problem
+    label: 고객 문제
+    kind: must_confirm
+    weight: 2
+    question: 고객이 겪는 불편은 무엇인가요?
+  - name: tone
+    label: 톤
+    kind: ai_suggest
+    weight: 1
+    question: 어떤 느낌이면 좋을까요?
+    options: [따뜻한, 세련된, 유쾌한]
+    multi_select: true
+  - name: length
+    label: 답변 길이
+    kind: default
+    weight: 1
+    default: 중간
+rules:
+  - 근거 없는 숫자를 사실처럼 쓰지 않는다
