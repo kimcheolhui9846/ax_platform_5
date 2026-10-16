@@ -277,7 +277,7 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
     assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
 
 
-def test_failed_regenerate_serves_previous_result_as_stale():
+def test_failed_regenerate_serves_previous_result_unchanged():
     provider = MockProvider()
     client = TestClient(create_app(provider=provider, debug=True))
     sid = create_session(client)["session_id"]
@@ -289,9 +289,9 @@ def test_failed_regenerate_serves_previous_result_as_stale():
 
     kept = client.get(f"{BASE}/sessions/{sid}/result").json()
     assert kept["result"] == first["result"]
-    assert kept["stale"] is True
+    assert kept["stale"] is False
     view = client.get(f"{BASE}/sessions/{sid}").json()
-    assert (view["status"], view["error"], view["result_stale"]) == ("failed", GENERATION_FAILED_MESSAGE, True)
+    assert (view["status"], view["error"], view["result_stale"]) == ("failed", GENERATION_FAILED_MESSAGE, False)
 
 
 def test_harness_error_in_generate_is_422(client, monkeypatch):

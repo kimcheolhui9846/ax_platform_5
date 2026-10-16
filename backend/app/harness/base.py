@@ -439,13 +439,12 @@ class BaseHarness:
     def _fail_generation(state: SessionState, exc: Exception) -> None:
         """[코드] 실패를 trace에 기록하고 FAILED로 표시한다. 내부 사정은 trace에만 남는다.
 
-        이전 결과가 있으면 남기되 최신이 아니라고 표시한다(새로 만들려던 결과가 아니므로).
+        이전 결과는 그대로 남기고 result_stale도 건드리지 않는다. 입력이 그대로면 이전 결과는 여전히
+        지금 입력에 맞는 결과이고, 입력이 바뀌었다면 _set_fact가 이미 true로 해 두었다.
         FAILED는 다음 답변·수정·성공한 생성까지 이어진다.
         """
         if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
             state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
-        if state.result is not None:
-            state.result_stale = True
         state.status = SessionStatus.FAILED
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:

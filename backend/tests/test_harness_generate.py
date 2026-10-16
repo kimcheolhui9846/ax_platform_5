@@ -308,7 +308,8 @@ def test_scenario_mode_and_expect_status_are_honored(harness):
 # ── 실패한 생성의 규칙(#15, #16) ─────────────────────────────
 
 
-def test_failed_regenerate_keeps_previous_result_marked_stale(harness, reply):
+def test_failed_regenerate_keeps_previous_result_and_leaves_stale_flag(harness, reply):
+    """입력이 그대로면 이전 결과는 여전히 지금 입력에 맞는 결과다. 실패한 생성은 result_stale을 건드리지 않는다."""
     state = harness.start("향초")
     harness.generate(state)
     previous = state.result
@@ -318,8 +319,24 @@ def test_failed_regenerate_keeps_previous_result_marked_stale(harness, reply):
         harness.generate(state)
 
     assert state.result == previous
-    assert state.result_stale is True
+    assert state.result_stale is False
     assert state.status is SessionStatus.FAILED
+
+
+def test_failed_regenerate_keeps_stale_flag_already_set(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    harness.generate(state)
+    harness.revise_answer(
+        state,
+        Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.FREE_TEXT, value="부모"),
+    )
+    assert state.result_stale is True
+
+    harness.provider = MockProvider(fail_stages={"generate"})
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.result_stale is True
 
 
 def test_failed_status_lasts_until_next_revise(harness, reply):
