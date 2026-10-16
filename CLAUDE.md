@@ -38,7 +38,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다. `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다.
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.
-- `frontend/src/lib/` — 화면 로직(순수 함수). `screen.ts`의 `screenOf`가 지금 화면(초기·정보 부족·생성 중·완료·실패·수정)을 정하고 App은 그것으로 그린다. `components/`는 표시만 한다.
+- `frontend/src/lib/` — 화면 로직(순수 함수). `screen.ts`의 `screenOf`가 지금 화면(초기·정보 부족·생성 중·완료·실패·수정)을, `sessionActions`가 아래쪽 버튼(최신 결과가 있으면 새 생성 없이 `결과 보기`가 먼저)을 정하고 App은 그것으로 그린다. `components/`는 표시만 한다.
 - `design/` — 디자인 HTML 원본. 고치지 않는다.
 
 ## 과제 하네스를 고칠 때
@@ -71,7 +71,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 필드는 내부 이름(`name`)으로 다룬다. 프롬프트는 `이름 (라벨)`로 보여 주고, 화면용 라벨은 API 뷰가 붙인다.
 - 사용자는 언제든 현재 정보로 결과를 만들 수 있다. 일찍 만들어도 질문은 끝나지 않는다: `POST /sessions/{id}/continue`(`BaseHarness.resume`)가 평소 규칙으로 다음 질문을 걸고, 남은 질문이 없으면 세션을 그대로 둔다. 결과는 그대로 남고 새 답이 생기면 stale이 된다.
 - 답변 처리는 원자적이다. 도중에 실패하면 세션 상태가 바뀌지 않는다. 같은 세션을 바꾸는 요청(답변·수정·생성·이어 가기)은 세션별 잠금으로 한 번에 하나씩 돈다.
-- 값을 정한 답(답변·수정)이 생기면 같은 필드의 이전 기록은 `superseded`로 표시된다. 지금 값의 기준은 언제나 `facts`다.
+- 값을 정한 답(답변·수정)이 생기면 같은 필드의 이전 기록은 `superseded`로 표시된다(trace·디버깅용 이력, 응답에는 아직 싣지 않는다). 지금 값의 기준은 언제나 `facts`다.
 - 다른 필드 질문을 둔 채 이전 답을 고쳤는데 이제 멈출 때가 되면, 걸린 질문이 기본 질문(level 0)일 때만 내리고 질문을 끝낸다. 사다리 질문은 둔다.
 - 생성이 실패하면 질문·입력은 그대로 두고 `FAILED`로 표시한다. 이전 결과는 남기고 `result_stale`은 건드리지 않는다(입력이 그대로면 여전히 맞는 결과다). `FAILED`는 다음 답변·수정·이어 가기(`continue`)·성공한 생성까지 이어진다. 질문 단계의 상태(CLARIFYING·CONFIRMING·REVISING)는 `question_status` 한 곳에서 정해지므로, 질문이 걸린 채 수정하거나 이어 가면 CLARIFYING으로 돌아간다. 생성 중 `HarnessError`(입력·규칙 문제)는 세션을 되돌리고 422로 나간다(이미 성공한 LLM 호출의 trace는 저장된다).
 - 시스템 프롬프트와 정책은 프론트로 내보내지 않는다.
