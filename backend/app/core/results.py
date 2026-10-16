@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 def utcnow() -> datetime:
@@ -60,6 +60,9 @@ class ValidationIssue(BaseModel):
 
 
 class ValidationReport(BaseModel):
+    # passed(computed_field)가 입력·출력 스키마를 갈라놓지 않도록 항상 직렬화 스키마로 낸다.
+    model_config = ConfigDict(json_schema_mode_override="serialization")
+
     issues: list[ValidationIssue] = Field(default_factory=list)
 
     @computed_field

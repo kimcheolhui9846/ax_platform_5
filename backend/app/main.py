@@ -1,5 +1,6 @@
 """FastAPI 앱. 실행: uv run --directory backend fastapi dev app/main.py"""
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api import coaching
@@ -25,6 +26,10 @@ def create_app(
     app.state.store = store or InMemorySessionStore()
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)
+
+    @app.exception_handler(RequestValidationError)
+    async def request_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": "요청 형식이 올바르지 않습니다."})
 
     @app.exception_handler(HarnessError)
     async def harness_error(request: Request, exc: HarnessError) -> JSONResponse:

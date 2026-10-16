@@ -373,10 +373,8 @@ class BaseHarness:
     @staticmethod
     def _fail_generation(state: SessionState, exc: Exception) -> None:
         """[코드] 실패를 기록한다. 사용자에게 보이는 error에는 내부 사정을 싣지 않는다."""
-        if isinstance(exc, ProviderError):
-            state.error = str(exc)  # _call이 이미 trace에 남겼다
-        else:
-            state.error = GENERIC_GENERATION_ERROR
+        state.error = GENERIC_GENERATION_ERROR
+        if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
             state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
         state.status = SessionStatus.FAILED
 

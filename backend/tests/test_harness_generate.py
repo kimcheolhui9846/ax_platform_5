@@ -2,6 +2,7 @@ import pytest
 
 from app.core.results import ValidationIssue
 from app.core.state import Answer, AnswerType, Assumption, InfoSource, SessionStatus
+from app.harness.base import GENERIC_GENERATION_ERROR
 from app.harness.errors import GenerationFailed
 from app.harness.evals import load_scenarios, run_scenario
 from app.providers.mock import MockProvider
@@ -33,9 +34,10 @@ def test_generate_failure_preserves_input_and_can_retry():
     with pytest.raises(GenerationFailed):
         harness.generate(state)
     assert state.status is SessionStatus.FAILED
-    assert state.error
+    assert state.error == GENERIC_GENERATION_ERROR
+    assert "[mock]" not in state.error
     assert state.facts["idea"].value == "향초"
-    assert state.trace[-1].output["error"]
+    assert "[mock]" in state.trace[-1].output["error"]
 
     harness.provider = MockProvider()
     harness.generate(state)

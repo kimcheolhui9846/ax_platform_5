@@ -126,7 +126,8 @@ def test_generate_failure_is_502_and_session_preserved():
 
     view = client.get(f"{BASE}/sessions/{sid}").json()
     assert view["status"] == "failed"
-    assert view["error"]
+    assert view["error"] == "결과를 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 시도해 주세요."
+    assert "[mock]" not in view["error"]
     assert view["summary"][0]["value"] == "수제 향초"
 
 
@@ -136,11 +137,60 @@ def test_trace_hidden_without_debug():
     assert client.get(f"{BASE}/sessions/{sid}/trace").status_code == 404
 
 
+CONTRACT_SCHEMAS = (
+    "TaskSummary", "TaskForm", "ModeInfo", "FieldSummary", "CreateSessionRequest",
+    "AnswerRequest", "ReviseAnswerRequest", "Progress", "SummaryItem", "SessionView",
+    "ResultView", "Question", "QuestionOption", "GenerationResult", "ResultCard",
+    "ResultAssumption", "ValidationReport", "ValidationIssue", "TraceEntry",
+)  # fmt: skip
+
+
 def test_openapi_has_contract_schemas(client):
     spec = client.get("/openapi.json").json()
     assert f"{BASE}/sessions/{{session_id}}/answers/{{question_id}}" in spec["paths"]
-    for name in ("SessionView", "ResultView", "Question", "AnswerRequest", "TaskForm"):
-        assert name in spec["components"]["schemas"]
+    schemas = spec["components"]["schemas"]
+    for name in CONTRACT_SCHEMAS:
+        assert name in schemas, name
+    assert not [n for n in schemas if n.endswith(("-Input", "-Output"))]
+    report = schemas["ValidationReport"]
+    assert "passed" in report["properties"]
+    assert "passed" in report["required"]
+
+
+def test_request_format_errors_are_korean_422(client):
+    empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
+    assert empty.status_code == 422
+    assert empty.json() == {"detail": "요청 형식이 올바르지 않습니다."}
+
+    sid = create_session(client)["session_id"]
+    qid = client.get(f"{BASE}/sessions/{sid}").json()["next_question"]["question_id"]
+    skip = client.patch(f"{BASE}/sessions/{sid}/answers/{qid}", json={"answer_type": "skip"})
+    assert skip.status_code == 422
+    assert isinstance(skip.json()["detail"], str)
+
+
+def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
+    client = TestClient(create_app(provider=MockProvider(fail_stages={"easier_question"}), debug=True))
+    sid = create_session(client)["session_id"]
+    view = client.get(f"{BASE}/sessions/{sid}").json()
+    for _ in range(6):
+        before = view
+        response = client.post(
+            f"{BASE}/sessions/{sid}/answers",
+            json={"question_id": view["next_question"]["question_id"], "answer_type": "dont_know"},
+        )
+        if response.status_code == 502:
+            break
+        view = response.json()
+    else:
+        pytest.fail("사다리에서 LLM 호출이 필요해지지 않았다")
+
+    assert response.json()["detail"] == "AI 호출에 실패했습니다. 다시 시도해 주세요."
+    after = client.get(f"{BASE}/sessions/{sid}").json()
+    assert after["next_question"]["question_id"] == before["next_question"]["question_id"]
+    trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
+    assert trace[-1]["stage"] == "easier_question"
+    assert "error" in trace[-1]["output"]
 
 
 def test_provider_error_is_502_with_fixed_message(client, monkeypatch):

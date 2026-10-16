@@ -59,6 +59,7 @@ def build_summary(
 
 
 def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
+    """can_generate는 비동기 생성을 도입할 때를 위해 남겨 둔 값이다(지금 생성은 동기라 항상 true)."""
     return SessionView(
         session_id=state.session_id,
         task_type=state.task_type,

@@ -1,11 +1,16 @@
 """코칭 API. 설계서 10.1 엔드포인트 + 이전 답변 수정 + 세션 조회 + 디버그 trace."""
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.deps import Registry, Store
 from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
 from app.core.state import Answer, SessionState, TraceEntry
+from app.core.store import SessionStore
 from app.harness.base import BaseHarness
 from app.harness.errors import GenerationFailed, UnknownTaskError
+from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
@@ -31,6 +36,16 @@ def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionSta
     if state is None:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
     return state, _harness(registry, state.task_type)
+
+
+@contextmanager
+def _keep_failure_trace(store: SessionStore, state: SessionState) -> Iterator[None]:
+    """AI 호출이 실패하면 되돌려진 state(실패 trace만 남음)를 저장하고 오류를 다시 던진다."""
+    try:
+        yield
+    except ProviderError:
+        store.save(state)
+        raise
 
 
 @router.get("/tasks", response_model=list[TaskSummary])
@@ -64,7 +79,8 @@ def submit_answer(
     session_id: str, body: AnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
     state, harness = _load(registry, store, session_id)
-    harness.apply_answer(state, Answer(**body.model_dump()))
+    with _keep_failure_trace(store, state):
+        harness.apply_answer(state, Answer(**body.model_dump()))
     store.save(state)
     return to_session_view(state, harness)
 
@@ -74,7 +90,8 @@ def revise_answer(
     session_id: str, question_id: str, body: ReviseAnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
     state, harness = _load(registry, store, session_id)
-    harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
+    with _keep_failure_trace(store, state):
+        harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
     store.save(state)
     return to_session_view(state, harness)
 
