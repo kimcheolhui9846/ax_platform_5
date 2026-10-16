@@ -3,6 +3,7 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -10,7 +11,13 @@ from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
-from app.core.results import utcnow
+from app.core.results import (
+    GenerationResult,
+    TaskResult,
+    ValidationIssue,
+    ValidationReport,
+    utcnow,
+)
 from app.core.state import (
     Answer,
     AnswerType,
@@ -26,10 +33,11 @@ from app.core.state import (
     SessionStatus,
     TraceEntry,
 )
-from app.harness.errors import HarnessError
+from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.prompting import PromptRenderer
-from app.harness.stage_models import Diagnosis, GeneratedQuestion, ProposedValues
+from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
+from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
 
 M = TypeVar("M", bound=BaseModel)
@@ -69,6 +77,27 @@ def _free_text(value: str | None) -> str:
     return text
 
 
+def to_generation_result(parsed: TaskResult) -> GenerationResult:
+    """[코드·순수] LLM이 만든 TaskResult를 세션에 저장할 GenerationResult로 바꾼다."""
+    return GenerationResult(
+        cards=parsed.cards,
+        assumptions=parsed.assumptions,
+        full_text=parsed.full_text,
+        content=parsed.content.model_dump(mode="json"),
+    )
+
+
+GENERIC_GENERATION_ERROR = "결과를 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 시도해 주세요."
+
+
+def _validation_trace(report: ValidationReport) -> TraceEntry:
+    """[코드·순수] 검증 결과 요약 기록. LLM 검토 호출 기록과 kind로 구분한다."""
+    return TraceEntry(
+        stage="validate",
+        output={"kind": "summary", "issues": [i.model_dump() for i in report.issues]},
+    )
+
+
 def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | None) -> None:
     record.answer_type = answer_type
     record.value = value
@@ -77,12 +106,14 @@ def _mark_answered(record: AskedQuestion, answer_type: AnswerType, value: str | 
 
 class BaseHarness:
     content_model: ClassVar[type[BaseModel]]
+    validators: ClassVar[list[Validator]] = []
 
     def __init__(self, task_dir: Path, provider: LLMProvider) -> None:
         self.task_dir = task_dir
         self.policy = load_policy(task_dir / "policy.yaml")
         self.provider = provider
         self.prompts = PromptRenderer(task_dir / "prompts")
+        self.result_model = TaskResult[self.content_model]
 
     @property
     def task_type(self) -> str:
@@ -315,7 +346,65 @@ class BaseHarness:
             and state.readiness >= self.policy.readiness_threshold
         )
 
+    # ── 생성·검증 ─────────────────────────────────────────────
+
+    def generate(self, state: SessionState) -> None:
+        """[LLM] 현재 정보로 결과를 만든다. 언제든 부를 수 있다(설계서 원칙 8).
+
+        먼저 계산하고 마지막에 반영한다. 실패하면 질문·입력은 그대로 두고 FAILED로만 표시한다.
+        """
+        state.status = SessionStatus.GENERATING
+        try:
+            result = to_generation_result(
+                self._call_retrying_bad_output(state, "generate", self.result_model)
+            )
+            report = self.validate(state, result)
+        except Exception as exc:
+            self._fail_generation(state, exc)
+            raise GenerationFailed(state.error) from exc
+        self._drop_unanswered(state)
+        state.trace.append(_validation_trace(report))
+        state.result = result
+        state.result_stale = False
+        state.error = None
+        state.validation = report
+        state.status = SessionStatus.COMPLETED
+
+    @staticmethod
+    def _fail_generation(state: SessionState, exc: Exception) -> None:
+        """[코드] 실패를 기록한다. 사용자에게 보이는 error에는 내부 사정을 싣지 않는다."""
+        if isinstance(exc, ProviderError):
+            state.error = str(exc)  # _call이 이미 trace에 남겼다
+        else:
+            state.error = GENERIC_GENERATION_ERROR
+            state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
+        state.status = SessionStatus.FAILED
+
+    def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
+        """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""
+        issues = collect_issues([*COMMON_VALIDATORS, *self.validators], state, result, self.policy)
+        if self.policy.llm_validation:
+            issues.extend(self._llm_review(state, result))
+        return ValidationReport(issues=issues)
+
+    def _llm_review(self, state: SessionState, result: GenerationResult) -> list[ValidationIssue]:
+        """[LLM] AI 검토는 보조 수단이다. 실패해도 경고 하나로 줄이고 결과는 살린다."""
+        try:
+            return self._call(state, "validate", LLMReview, result_text=result.full_text).issues
+        except ProviderError:
+            return [ValidationIssue(rule="llm_review_unavailable", message="AI 검토를 하지 못했습니다.")]
+
     # ── 내부 도우미 ───────────────────────────────────────────
+
+    def _call_retrying_bad_output(
+        self, state: SessionState, stage: str, response_model: type[M]
+    ) -> M:
+        """스키마를 지키지 않은 응답(ProviderOutputError)이면 한 번만 다시 부른다."""
+        schema = json.dumps(response_model.model_json_schema(), ensure_ascii=False, indent=2)
+        try:
+            return self._call(state, stage, response_model, output_schema=schema)
+        except ProviderOutputError:
+            return self._call(state, stage, response_model, output_schema=schema)
 
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
