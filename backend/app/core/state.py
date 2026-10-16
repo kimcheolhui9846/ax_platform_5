@@ -102,6 +102,7 @@ class AskedQuestion(BaseModel):
     value: str | None = None
     answered_at: datetime | None = None
     # 같은 필드에 나중 답(또는 수정)이 값을 정했으면 True. 지금 값은 언제나 facts가 기준이다.
+    # trace·디버깅용 이력 표시다. 아직 API 응답은 이 값을 쓰지 않는다(이전 답 목록 UI가 생기면 쓴다).
     superseded: bool = False
 
 

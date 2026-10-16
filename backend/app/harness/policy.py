@@ -74,12 +74,12 @@ class TaskPolicy(BaseModel):
         names = [f.name for f in self.fields]
         duplicates = sorted({n for n in names if names.count(n) > 1})
         if duplicates:
-            raise ValueError(f"필드 이름이 중복됩니다: {duplicates}")
+            raise ValueError(f"필드 이름이 중복됩니다: {', '.join(duplicates)}")
         if self.raw_input_field is not None and self.raw_input_field not in names:
             raise ValueError(f"raw_input_field '{self.raw_input_field}'가 fields에 없습니다")
         missing = sorted(set(CoachingMode) - set(self.question_caps))
         if missing:
-            raise ValueError(f"question_caps에 모드가 빠졌습니다: {missing}")
+            raise ValueError(f"question_caps에 모드가 빠졌습니다: {', '.join(m.value for m in missing)}")
         unreachable = [f.name for f in self.fields if len(f.easier_questions) >= self.max_easier_level]
         if unreachable:
             raise ValueError(

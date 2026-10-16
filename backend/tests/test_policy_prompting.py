@@ -256,3 +256,15 @@ def test_generate_prompt_has_no_json_schema():
     for part in (prompt.system, prompt.user):
         assert "JSON Schema" not in part
         assert '"properties"' not in part
+
+
+def test_policy_errors_show_plain_values(tmp_path):
+    fields = [{"name": "a", "label": "에이", "question": "?"}] * 2
+    with pytest.raises(ValidationError) as dup:
+        load_policy(write_policy(tmp_path, base_policy(fields=fields)))
+    assert "필드 이름이 중복됩니다: a [" in str(dup.value)
+
+    with pytest.raises(ValidationError) as caps:
+        load_policy(write_policy(tmp_path, base_policy(question_caps={"standard": 5})))
+    assert "question_caps에 모드가 빠졌습니다: precise, quick [" in str(caps.value)
+    assert "CoachingMode" not in str(caps.value)
