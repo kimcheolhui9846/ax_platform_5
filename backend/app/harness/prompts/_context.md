@@ -1,6 +1,3 @@
-## 과제
-{{ policy.title }} — {{ policy.description }}
-
 ## 사용자가 처음 입력한 내용
 {{ state.raw_input }}
 

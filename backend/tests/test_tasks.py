@@ -50,12 +50,15 @@ def test_every_stage_template_renders(registry, task_type, stage):
         "field": harness.policy.fields[0],
         "level": 3,
         "previous": [],
-        "output_schema": "{}",
         "result_text": "결과",
     }
-    text = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
-    assert "테스트 입력" in text
-    assert "\n\n\n" not in text
+    prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
+    assert prompt.system.strip() and prompt.user.strip()
+    assert "테스트 입력" in prompt.user
+    assert "테스트 입력" not in prompt.system
+    assert harness.policy.title in prompt.system
+    for part in (prompt.system, prompt.user):
+        assert "\n\n\n" not in part
 
 
 @pytest.mark.parametrize("task_type", TASK_TYPES)

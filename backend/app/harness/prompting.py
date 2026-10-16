@@ -1,14 +1,19 @@
 """프롬프트 템플릿 렌더링. 과제 폴더 prompts/가 공통 harness/prompts/보다 우선한다.
 
+단계 템플릿은 {% block system %}과 {% block user %} 두 부분으로 나뉜다. system은 과제마다 고정된
+내용(과제 설명·규칙·지침·할 일)이라 모델 쪽 프롬프트 캐시의 앞부분이 되고, user는 세션 맥락이다.
+출력 구조(JSON Schema)는 제공자가 response_model로 강제하므로 프롬프트에 싣지 않는다.
+
 단계마다 템플릿에 넘기는 변수를 STAGE_CONTEXT에 한 번만 적는다. 렌더링할 때 넘긴 키가
 선언과 다르면 바로 실패하므로, 템플릿이 다른 단계의 변수를 쓰면 테스트에서 드러난다.
 """
 from pathlib import Path
 from typing import Any
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader, StrictUndefined
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, StrictUndefined, Template
 
 from app.core.state import source_label
+from app.providers.base import Prompt
 
 COMMON_PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -17,7 +22,7 @@ STAGE_CONTEXT: dict[str, frozenset[str]] = {
     "diagnose": frozenset(),
     "easier_question": frozenset({"field", "level", "previous"}),
     "propose_value": frozenset({"field", "level", "previous"}),
-    "generate": frozenset({"output_schema"}),
+    "generate": frozenset(),
     "validate": frozenset({"result_text"}),
 }
 STAGES = tuple(STAGE_CONTEXT)
@@ -59,7 +64,19 @@ class PromptRenderer:
             autoescape=False,
         )
         self.env.filters["source_label"] = source_label
+        self._wrappers: dict[str, Template] = {}
 
-    def render(self, stage: str, **context: Any) -> str:
+    def render(self, stage: str, **context: Any) -> Prompt:
         check_context(stage, set(context))
-        return self.env.get_template(f"{stage}.md").render(**context)
+        return Prompt(
+            system=self._render_part(stage, keep="system", context=context),
+            user=self._render_part(stage, keep="user", context=context),
+        )
+
+    def _render_part(self, stage: str, keep: str, context: dict[str, Any]) -> str:
+        """단계 템플릿을 상속하고 다른 부분 블록만 비운 래퍼로 한쪽만 렌더링한다(과제 템플릿 상속 그대로)."""
+        other = "user" if keep == "system" else "system"
+        source = f'{{% extends "{stage}.md" %}}{{% block {other} %}}{{% endblock %}}'
+        if source not in self._wrappers:
+            self._wrappers[source] = self.env.from_string(source)
+        return self._wrappers[source].render(**context).strip() + "\n"

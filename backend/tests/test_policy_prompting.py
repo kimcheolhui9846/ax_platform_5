@@ -88,7 +88,6 @@ def sample_values() -> dict:
         "field": policy.field("customer"),
         "level": 3,
         "previous": ["이전 질문"],
-        "output_schema": "{}",
         "result_text": "결과 본문",
     }
 
@@ -100,21 +99,21 @@ def sample_context(stage: str) -> dict:
 
 @pytest.mark.parametrize("stage", STAGES)
 def test_every_stage_renders(stage):
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context(stage))
-    assert "집들이 선물용 향초" in text
-    assert "아이디어" in text and "향초" in text
+    prompt = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context(stage))
+    assert "집들이 선물용 향초" in prompt.user
+    assert "idea (아이디어): 향초" in prompt.user
 
 
 def test_task_template_overrides_common_and_keeps_base():
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
-    assert "샘플 지침 문구" in text
-    assert "근거 없는 숫자를 사실처럼 쓰지 않는다" in text
+    system = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate")).system
+    assert "샘플 지침 문구" in system
+    assert "근거 없는 숫자를 사실처럼 쓰지 않는다" in system
 
 
 def test_missing_task_template_falls_back_to_common(tmp_path):
-    text = PromptRenderer(tmp_path / "prompts").render("generate", **sample_context("generate"))
-    assert "샘플 지침 문구" not in text
-    assert "출력 형식" in text
+    system = PromptRenderer(tmp_path / "prompts").render("generate", **sample_context("generate")).system
+    assert "샘플 지침 문구" not in system
+    assert "지켜야 할 규칙" in system
 
 
 # ── 엄격한 정책 검증: 오타·잘못된 값은 읽을 때 바로 거부한다 ─────────
@@ -165,7 +164,7 @@ def test_ladder_just_below_max_level_is_allowed(tmp_path):
 def test_stage_context_declares_specific_keys():
     assert context_keys("diagnose") == {"state", "policy", "profile"}
     assert context_keys("easier_question") == {"state", "policy", "profile", "field", "level", "previous"}
-    assert context_keys("generate") == {"state", "policy", "profile", "output_schema"}
+    assert context_keys("generate") == {"state", "policy", "profile"}
     assert context_keys("validate") == {"state", "policy", "profile", "result_text"}
 
 
@@ -203,14 +202,14 @@ def test_context_shows_field_name_and_label():
     context = sample_context("diagnose")
     context["state"].assumptions["customer"] = Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)
     context["state"].unknowns.append("problem")
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **context)
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **context).user
     assert "- idea (아이디어): 향초" in text
     assert "- customer (목표 고객): 30대" in text
     assert "- problem (고객 문제)" in text
 
 
 def test_generate_prompt_lists_allowed_assumption_fields():
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate")).system
     assert "idea, customer, problem, tone, length" in text
 
 
@@ -222,12 +221,13 @@ def test_generate_prompt_lists_allowed_assumption_fields():
 def test_rendered_prompt_has_no_double_blank_lines(stage):
     context = sample_context(stage)
     context["state"].unknowns.append("problem")
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **context)
-    assert "\n\n\n" not in text
+    prompt = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **context)
+    assert "\n\n\n" not in prompt.system
+    assert "\n\n\n" not in prompt.user
 
 
 def test_context_shows_source_as_korean_label():
-    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **sample_context("diagnose"))
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **sample_context("diagnose")).user
     assert "(출처: 직접 입력)" in text
     assert "user_free_text" not in text
 
@@ -235,3 +235,24 @@ def test_context_shows_source_as_korean_label():
 def test_source_labels_cover_every_source():
     assert set(SOURCE_LABELS) == set(InfoSource)
     assert source_label(InfoSource.AI_ASSUMPTION) == "AI 가정"
+
+
+
+# ── 시스템/사용자 분리: 과제 고정 내용은 system, 세션 맥락은 user(캐시 가능한 앞부분) ──
+
+
+@pytest.mark.parametrize("stage", STAGES)
+def test_prompt_splits_static_system_from_session_user(stage):
+    prompt = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context(stage))
+    assert prompt.system.strip() and prompt.user.strip()
+    assert "샘플 과제" in prompt.system
+    assert "집들이 선물용 향초" not in prompt.system  # raw_input
+    assert "idea (아이디어): 향초" not in prompt.system  # facts
+
+
+def test_generate_prompt_has_no_json_schema():
+    """출력 구조는 제공자가 response_model로 강제한다. 프롬프트에 스키마를 싣지 않는다."""
+    prompt = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
+    for part in (prompt.system, prompt.user):
+        assert "JSON Schema" not in part
+        assert '"properties"' not in part

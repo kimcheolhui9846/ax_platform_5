@@ -3,7 +3,7 @@ from enum import StrEnum
 import pytest
 from pydantic import BaseModel, Field
 
-from app.providers.base import ProviderError, ProviderOutputError
+from app.providers.base import Prompt, ProviderError, ProviderOutputError
 from app.providers.factory import get_provider
 from app.providers.mock import MockProvider
 from app.providers.mock_fill import mock_instance
@@ -29,6 +29,9 @@ class Outer(BaseModel):
     flag: bool
 
 
+P = Prompt(system="s", user="p")
+
+
 def test_mock_instance_fills_nested_schema():
     obj = mock_instance(Outer)
     assert obj.inner.title == "[mock] 제목"
@@ -40,27 +43,29 @@ def test_mock_instance_fills_nested_schema():
 
 def test_mock_provider_returns_parsed_and_records_call():
     provider = MockProvider()
-    response = provider.complete(task_type="t", stage="generate", prompt="hello", response_model=Inner)
+    response = provider.complete(
+        task_type="t", stage="generate", prompt=Prompt(system="sys", user="hello"), response_model=Inner
+    )
     assert isinstance(response.parsed, Inner)
     assert response.model == "mock"
-    assert response.usage.input_tokens == 5
+    assert response.usage.input_tokens == 8
     assert provider.calls == [("t", "generate")]
 
 
 def test_mock_provider_without_model_returns_text():
-    response = MockProvider().complete(task_type="t", stage="diagnose", prompt="p")
+    response = MockProvider().complete(task_type="t", stage="diagnose", prompt=P)
     assert response.parsed is None
     assert response.text == "[mock] diagnose"
 
 
 def test_mock_provider_failure_modes():
     with pytest.raises(ProviderError):
-        MockProvider(fail_stages={"generate"}).complete(task_type="t", stage="generate", prompt="p")
+        MockProvider(fail_stages={"generate"}).complete(task_type="t", stage="generate", prompt=P)
 
     provider = MockProvider(output_errors={"generate": 1})
     with pytest.raises(ProviderOutputError):
-        provider.complete(task_type="t", stage="generate", prompt="p", response_model=Inner)
-    assert provider.complete(task_type="t", stage="generate", prompt="p", response_model=Inner).parsed
+        provider.complete(task_type="t", stage="generate", prompt=P, response_model=Inner)
+    assert provider.complete(task_type="t", stage="generate", prompt=P, response_model=Inner).parsed
 
 
 def test_get_provider():

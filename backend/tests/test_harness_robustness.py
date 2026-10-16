@@ -146,3 +146,12 @@ def test_trace_records_concrete_model_on_success_only(harness, provider):
     with pytest.raises(ProviderError):
         harness.diagnose(state)
     assert (state.trace[-1].provider, state.trace[-1].model) == ("mock", None)
+
+
+
+def test_trace_input_records_system_and_user(harness):
+    state = harness.start("향초")
+    entry = state.trace[0]
+    assert set(entry.input) == {"system", "user"}
+    assert "샘플 과제" in entry.input["system"]
+    assert "향초" in entry.input["user"]

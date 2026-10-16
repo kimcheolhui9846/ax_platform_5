@@ -20,7 +20,7 @@ def test_dont_know_walks_down_the_ladder_and_stays_on_field(harness, reply):
     assert (q3.field, q3.level, q3.is_ai_proposal) == ("customer", 3, False)
     assert q3.text.startswith("[mock]")
     assert state.trace[-1].stage == "easier_question"
-    assert "이걸 가장 먼저 선물하고 싶은 사람은 누구인가요?" in state.trace[-1].input["prompt"]
+    assert "이걸 가장 먼저 선물하고 싶은 사람은 누구인가요?" in state.trace[-1].input["user"]
 
     reply(harness, state, AnswerType.DONT_KNOW)
     q4 = state.pending_question
@@ -37,7 +37,7 @@ def test_proposal_repeats_with_previous_candidates_excluded(harness, reply):
     q5 = state.pending_question
     assert (q5.field, q5.level, q5.is_ai_proposal) == ("customer", 5, True)
     first_candidate = state.asked_questions[-2].question.options[0].label
-    assert first_candidate in state.trace[-1].input["prompt"]
+    assert first_candidate in state.trace[-1].input["user"]
 
 
 def test_choosing_a_proposal_resolves_field(harness, reply):

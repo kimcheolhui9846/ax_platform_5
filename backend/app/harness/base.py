@@ -3,7 +3,6 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
-import json
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -468,12 +467,14 @@ class BaseHarness:
     def _call_retrying_bad_output(
         self, state: SessionState, stage: str, response_model: type[M]
     ) -> M:
-        """스키마를 지키지 않은 응답(ProviderOutputError)이면 한 번만 다시 부른다."""
-        schema = json.dumps(response_model.model_json_schema(), ensure_ascii=False, indent=2)
+        """스키마를 지키지 않은 응답(ProviderOutputError)이면 한 번만 다시 부른다.
+
+        출력 구조는 제공자가 response_model로 강제한다. 프롬프트에 스키마를 싣지 않는다.
+        """
         try:
-            return self._call(state, stage, response_model, output_schema=schema)
+            return self._call(state, stage, response_model)
         except ProviderOutputError:
-            return self._call(state, stage, response_model, output_schema=schema)
+            return self._call(state, stage, response_model)
 
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
@@ -490,7 +491,7 @@ class BaseHarness:
             state.trace.append(
                 TraceEntry(
                     stage=stage,
-                    input={"prompt": prompt},
+                    input={"system": prompt.system, "user": prompt.user},
                     output={"error": str(exc)},
                     provider=self.provider.name,
                 )
@@ -499,7 +500,7 @@ class BaseHarness:
         state.trace.append(
             TraceEntry(
                 stage=stage,
-                input={"prompt": prompt},
+                input={"system": prompt.system, "user": prompt.user},
                 output=response.parsed.model_dump(mode="json"),
                 provider=self.provider.name,
                 model=response.model,
