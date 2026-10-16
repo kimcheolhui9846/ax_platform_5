@@ -26,7 +26,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/harness/prompts/` — 공통 프롬프트. 과제 폴더 `prompts/`에 같은 이름이 있으면 그게 우선.
 - `backend/app/harness/registry.py` — 과제 등록부(`TASK_TYPES`). 등록되지 않은 과제는 `build_harness`가 거부한다.
 - `backend/app/api/` — 얇은 라우터(`/api/v1/coaching/...`).
-- `backend/app/core/` — 세션 상태, 결과, 저장소, 응답 계약(`contract.py`).
+- `backend/app/core/` — 세션 상태(`state.py`), 결과(`results.py`), 저장소(`store.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`).
 - `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다.
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.
@@ -60,7 +60,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 ## API 계약이 바뀔 때
 
-1. `backend/app/schemas/`(또는 `app/core/contract.py`의 응답 모델)를 고친다.
+1. `backend/app/schemas/`(또는 응답에 실리는 `app/core/state.py`·`results.py`의 모델)를 고친다. 응답에 실리는 새 모델은 `ContractModel`을 상속해야 생성된 프론트 타입에서 필드가 선택(`?:`)으로 느슨해지지 않는다.
 2. `uv run --directory backend pytest`
 3. `npm --prefix frontend run gen:api` → `npm --prefix frontend run build`에서 나는 타입 오류를 따라 프론트를 고친다.
 
