@@ -7,6 +7,8 @@ from app.core.state import (
     Assumption,
     CoachingMode,
     InfoSource,
+    Question,
+    QuestionOption,
     SessionStatus,
 )
 from app.harness.errors import HarnessError
@@ -156,3 +158,13 @@ def test_revise_after_result_marks_stale(harness, reply):
 
     assert state.result_stale
     assert state.status is SessionStatus.REVISING
+
+
+def test_unknown_option_message_lists_ids_without_python_repr():
+    from app.harness.base import answer_to_fact
+
+    question = Question(field="f", text="q", options=[QuestionOption(id="o1", label="a")], multi_select=True)
+    answer = Answer(question_id=question.question_id, answer_type=AnswerType.OPTION, option_ids=["o9", "o8"])
+    with pytest.raises(HarnessError) as caught:
+        answer_to_fact(question, answer)
+    assert str(caught.value) == "없는 선택지입니다: o9, o8"

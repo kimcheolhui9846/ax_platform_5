@@ -68,12 +68,12 @@ def _save_on_failure(store: SessionStore, state: SessionState) -> Iterator[None]
 
 @router.get("/tasks", response_model=list[TaskSummary])
 def list_tasks(registry: Registry) -> list[TaskSummary]:
-    return [to_task_summary(h) for h in registry.all()]
+    return [to_task_summary(h.policy) for h in registry.all()]
 
 
 @router.get("/tasks/{task_type}/form", response_model=TaskForm)
 def get_task_form(task_type: str, registry: Registry) -> TaskForm:
-    return to_task_form(_harness(registry, task_type))
+    return to_task_form(_harness(registry, task_type).policy)
 
 
 @router.post("/tasks/{task_type}/sessions", response_model=SessionView, status_code=201)

@@ -1,9 +1,9 @@
 import pytest
 
-from app.api.views import build_summary, session_error, to_result_view
+from app.api.views import build_summary, session_error, to_result_view, to_task_form, to_task_summary
 from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.state import Assumption, InfoItem, InfoSource, SessionState, SessionStatus
-from app.harness.policy import FieldKind, FieldPolicy
+from app.harness.policy import FieldKind, FieldPolicy, TaskPolicy
 
 
 def _fields() -> list[FieldPolicy]:
@@ -44,3 +44,11 @@ def test_to_result_view_requires_result():
 def test_session_error_is_derived_from_status(status):
     expected = GENERATION_FAILED_MESSAGE if status is SessionStatus.FAILED else None
     assert session_error(status) == expected
+
+
+def test_task_views_take_only_the_policy():
+    policy = TaskPolicy(task_type="t", title="제목", description="설명", fields=_fields())
+    assert to_task_summary(policy).model_dump() == {"task_type": "t", "title": "제목", "description": "설명"}
+    form = to_task_form(policy)
+    assert [m.question_cap for m in form.modes] == [3, 5, 10]
+    assert [f.label for f in form.fields] == ["가", "나", "다"]

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { AnswerBody, Question } from "../api/types";
 import { questionHint } from "../lib/questionHint";
@@ -10,14 +10,10 @@ type Props = {
   onAnswer: (body: AnswerBody) => void;
 };
 
+/** 질문이 바뀌면 부모가 key(question_id)로 새로 만들어 선택·입력 상태가 비워진다. */
 export function QuestionCard({ question, busy, onAnswer }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [text, setText] = useState("");
-
-  useEffect(() => {
-    setSelected([]);
-    setText("");
-  }, [question.question_id]);
 
   function toggle(id: string) {
     setSelected((prev) => toggleSelection(prev, id, question.multi_select));

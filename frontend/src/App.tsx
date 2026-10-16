@@ -89,7 +89,12 @@ export default function App() {
           <p className="progress">{formatProgress(session.progress)}</p>
 
           {session.next_question ? (
-            <QuestionCard question={session.next_question} busy={busy} onAnswer={answer} />
+            <QuestionCard
+              key={session.next_question.question_id}
+              question={session.next_question}
+              busy={busy}
+              onAnswer={answer}
+            />
           ) : (
             <p className="card">필요한 정보가 모였어요. 결과를 만들어 볼까요?</p>
           )}

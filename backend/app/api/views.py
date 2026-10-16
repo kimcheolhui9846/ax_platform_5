@@ -5,7 +5,7 @@ from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.results import GenerationResult, ResultAssumption
 from app.core.state import Assumption, CoachingMode, InfoItem, SessionState, SessionStatus
 from app.harness.base import BaseHarness
-from app.harness.policy import FieldPolicy
+from app.harness.policy import FieldPolicy, TaskPolicy
 from app.schemas.coaching import (
     FieldSummary,
     LabeledAssumption,
@@ -21,13 +21,11 @@ from app.schemas.coaching import (
 )
 
 
-def to_task_summary(harness: BaseHarness) -> TaskSummary:
-    policy = harness.policy
+def to_task_summary(policy: TaskPolicy) -> TaskSummary:
     return TaskSummary(task_type=policy.task_type, title=policy.title, description=policy.description)
 
 
-def to_task_form(harness: BaseHarness) -> TaskForm:
-    policy = harness.policy
+def to_task_form(policy: TaskPolicy) -> TaskForm:
     return TaskForm(
         task_type=policy.task_type,
         title=policy.title,

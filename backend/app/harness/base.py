@@ -67,7 +67,7 @@ def _option_value(question: Question, option_ids: list[str]) -> str:
     labels = {o.id: o.label for o in question.options}
     unknown = [i for i in option_ids if i not in labels]
     if unknown:
-        raise HarnessError(f"없는 선택지입니다: {unknown}")
+        raise HarnessError(f"없는 선택지입니다: {', '.join(unknown)}")
     return ", ".join(labels[i] for i in option_ids)
 
 
