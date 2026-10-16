@@ -15,3 +15,7 @@ export type LabeledAssumption = Schemas["LabeledAssumption"];
 export type UnknownItem = Schemas["UnknownItem"];
 export type TaskForm = Schemas["TaskForm"];
 export type ReviseBody = Schemas["ReviseAnswerRequest"];
+export type FlowItem = Schemas["FlowItem"];
+export type FlowStatus = Schemas["FlowStatus"];
+export type ModeInfo = Schemas["ModeInfo"];
+export type ResultCard = Schemas["ResultCard"];

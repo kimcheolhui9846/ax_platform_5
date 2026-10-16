@@ -142,6 +142,17 @@ def counted_fields(records: Sequence[AskedQuestion]) -> set[str]:
     return {r.question.field for r in records if r.question.level == 0 and r.answer_type is not None}
 
 
+def unresolved_fields(
+    fields: Sequence[FieldPolicy], facts: Mapping[str, InfoItem], unknowns: Sequence[str]
+) -> list[FieldPolicy]:
+    """[코드·순수] 아직 물을 필드(정책 순서): 기본값 필드가 아니고, 값도 미정 표시도 없는 필드."""
+    return [
+        f
+        for f in fields
+        if f.kind is not FieldKind.DEFAULT and f.name not in facts and f.name not in unknowns
+    ]
+
+
 def question_status(pending: Question | None, result_stale: bool) -> SessionStatus:
     """[코드·순수] 질문 단계의 상태. 걸린 질문이 있으면 CLARIFYING, 없으면 결과가 낡았는지에 따라 REVISING/CONFIRMING."""
     if pending is not None:
@@ -283,13 +294,7 @@ class BaseHarness:
         return self.base_question(state, remaining[0]) if remaining else None
 
     def remaining_fields(self, state: SessionState) -> list[FieldPolicy]:
-        return [
-            f
-            for f in self.policy.fields
-            if f.kind is not FieldKind.DEFAULT
-            and f.name not in state.facts
-            and f.name not in state.unknowns
-        ]
+        return unresolved_fields(self.policy.fields, state.facts, state.unknowns)
 
     def base_question(self, state: SessionState, field: FieldPolicy) -> Question:
         options = _options(field.options)
@@ -458,6 +463,12 @@ class BaseHarness:
             all(name in state.facts for name in musts)
             and state.readiness >= self.policy.readiness_threshold
         )
+
+    def questions_left(self, state: SessionState) -> int:
+        """앞으로 더 물을 수 있는 기본 질문 수(흐름 패널의 '예정' 개수). 멈출 때가 됐으면 0이다."""
+        if self.should_stop(state):
+            return 0
+        return max(self.question_cap(state) - self.asked_count(state), 0)
 
     # ── 생성·검증 ─────────────────────────────────────────────
 

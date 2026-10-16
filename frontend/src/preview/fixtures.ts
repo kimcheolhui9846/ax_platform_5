@@ -1,10 +1,10 @@
 import type { Question, ResultView, SessionView, TaskSummary } from "../api/types";
 
 export const TASKS: TaskSummary[] = [
-  { task_type: "business_plan", title: "사업계획", description: "사업 가설과 실행 구조를 정리합니다." },
-  { task_type: "product_planning", title: "상품기획", description: "고객 문제를 해결하는 상품과 MVP를 정의합니다." },
-  { task_type: "branding", title: "브랜딩", description: "차별화된 정체성과 표현 체계를 세웁니다." },
-  { task_type: "marketing_content", title: "마케팅 콘텐츠", description: "채널과 목적에 맞는 실행 콘텐츠를 만듭니다." },
+  { task_type: "business_plan", title: "사업계획", description: "사업 가설과 실행 구조를 정리합니다.", heading: "아이디어를 사업으로 시작하고 싶어요", deliverable: "사업 가설 · 실행 계획서" },
+  { task_type: "product_planning", title: "상품기획", description: "고객 문제를 해결하는 상품과 MVP를 정의합니다.", heading: "만들고 싶은 상품을 구체화하고 싶어요", deliverable: "상품 콘셉트 · 첫 제작 기획서" },
+  { task_type: "branding", title: "브랜딩", description: "차별화된 정체성과 표현 체계를 세웁니다.", heading: "내 브랜드만의 인상을 만들고 싶어요", deliverable: "브랜드 콘셉트 · 표현 가이드" },
+  { task_type: "marketing_content", title: "마케팅 콘텐츠", description: "채널과 목적에 맞는 실행 콘텐츠를 만듭니다.", heading: "사람들에게 보여줄 홍보 글이 필요해요", deliverable: "게시글 · 행동 유도 문구" },
 ];
 
 export const QUESTION: Question = {
@@ -37,6 +37,8 @@ const SESSION_BASE: SessionView = {
   task_type: "product_planning",
   mode: "standard",
   status: "clarifying",
+  raw_input: "한글을 활용한 파우치를 만들고 싶어요",
+  flow: [],
   next_question: QUESTION,
   progress: { asked: 1, cap: 5, readiness: 0.38 },
   summary: [

@@ -59,6 +59,8 @@ class TaskPolicy(BaseModel):
     task_type: str
     title: str
     description: str = ""
+    heading: str = Field(min_length=1)  # 홈 과제 카드의 큰 문구(사용자가 하고 싶은 말)
+    deliverable: str = Field(min_length=1)  # 완성할 결과물 이름(홈·답변 확인·결과 화면)
     input_placeholder: str = ""
     input_examples: list[str] = Field(default_factory=list)
     raw_input_field: str | None = None  # 첫 한 줄 입력을 사실로 둘 필드

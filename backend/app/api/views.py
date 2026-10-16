@@ -12,6 +12,7 @@ from app.core.state import (
     source_label,
 )
 from app.harness.base import BaseHarness
+from app.harness.flow import plan_flow
 from app.harness.policy import FieldPolicy, TaskPolicy
 from app.schemas.coaching import (
     FieldSummary,
@@ -29,7 +30,13 @@ from app.schemas.coaching import (
 
 
 def to_task_summary(policy: TaskPolicy) -> TaskSummary:
-    return TaskSummary(task_type=policy.task_type, title=policy.title, description=policy.description)
+    return TaskSummary(
+        task_type=policy.task_type,
+        title=policy.title,
+        description=policy.description,
+        heading=policy.heading,
+        deliverable=policy.deliverable,
+    )
 
 
 def to_task_form(policy: TaskPolicy) -> TaskForm:
@@ -106,6 +113,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         task_type=state.task_type,
         mode=state.mode,
         status=state.status,
+        raw_input=state.raw_input,
         next_question=state.pending_question,
         progress=Progress(
             asked=harness.asked_count(state),
@@ -114,6 +122,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         ),
         summary=build_summary(harness.policy.fields, state.facts, state.assumptions),
         unknowns=label_unknowns(state.unknowns, harness.policy.labels),
+        flow=plan_flow(harness.policy, state, harness.questions_left(state)),
         can_generate=state.status is not SessionStatus.GENERATING,
         has_result=state.result is not None,
         result_stale=state.result_stale,

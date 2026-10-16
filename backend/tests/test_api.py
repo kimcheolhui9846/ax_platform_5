@@ -34,6 +34,9 @@ def test_list_tasks(client):
         "branding",
         "marketing_content",
     ]
+    product = next(t for t in response.json() if t["task_type"] == "product_planning")
+    assert product["heading"] == "만들고 싶은 상품을 구체화하고 싶어요"
+    assert product["deliverable"] == "상품 콘셉트 · 첫 제작 기획서"
 
 
 def test_task_form(client):
@@ -64,6 +67,17 @@ def test_create_session_returns_first_question(client):
     assert view["summary"][0]["source_label"] == "직접 입력"
     assert view["can_generate"] is True
     assert "trace" not in view
+
+
+def test_session_view_has_request_and_flow(client):
+    view = create_session(client, raw_input="수제 향초")
+
+    assert view["raw_input"] == "수제 향초"
+    first, *rest = view["flow"]
+    assert (first["field"], first["label"], first["status"]) == ("user", "사용자", "current")
+    assert first["question"]["question_id"] == view["next_question"]["question_id"]
+    assert len(rest) == 4  # 스탠다드 상한 5 = 지금 질문 1 + 예정 4
+    assert all(i["status"] == "upcoming" and i["question"] is None and i["answer"] is None for i in rest)
 
 
 def test_full_flow(client):

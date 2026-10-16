@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Question, ResultView, SessionView, TaskSummary } from "../api/types";
 import { STALE_HINT, actionButton, screenOf, sessionActions } from "./screen";
 
-const task: TaskSummary = { task_type: "branding", title: "브랜딩", description: "" };
+const task: TaskSummary = { task_type: "branding", title: "브랜딩", description: "", heading: "", deliverable: "" };
 
 const question: Question = {
   question_id: "q_1",
@@ -21,6 +21,8 @@ function session(overrides: Partial<SessionView> = {}): SessionView {
     task_type: "branding",
     mode: "standard",
     status: "clarifying",
+    raw_input: "",
+    flow: [],
     next_question: question,
     progress: { asked: 0, cap: 5, readiness: 0.3 },
     summary: [],

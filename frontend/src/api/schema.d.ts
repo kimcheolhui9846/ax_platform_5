@@ -257,6 +257,24 @@ export interface components {
             label: string;
             kind: components["schemas"]["FieldKind"];
         };
+        /** FlowItem */
+        FlowItem: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            status: components["schemas"]["FlowStatus"];
+            /** Answer */
+            answer: string | null;
+            question: components["schemas"]["Question"] | null;
+        };
+        /**
+         * FlowStatus
+         * @enum {string}
+         */
+        FlowStatus: "answered" | "current" | "upcoming" | "skipped";
         /**
          * InfoSource
          * @enum {string}
@@ -426,12 +444,16 @@ export interface components {
             task_type: string;
             mode: components["schemas"]["CoachingMode"];
             status: components["schemas"]["SessionStatus"];
+            /** Raw Input */
+            raw_input: string;
             next_question: components["schemas"]["Question"] | null;
             progress: components["schemas"]["Progress"];
             /** Summary */
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
             unknowns: components["schemas"]["UnknownItem"][];
+            /** Flow */
+            flow: components["schemas"]["FlowItem"][];
             /** Can Generate */
             can_generate: boolean;
             /** Has Result */
@@ -482,6 +504,10 @@ export interface components {
             title: string;
             /** Description */
             description: string;
+            /** Heading */
+            heading: string;
+            /** Deliverable */
+            deliverable: string;
         };
         /** TraceEntry */
         TraceEntry: {

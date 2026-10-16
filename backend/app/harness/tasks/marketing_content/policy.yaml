@@ -1,6 +1,8 @@
 task_type: marketing_content
 title: 마케팅 콘텐츠
-description: 채널과 목적에 맞는 실행 콘텐츠를 만듭니다.
+description: 목적에 맞는 메시지를 실제 문구로 만들어요.
+heading: 사람들에게 보여줄 홍보 글이 필요해요
+deliverable: 게시글 · 행동 유도 문구
 input_placeholder: 예) 새로 나온 겨울 한정 향초를 알리고 싶어요
 input_examples:
   - 새로 나온 겨울 한정 향초를 알리고 싶어요

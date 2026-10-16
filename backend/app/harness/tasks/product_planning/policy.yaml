@@ -1,6 +1,8 @@
 task_type: product_planning
 title: 상품기획
-description: 고객 문제를 해결하는 상품과 MVP를 정의합니다.
+description: 사용 장면과 핵심 기능, 제작 방향을 정리해요.
+heading: 만들고 싶은 상품을 구체화하고 싶어요
+deliverable: 상품 콘셉트 · 첫 제작 기획서
 input_placeholder: 예) 집들이 선물용 수제 향초
 input_examples:
   - 집들이 선물용 수제 향초

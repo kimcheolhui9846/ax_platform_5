@@ -1,6 +1,8 @@
 task_type: business_plan
 title: 사업계획
-description: 사업 가설과 실행 구조를 정리합니다.
+description: 고객과 수익 구조, 첫 실행 계획을 정리해요.
+heading: 아이디어를 사업으로 시작하고 싶어요
+deliverable: 사업 가설 · 실행 계획서
 input_placeholder: 예) 직접 만든 향초를 온라인으로 팔고 싶어요
 input_examples:
   - 직접 만든 향초를 온라인으로 팔고 싶어요
