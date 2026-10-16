@@ -1,0 +1,17 @@
+# 줄바꿈은 저장소와 작업 트리 모두 LF로 고정한다(Windows core.autocrlf=true여도 같다).
+* text=auto eol=lf
+
+# 디자인 원본은 받은 바이트 그대로 둔다.
+design/** -text
+design/README.md text eol=lf
+
+# 바이너리
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
