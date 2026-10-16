@@ -65,7 +65,8 @@ def test_eval_scenarios_complete(registry, task_type):
     for scenario in scenarios:
         state = run_scenario(harness, scenario)
         assert state.status is scenario.expect_status, scenario.name
-        harness.content_model.model_validate(state.result.content)
+        if state.result is not None:
+            harness.content_model.model_validate(state.result.content)
 
 
 def make_result(full_text: str = "본문", content: dict | None = None) -> GenerationResult:
@@ -123,3 +124,36 @@ def test_product_planning_mvp_size_boundary(registry):
 
     assert not check_mvp_not_too_big(state, features(MAX_CORE_FEATURES), policy)
     assert check_mvp_not_too_big(state, features(MAX_CORE_FEATURES + 1), policy)
+
+
+
+def test_every_task_folder_is_registered_and_vice_versa():
+    """폴더만 만들고 TASK_TYPES에 빠뜨리거나, 등록만 하고 폴더가 없으면 여기서 걸린다."""
+    folders = {p.parent.name for p in TASKS_DIR.glob("*/harness.py")}
+    assert folders == set(TASK_TYPES)
+
+
+def test_term_rule_builds_a_validator():
+    from app.harness.validation import term_rule
+
+    check = term_rule("demo", ("가", "나"), "표현이 있습니다: {terms}")
+    state = SessionState(task_type="x")
+    policy = build_harness("branding", MockProvider()).policy
+    [issue] = check(state, make_result("나 그리고 가"), policy)
+    assert (issue.rule, issue.message, issue.severity) == ("demo", "표현이 있습니다: 가, 나", "warning")
+    assert check(state, make_result("다"), policy) == []
+
+
+def test_term_validators_keep_rule_names_and_messages(registry):
+    state = SessionState(task_type="x")
+    policy = registry.get("business_plan").policy
+    [claim] = check_unsupported_market_claims(state, make_result("시장 규모와 예상 매출"), policy)
+    assert claim.rule == "unsupported_market_claims"
+    assert claim.message == "근거 확인이 필요한 표현이 있습니다: 시장 규모, 예상 매출. 출처가 없다면 가정으로 표시하세요."
+    [naming] = check_naming_not_definitive(state, make_result("바로 사용하세요"), policy)
+    assert (naming.rule, naming.message) == (
+        "naming_not_definitive",
+        "상표·도메인 검토 전에 이름을 확정적으로 권고하는 표현이 있습니다.",
+    )
+    [hype] = check_no_exaggeration(state, make_result("무조건 100%"), policy)
+    assert (hype.rule, hype.message) == ("no_exaggeration", "과장 광고로 보일 수 있는 표현이 있습니다: 100%, 무조건")

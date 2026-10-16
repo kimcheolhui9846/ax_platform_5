@@ -51,3 +51,19 @@ def collect_issues(
 def find_terms(text: str, terms: Sequence[str]) -> list[str]:
     """[코드·순수] terms 중 text에 들어 있는 것을 terms의 순서대로 돌려준다."""
     return [term for term in terms if term in text]
+
+
+def term_rule(rule: str, terms: Sequence[str], message_template: str) -> Validator:
+    """결과 본문에 terms 중 하나라도 있으면 경고 하나를 내는 검증 규칙을 만든다.
+
+    message_template의 {terms}에는 찾은 표현이 쉼표로 이어져 들어간다(없어도 된다).
+    """
+
+    def check(state: SessionState, result: GenerationResult, policy: TaskPolicy) -> list[ValidationIssue]:
+        hits = find_terms(result.full_text, terms)
+        if not hits:
+            return []
+        return [ValidationIssue(rule=rule, message=message_template.format(terms=", ".join(hits)))]
+
+    check.__name__ = f"check_{rule}"
+    return check

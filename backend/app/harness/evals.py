@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.state import Answer, AnswerType, CoachingMode, Question, SessionState, SessionStatus
 from app.harness.base import BaseHarness
+from app.harness.errors import GenerationFailed
 from app.harness.policy import FieldKind, TaskPolicy
 
 
@@ -65,6 +66,7 @@ def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) 
 
     계획한 답은 모두 쓰여야 한다. 모르는 필드에 답을 계획했거나 끝까지 쓰이지 않은 답이 남으면
     시나리오가 하네스 흐름과 어긋난 것이므로 시나리오 이름과 함께 실패한다.
+    생성 실패는 예외가 아니라 FAILED 상태로 돌려준다(expect_status: failed 시나리오).
     """
     unknown = unknown_answer_fields(scenario, harness.policy)
     if unknown:
@@ -79,11 +81,18 @@ def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) 
             break
         queue = queues.get(question.field)
         planned = queue.pop(0) if queue else ScenarioAnswer(answer_type=AnswerType.SKIP)
-        harness.apply_answer(state, build_answer(question, planned))
+        try:
+            answer = build_answer(question, planned)
+        except ValueError as exc:
+            raise ValueError(f"시나리오 '{scenario.name}': {exc}") from exc
+        harness.apply_answer(state, answer)
     else:
         raise RuntimeError(f"시나리오 '{scenario.name}'가 {max_turns}턴 안에 끝나지 않았습니다.")
     leftover = [f"{name}({len(queue)}개)" for name, queue in queues.items() if queue]
     if leftover:
         raise ValueError(f"시나리오 '{scenario.name}'에서 쓰이지 않은 답변이 남았습니다: {', '.join(leftover)}")
-    harness.generate(state)
+    try:
+        harness.generate(state)
+    except GenerationFailed:
+        pass  # state는 FAILED로 표시돼 있다
     return state

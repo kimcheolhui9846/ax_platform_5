@@ -2,8 +2,10 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.state import AnswerType
+from app.core.state import AnswerType, SessionStatus
 from app.harness.evals import Scenario, ScenarioAnswer, run_scenario
+from app.providers.mock import MockProvider
+from tests.conftest import SAMPLE_TASK_DIR, SampleHarness
 
 
 def test_scenario_typo_rejected():
@@ -42,3 +44,25 @@ def test_leftover_answers_fail_with_scenario_name(harness):
     )
     with pytest.raises(ValueError, match="남는 답 시나리오.*customer"):
         run_scenario(harness, scenario)
+
+
+
+def test_bad_option_index_error_names_scenario_and_field(harness):
+    scenario = Scenario(
+        name="범위 밖 시나리오",
+        raw_input="향초",
+        answers={"customer": [ScenarioAnswer(answer_type=AnswerType.OPTION, option_indexes=[9])]},
+    )
+    with pytest.raises(ValueError, match="범위 밖 시나리오.*customer"):
+        run_scenario(harness, scenario)
+
+
+def test_failed_generation_scenario_returns_state():
+    """expect_status: failed 시나리오를 쓸 수 있다. 생성 실패는 예외가 아니라 결과 상태로 돌려준다."""
+    harness = SampleHarness(SAMPLE_TASK_DIR, MockProvider(fail_stages={"generate"}))
+    scenario = Scenario.model_validate(
+        {"name": "생성 실패", "raw_input": "향초", "expect_status": "failed"}
+    )
+    state = run_scenario(harness, scenario)
+    assert state.status is scenario.expect_status is SessionStatus.FAILED
+    assert state.result is None
