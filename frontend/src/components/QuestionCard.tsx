@@ -1,80 +1,58 @@
 import { useState } from "react";
 
 import type { AnswerBody, Question } from "../api/types";
-import { questionHint } from "../lib/questionHint";
-import { toggleSelection } from "../lib/selection";
+import { exampleActions, questionHint } from "../lib/question";
+import type { ExampleAction } from "../lib/question";
+import { Composer } from "./Composer";
+import { OptionList } from "./OptionList";
 
 type Props = {
   question: Question;
+  kicker: string;
+  request: string;
   busy: boolean;
   onAnswer: (body: AnswerBody) => void;
+  onExample: (action: ExampleAction["action"]) => void;
+  onEarlyDraft: () => void;
 };
 
-/** 질문이 바뀌면 부모가 key(question_id)로 새로 만들어 선택·입력 상태가 비워진다. */
-export function QuestionCard({ question, busy, onAnswer }: Props) {
-  const [selected, setSelected] = useState<string[]>([]);
+/** 질문 하나. 질문이 바뀌면 부모가 key(question_id)로 새로 만들어 고른 답·입력이 비워진다. */
+export function QuestionCard({ question, kicker, request, busy, onAnswer, onExample, onEarlyDraft }: Props) {
   const [text, setText] = useState("");
-
-  function toggle(id: string) {
-    setSelected((prev) => toggleSelection(prev, id, question.multi_select));
-  }
-
-  const options = question.options;
-  const hint = questionHint(question);
-
   return (
-    <section className="card">
-      {hint && <p className="hint">{hint}</p>}
-      <h2>{question.text}</h2>
-      {question.multi_select && <p className="hint">여러 개 고를 수 있어요</p>}
-
-      {options.length > 0 && (
-        <div className="chips">
-          {options.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              className={selected.includes(o.id) ? "chip on" : "chip"}
-              onClick={() => toggle(o.id)}
-            >
-              {o.label}
-              {o.ai_suggested && <span className="badge">AI 제안</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onAnswer({ answer_type: "option", option_ids: selected })}
-        >
-          선택 완료
-        </button>
-      )}
-
-      <textarea
-        value={text}
-        placeholder="직접 입력"
-        onChange={(e) => setText(e.target.value)}
-        rows={2}
-      />
-      <button
-        type="button"
-        disabled={busy || !text.trim()}
-        onClick={() => onAnswer({ answer_type: "free_text", value: text })}
-      >
-        직접 입력으로 답하기
-      </button>
-
-      <div className="row">
-        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "easier" })}>
-          다른 예시 보기
-        </button>
-        <button type="button" className="ghost" disabled={busy} onClick={() => onAnswer({ answer_type: "skip" })}>
+    <section className="card question-card stack">
+      <div className="notice stack8">
+        <p className="small muted">내가 보낸 요청</p>
+        <p>{request}</p>
+      </div>
+      <p className="small">{`◈ AI 코치 · ${kicker}`}</p>
+      <h1>{question.text}</h1>
+      <p className="muted">{questionHint(question)}</p>
+      <OptionList question={question} busy={busy} onChoose={(ids) => onAnswer({ answer_type: "option", option_ids: ids })} />
+      <div className="help-row">
+        {exampleActions(question).map(({ action, label }) => (
+          <button key={action} type="button" className="btn" disabled={busy} onClick={() => onExample(action)}>
+            {label}
+          </button>
+        ))}
+        <button type="button" className="btn" disabled={busy} onClick={() => onAnswer({ answer_type: "skip" })}>
           아직 모르겠어요
         </button>
+        <button type="button" className="btn" disabled={busy} onClick={onEarlyDraft}>
+          현재 정보로 초안 만들기
+        </button>
       </div>
+      <Composer
+        label="직접 답변 · 의견"
+        value={text}
+        placeholder="내 생각을 적어 주세요"
+        rows={2}
+        maxLength={1200}
+        submitLabel="전송 ↑"
+        busy={busy}
+        onChange={setText}
+        onSubmit={(value) => onAnswer({ answer_type: "free_text", value })}
+      />
     </section>
   );
 }

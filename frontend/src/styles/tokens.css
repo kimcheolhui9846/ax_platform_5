@@ -77,4 +77,9 @@
   --content-max: 1432px;
   --preview-desktop: 1512px;
   --preview-mobile: 390px;
+  --request-max: 960px;
+  --send-width: 160px;
+  --summary-label-width: 88px;
+  --mode-card-height: 320px;
+  --current-mark: 3px;
 }

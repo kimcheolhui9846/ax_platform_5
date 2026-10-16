@@ -14,7 +14,7 @@ import {
 import type { AnswerBody, ResultView, SessionView, TaskSummary } from "./api/types";
 import { ActionButton } from "./components/ActionButton";
 import { IdeaForm } from "./components/IdeaForm";
-import { QuestionCard } from "./components/QuestionCard";
+import { LegacyQuestionCard as QuestionCard } from "./components/LegacyQuestionCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SummaryList } from "./components/SummaryList";
 import { TaskPicker } from "./components/TaskPicker";
