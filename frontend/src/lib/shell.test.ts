@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HEADER_STEPS, enabledNav, headerSteps, phaseOf, railItems } from "./shell";
+import { HEADER_STEPS, enabledNav, headerSteps, phaseOf, railActive, railItems, routePhase } from "./shell";
 
 describe("headerSteps", () => {
   it("과제 밖(null)이면 단계가 없다", () => {
@@ -50,5 +50,28 @@ describe("enabledNav", () => {
   it("요청 중에는 모든 메뉴를 막는다", () => {
     expect(enabledNav(true).size).toBe(0);
     expect(railItems("home", enabledNav(true)).every((item) => item.disabled)).toBe(true);
+  });
+});
+
+describe("routePhase", () => {
+  it("요청은 1단계, 모드·질문·고치기·확인은 2단계, 결과는 3단계, 홈·안내는 과제 밖이다", () => {
+    expect(routePhase({ name: "home" })).toBeNull();
+    expect(routePhase({ name: "guide" })).toBeNull();
+    expect(routePhase({ name: "request", task: "t" })).toBe(0);
+    expect(routePhase({ name: "mode", task: "t" })).toBe(1);
+    expect(routePhase({ name: "question", sessionId: "s" })).toBe(1);
+    expect(routePhase({ name: "revise", sessionId: "s", questionId: "q" })).toBe(1);
+    expect(routePhase({ name: "confirm", sessionId: "s" })).toBe(1);
+    expect(routePhase({ name: "result", sessionId: "s" })).toBe(2);
+  });
+});
+
+describe("railActive", () => {
+  it("홈·안내는 홈, 진행 중인 과제는 내 작업, 결과는 결과물이다", () => {
+    expect(railActive({ name: "home" })).toBe("home");
+    expect(railActive({ name: "guide" })).toBe("home");
+    expect(railActive({ name: "request", task: "t" })).toBe("work");
+    expect(railActive({ name: "confirm", sessionId: "s" })).toBe("work");
+    expect(railActive({ name: "result", sessionId: "s" })).toBe("documents");
   });
 });

@@ -1,3 +1,4 @@
+import type { Route } from "./routes";
 import type { screenOf } from "./screen";
 
 export type NavKey = "home" | "work" | "documents";
@@ -40,4 +41,34 @@ export function railItems(active: NavKey | null, enabled: ReadonlySet<NavKey>): 
     active: key === active,
     disabled: !enabled.has(key),
   }));
+}
+
+/** 주소가 헤더의 몇 번째 단계인지. 홈·안내는 과제 밖이다. */
+export function routePhase(route: Route): Phase | null {
+  switch (route.name) {
+    case "request":
+      return 0;
+    case "mode":
+    case "question":
+    case "revise":
+    case "confirm":
+      return 1;
+    case "result":
+      return 2;
+    default:
+      return null;
+  }
+}
+
+/** 왼쪽 메뉴에서 켜 둘 항목. 진행 중인 과제는 내 작업, 결과는 결과물이다. */
+export function railActive(route: Route): NavKey {
+  switch (route.name) {
+    case "home":
+    case "guide":
+      return "home";
+    case "result":
+      return "documents";
+    default:
+      return "work";
+  }
 }
