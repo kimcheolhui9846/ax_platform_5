@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.results import GenerationResult, ResultCard
-from app.core.state import SessionState
+from app.core.state import CoachingMode, SessionState
 from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
 from app.harness.policy import FieldKind
@@ -161,3 +161,36 @@ def test_term_validators_keep_rule_names_and_messages(registry):
     )
     [hype] = check_no_exaggeration(state, make_result("무조건 100%"), policy)
     assert (hype.rule, hype.message) == ("no_exaggeration", "과장 광고로 보일 수 있는 표현이 있습니다: 100%, 무조건")
+
+
+@pytest.mark.parametrize("task_type", TASK_TYPES)
+@pytest.mark.parametrize("stage", STAGES)
+def test_system_prompt_is_identical_across_sessions(registry, task_type, stage):
+    """system 부분은 과제마다 고정이라 캐시할 수 있어야 한다. 세션·호출마다 다른 값이 섞이면 실패한다."""
+    from app.core.state import Assumption, InfoItem, InfoSource
+
+    harness = registry.get(task_type)
+    fields = harness.policy.fields
+    first = harness.start("첫 번째 세션의 아이디어")
+    second = harness.start("전혀 다른 두 번째 아이디어", mode=CoachingMode.PRECISE)
+    second.facts[fields[1].name] = InfoItem(value="두 번째 세션만의 답", source=InfoSource.USER_SELECTED_AI_OPTION)
+    second.assumptions[fields[2].name] = Assumption(value="두 번째 가정", source=InfoSource.AI_ASSUMPTION)
+    second.unknowns.append(fields[3].name)
+    second.profile.alternative_count = 5
+
+    def render(state, field, level, previous, result_text):
+        values = {
+            "state": state,
+            "policy": harness.policy,
+            "profile": state.profile,
+            "field": field,
+            "level": level,
+            "previous": previous,
+            "result_text": result_text,
+        }
+        return harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
+
+    a = render(first, fields[0], 1, [], "첫 결과")
+    b = render(second, fields[1], 3, ["이전 질문", "또 다른 질문"], "두 번째 결과")
+    assert a.system == b.system
+    assert a.user != b.user
