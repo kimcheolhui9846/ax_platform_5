@@ -5,8 +5,13 @@ from fastapi.responses import JSONResponse
 
 from app.api import coaching
 from app.config import settings
+from app.core.messages import (
+    GENERATION_FAILED_MESSAGE,
+    INVALID_REQUEST_MESSAGE,
+    PROVIDER_FAILED_MESSAGE,
+)
 from app.core.store import InMemorySessionStore, SessionStore
-from app.harness.errors import HarnessError
+from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.registry import HarnessRegistry
 from app.providers.base import LLMProvider, ProviderError
 from app.providers.factory import get_provider
@@ -28,7 +33,7 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def request_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"detail": "요청 형식이 올바르지 않습니다."})
+        return JSONResponse(status_code=422, content={"detail": INVALID_REQUEST_MESSAGE})
 
     @app.exception_handler(HarnessError)
     async def harness_error(request: Request, exc: HarnessError) -> JSONResponse:
@@ -36,10 +41,11 @@ def create_app(
 
     @app.exception_handler(ProviderError)
     async def provider_error(request: Request, exc: ProviderError) -> JSONResponse:
-        return JSONResponse(
-            status_code=502,
-            content={"detail": "AI 호출에 실패했습니다. 다시 시도해 주세요."},
-        )
+        return JSONResponse(status_code=502, content={"detail": PROVIDER_FAILED_MESSAGE})
+
+    @app.exception_handler(GenerationFailed)
+    async def generation_failed(request: Request, exc: GenerationFailed) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": GENERATION_FAILED_MESSAGE})
 
     return app
 

@@ -129,7 +129,6 @@ class SessionState(BaseModel):
     result: GenerationResult | None = None
     result_stale: bool = False
     validation: ValidationReport | None = None
-    error: str | None = None
     trace: list[TraceEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

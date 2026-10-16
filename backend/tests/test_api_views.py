@@ -1,7 +1,8 @@
 import pytest
 
-from app.api.views import build_summary, to_result_view
-from app.core.state import Assumption, InfoItem, InfoSource, SessionState
+from app.api.views import build_summary, session_error, to_result_view
+from app.core.messages import GENERATION_FAILED_MESSAGE
+from app.core.state import Assumption, InfoItem, InfoSource, SessionState, SessionStatus
 from app.harness.policy import FieldKind, FieldPolicy
 
 
@@ -37,3 +38,9 @@ def test_build_summary_prefers_fact_over_assumption():
 def test_to_result_view_requires_result():
     with pytest.raises(ValueError):
         to_result_view(SessionState(task_type="x"))
+
+
+@pytest.mark.parametrize("status", list(SessionStatus))
+def test_session_error_is_derived_from_status(status):
+    expected = GENERATION_FAILED_MESSAGE if status is SessionStatus.FAILED else None
+    assert session_error(status) == expected

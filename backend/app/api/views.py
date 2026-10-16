@@ -1,6 +1,7 @@
 """내부 상태 → API 응답 변환. 프론트가 바로 그릴 수 있는 값만 담는다. 모두 순수 함수다."""
 from collections.abc import Mapping, Sequence
 
+from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.state import Assumption, CoachingMode, InfoItem, SessionState, SessionStatus
 from app.harness.base import BaseHarness
 from app.harness.policy import FieldPolicy
@@ -58,6 +59,11 @@ def build_summary(
     return summary
 
 
+def session_error(status: SessionStatus) -> str | None:
+    """[순수] 사용자에게 보일 오류 문구. 저장하지 않고 상태에서 만든다(FAILED는 생성 실패뿐이다)."""
+    return GENERATION_FAILED_MESSAGE if status is SessionStatus.FAILED else None
+
+
 def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
     """can_generate는 비동기 생성을 도입할 때를 위해 남겨 둔 값이다(지금 생성은 동기라 항상 true)."""
     return SessionView(
@@ -75,7 +81,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         unknowns=state.unknowns,
         can_generate=state.status is not SessionStatus.GENERATING,
         result_stale=state.result_stale,
-        error=state.error,
+        error=session_error(state.status),
     )
 
 

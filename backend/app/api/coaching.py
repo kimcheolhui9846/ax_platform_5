@@ -39,11 +39,14 @@ def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionSta
 
 
 @contextmanager
-def _keep_failure_trace(store: SessionStore, state: SessionState) -> Iterator[None]:
-    """AI 호출이 실패하면 되돌려진 state(실패 trace만 남음)를 저장하고 오류를 다시 던진다."""
+def _save_on_failure(store: SessionStore, state: SessionState) -> Iterator[None]:
+    """AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
+
+    응답 문구는 main.py의 예외 처리기가 정한다(둘 다 502).
+    """
     try:
         yield
-    except ProviderError:
+    except (ProviderError, GenerationFailed):
         store.save(state)
         raise
 
@@ -79,7 +82,7 @@ def submit_answer(
     session_id: str, body: AnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
     state, harness = _load(registry, store, session_id)
-    with _keep_failure_trace(store, state):
+    with _save_on_failure(store, state):
         harness.apply_answer(state, Answer(**body.model_dump()))
     store.save(state)
     return to_session_view(state, harness)
@@ -90,7 +93,7 @@ def revise_answer(
     session_id: str, question_id: str, body: ReviseAnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
     state, harness = _load(registry, store, session_id)
-    with _keep_failure_trace(store, state):
+    with _save_on_failure(store, state):
         harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
     store.save(state)
     return to_session_view(state, harness)
@@ -99,14 +102,8 @@ def revise_answer(
 @router.post("/sessions/{session_id}/generate", response_model=ResultView)
 def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)
-    try:
+    with _save_on_failure(store, state):
         harness.generate(state)
-    except GenerationFailed:
-        store.save(state)
-        raise HTTPException(
-            status_code=502,
-            detail="결과를 만들지 못했습니다. 입력은 그대로 남아 있으니 다시 시도해 주세요.",
-        ) from None
     store.save(state)
     return to_result_view(state)
 

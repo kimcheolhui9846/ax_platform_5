@@ -1,8 +1,7 @@
 import pytest
 
 from app.core.results import ValidationIssue
-from app.core.state import Answer, AnswerType, Assumption, InfoSource, SessionStatus
-from app.harness.base import GENERIC_GENERATION_ERROR
+from app.core.state import Answer, AnswerType, Assumption, InfoSource, SessionState, SessionStatus
 from app.harness.errors import GenerationFailed
 from app.harness.evals import load_scenarios, run_scenario
 from app.providers.mock import MockProvider
@@ -34,15 +33,17 @@ def test_generate_failure_preserves_input_and_can_retry():
     with pytest.raises(GenerationFailed):
         harness.generate(state)
     assert state.status is SessionStatus.FAILED
-    assert state.error == GENERIC_GENERATION_ERROR
-    assert "[mock]" not in state.error
     assert state.facts["idea"].value == "향초"
     assert "[mock]" in state.trace[-1].output["error"]
 
     harness.provider = MockProvider()
     harness.generate(state)
     assert state.status is SessionStatus.COMPLETED
-    assert state.error is None
+
+
+def test_session_state_does_not_store_error():
+    """사용자에게 보일 오류 문구는 상태(FAILED)에서 뷰가 만든다. 따로 저장하면 상태와 어긋난다."""
+    assert "error" not in SessionState.model_fields
 
 
 def test_schema_error_retried_once():
@@ -188,8 +189,6 @@ def test_validator_exception_fails_generation_and_keeps_pending_question(provide
         harness.generate(state)
 
     assert state.status is SessionStatus.FAILED
-    assert state.error
-    assert "secret" not in state.error
     assert state.result is None
     assert state.pending_question == pending
     assert state.asked_questions[-1].answer_type is None
@@ -208,7 +207,7 @@ def test_template_error_fails_generation_without_leaking(tmp_path):
     with pytest.raises(GenerationFailed):
         harness.generate(state)
     assert state.status is SessionStatus.FAILED
-    assert "nope" not in state.error
+    assert "nope" in str(state.trace[-1].output)
 
 
 def test_can_answer_kept_question_after_failed_generate():

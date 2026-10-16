@@ -1,6 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.messages import (
+    GENERATION_FAILED_MESSAGE,
+    INVALID_REQUEST_MESSAGE,
+    PROVIDER_FAILED_MESSAGE,
+)
 from app.main import create_app
 from app.providers.mock import MockProvider
 
@@ -122,13 +127,29 @@ def test_generate_failure_is_502_and_session_preserved():
 
     response = client.post(f"{BASE}/sessions/{sid}/generate")
     assert response.status_code == 502
-    assert "다시 시도" in response.json()["detail"]
+    assert response.json() == {"detail": GENERATION_FAILED_MESSAGE}
 
     view = client.get(f"{BASE}/sessions/{sid}").json()
     assert view["status"] == "failed"
-    assert view["error"] == "결과를 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 시도해 주세요."
-    assert "[mock]" not in view["error"]
+    assert view["error"] == GENERATION_FAILED_MESSAGE
     assert view["summary"][0]["value"] == "수제 향초"
+
+
+def test_answering_kept_question_after_failed_generate_clears_error():
+    """error는 저장값이 아니라 상태에서 나온다. FAILED를 벗어나면 함께 사라진다."""
+    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+
+    response = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "option", "option_ids": ["o1"]},
+    )
+    assert response.status_code == 200
+    after = response.json()
+    assert after["status"] == "clarifying"
+    assert after["error"] is None
 
 
 def test_trace_hidden_without_debug():
@@ -171,7 +192,7 @@ def test_openapi_marks_defaulted_response_fields_required(client):
 def test_request_format_errors_are_korean_422(client):
     empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
     assert empty.status_code == 422
-    assert empty.json() == {"detail": "요청 형식이 올바르지 않습니다."}
+    assert empty.json() == {"detail": INVALID_REQUEST_MESSAGE}
 
     sid = create_session(client)["session_id"]
     qid = client.get(f"{BASE}/sessions/{sid}").json()["next_question"]["question_id"]
@@ -196,7 +217,7 @@ def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
     else:
         pytest.fail("사다리에서 LLM 호출이 필요해지지 않았다")
 
-    assert response.json()["detail"] == "AI 호출에 실패했습니다. 다시 시도해 주세요."
+    assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
     after = client.get(f"{BASE}/sessions/{sid}").json()
     assert after["next_question"]["question_id"] == before["next_question"]["question_id"]
     trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
@@ -213,4 +234,4 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
     monkeypatch.setattr(client.app.state.registry.get("product_planning"), "start", boom)
     response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
     assert response.status_code == 502
-    assert response.json()["detail"] == "AI 호출에 실패했습니다. 다시 시도해 주세요."
+    assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
