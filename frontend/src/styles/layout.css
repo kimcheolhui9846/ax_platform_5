@@ -34,6 +34,8 @@
 
 .app-body { flex: 1; display: flex; align-items: flex-start; gap: var(--space-6); padding: var(--space-10) var(--space-12) var(--space-8); max-width: var(--content-max); }
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+/* 화면이 바뀌면 앱이 본문으로 초점을 옮긴다(화면 읽기 프로그램용). 본문 전체에 테두리는 그리지 않는다. */
+.app-main:focus { outline: none; }
 .app-side { width: var(--side-width); flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 
 @container app (max-width: 1099px) {

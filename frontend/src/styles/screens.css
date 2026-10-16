@@ -10,6 +10,7 @@
 
 /* 요청·입력창 */
 .request { max-width: var(--request-max); gap: var(--space-6); }
+.notice > .btn { align-self: flex-start; }
 .composer {
   display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
   background: var(--color-surface); border: var(--line-width) solid var(--color-line); border-radius: var(--radius-lg);
@@ -77,6 +78,8 @@
 }
 
 @container app (max-width: 719px) {
+  .mode-view > .row { flex-wrap: wrap; }
+  .mode-view > .row .grow { flex-basis: 100%; }
   .taskgrid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
   .screen-title { font-size: var(--text-2xl); line-height: var(--text-2xl-line); }
   .question-card, .confirm, .document { padding: var(--space-5); }
