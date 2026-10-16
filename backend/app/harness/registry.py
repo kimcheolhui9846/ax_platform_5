@@ -11,6 +11,8 @@ TASK_TYPES = ("business_plan", "product_planning", "branding", "marketing_conten
 
 
 def build_harness(task_type: str, provider: LLMProvider) -> BaseHarness:
+    if task_type not in TASK_TYPES:
+        raise UnknownTaskError(task_type)
     module = importlib.import_module(f"app.harness.tasks.{task_type}.harness")
     return module.Harness(TASKS_DIR / task_type, provider)
 

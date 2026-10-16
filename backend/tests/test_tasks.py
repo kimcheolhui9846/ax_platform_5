@@ -6,9 +6,11 @@ from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
 from app.harness.policy import FieldKind
 from app.harness.prompting import STAGES
-from app.harness.registry import TASK_TYPES, TASKS_DIR, HarnessRegistry
+from app.harness.registry import TASK_TYPES, TASKS_DIR, HarnessRegistry, build_harness
 from app.harness.tasks.business_plan.validators import check_unsupported_market_claims
-from app.harness.tasks.marketing_content.validators import check_cta_present
+from app.harness.tasks.branding.validators import check_naming_not_definitive
+from app.harness.tasks.marketing_content.validators import check_cta_present, check_no_exaggeration
+from app.harness.tasks.product_planning.validators import MAX_CORE_FEATURES, check_mvp_not_too_big
 from app.harness.validation import find_terms
 from app.providers.mock import MockProvider
 
@@ -88,3 +90,35 @@ def test_marketing_requires_cta(registry):
 def test_find_terms_returns_only_present_terms_in_order():
     assert find_terms("무조건 100% 보장", ("100%", "완벽", "무조건")) == ["100%", "무조건"]
     assert find_terms("평범한 문장", ("100%",)) == []
+
+
+def test_build_harness_rejects_unregistered_task_type():
+    with pytest.raises(UnknownTaskError):
+        build_harness("../etc", MockProvider())
+    with pytest.raises(UnknownTaskError):
+        build_harness("nope", MockProvider())
+
+
+def test_marketing_flags_exaggeration(registry):
+    policy = registry.get("marketing_content").policy
+    state = SessionState(task_type="marketing_content")
+    assert check_no_exaggeration(state, make_result("무조건 100% 만족"), policy)
+    assert not check_no_exaggeration(state, make_result("겨울밤에 어울리는 향"), policy)
+
+
+def test_branding_flags_definitive_naming(registry):
+    policy = registry.get("branding").policy
+    state = SessionState(task_type="branding")
+    assert check_naming_not_definitive(state, make_result("이 이름으로 확정하세요"), policy)
+    assert not check_naming_not_definitive(state, make_result("이름 후보와 상표 확인 과제"), policy)
+
+
+def test_product_planning_mvp_size_boundary(registry):
+    policy = registry.get("product_planning").policy
+    state = SessionState(task_type="product_planning")
+
+    def features(count: int) -> GenerationResult:
+        return make_result(content={"core_features": [f"기능{i}" for i in range(count)]})
+
+    assert not check_mvp_not_too_big(state, features(MAX_CORE_FEATURES), policy)
+    assert check_mvp_not_too_big(state, features(MAX_CORE_FEATURES + 1), policy)
