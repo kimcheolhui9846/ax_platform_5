@@ -1,4 +1,4 @@
-/* 묶음 1에서 화면을 V2로 바꾸기 전까지 기존 컴포넌트가 쓰는 클래스. 값은 토큰만 쓴다. */
+/* 묶음 1에서 화면을 V2로 바꾸기 전까지 기존 컴포넌트가 쓰는 클래스. 색·글자 크기·폭·선·모서리는 토큰만 쓴다. */
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .chip { padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--color-line); border-radius: var(--radius-pill); background: var(--color-surface); }
 .chip.on { background: var(--color-tint); border-color: var(--color-accent); }
