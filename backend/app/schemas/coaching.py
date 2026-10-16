@@ -2,14 +2,37 @@
 
 내부 세션 상태(trace, 프롬프트, 정책 규칙)는 여기에 싣지 않는다.
 """
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
-from app.core.results import GenerationResult, ValidationReport
+from app.core.results import ResultCard, ValidationReport
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.policy import FieldKind
+
+
+class ErrorBody(ContractModel):
+    """모든 오류 응답 본문(404·405·422·500·502). detail은 사용자에게 보여 줄 한국어 문장이다."""
+
+    detail: str
+
+
+class RequestErrorItem(ContractModel):
+    loc: list[str | int]
+    msg: str
+    type: str
+
+
+class RequestErrorBody(ErrorBody):
+    """422 본문. errors는 DEBUG=true일 때만 실리는 개발용 상세라 선택 필드다(평소에는 키가 없다)."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=False)
+
+    errors: list[RequestErrorItem] | None = Field(
+        default=None, description="DEBUG=true일 때만 채워지는 요청 검증 상세(개발용). 평소에는 없다."
+    )
 
 
 class TaskSummary(ContractModel):
@@ -68,8 +91,14 @@ class SummaryItem(ContractModel):
     label: str
     value: str
     source: InfoSource
+    source_label: str
     confidence: float
     is_assumption: bool
+
+
+class UnknownItem(ContractModel):
+    field: str
+    label: str
 
 
 class SessionView(ContractModel):
@@ -80,15 +109,34 @@ class SessionView(ContractModel):
     next_question: Question | None
     progress: Progress
     summary: list[SummaryItem]
-    unknowns: list[str]
+    unknowns: list[UnknownItem]
     can_generate: bool
+    has_result: bool  # 이전에 만든 결과가 있어 GET /result로 다시 볼 수 있다
     result_stale: bool
     error: str | None
+
+
+class LabeledAssumption(ContractModel):
+    field: str
+    label: str
+    value: str
+    reason: str
+    requires_confirmation: bool
+
+
+class LabeledResult(ContractModel):
+    """GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다."""
+
+    cards: list[ResultCard]
+    assumptions: list[LabeledAssumption]
+    full_text: str
+    content: dict[str, Any]
+    generated_at: datetime
 
 
 class ResultView(ContractModel):
     session_id: str
     status: SessionStatus
-    result: GenerationResult
+    result: LabeledResult
     validation: ValidationReport | None
     stale: bool

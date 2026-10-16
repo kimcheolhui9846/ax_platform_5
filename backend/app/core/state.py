@@ -34,6 +34,21 @@ class InfoSource(StrEnum):
     DEFAULT = "default"
 
 
+# 정보 출처의 한국어 라벨. 프롬프트와 API 응답(SummaryItem.source_label)이 함께 쓴다.
+SOURCE_LABELS: dict[InfoSource, str] = {
+    InfoSource.USER_FREE_TEXT: "직접 입력",
+    InfoSource.USER_SELECTED_AI_OPTION: "선택지에서 고름",
+    InfoSource.PREVIOUS_TASK: "이전 과제",
+    InfoSource.AI_ASSUMPTION: "AI 가정",
+    InfoSource.DEFAULT: "기본값",
+}
+
+
+def source_label(source: InfoSource) -> str:
+    """[순수] 정보 출처를 사람이 읽는 한국어로."""
+    return SOURCE_LABELS[source]
+
+
 class AnswerType(StrEnum):
     OPTION = "option"
     FREE_TEXT = "free_text"
@@ -86,13 +101,17 @@ class AskedQuestion(BaseModel):
     answer_type: AnswerType | None = None
     value: str | None = None
     answered_at: datetime | None = None
+    # 같은 필드에 나중 답(또는 수정)이 값을 정했으면 True. 지금 값은 언제나 facts가 기준이다.
+    # trace·디버깅용 이력 표시다. 아직 API 응답은 이 값을 쓰지 않는다(이전 답 목록 UI가 생기면 쓴다).
+    superseded: bool = False
 
 
 class TraceEntry(ContractModel):
     stage: str
     input: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)
-    provider: str | None = None
+    provider: str | None = None  # 제공자 이름(mock, claude 등)
+    model: str | None = None  # 실제로 응답한 모델 id. 호출이 실패하면 None
     usage: dict[str, int] = Field(default_factory=dict)
     at: datetime = Field(default_factory=utcnow)
 
@@ -129,7 +148,6 @@ class SessionState(BaseModel):
     result: GenerationResult | None = None
     result_stale: bool = False
     validation: ValidationReport | None = None
-    error: str | None = None
     trace: list[TraceEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

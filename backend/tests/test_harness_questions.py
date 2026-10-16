@@ -7,6 +7,8 @@ from app.core.state import (
     Assumption,
     CoachingMode,
     InfoSource,
+    Question,
+    QuestionOption,
     SessionStatus,
 )
 from app.harness.errors import HarnessError
@@ -156,3 +158,105 @@ def test_revise_after_result_marks_stale(harness, reply):
 
     assert state.result_stale
     assert state.status is SessionStatus.REVISING
+
+
+def test_unknown_option_message_lists_ids_without_python_repr():
+    from app.harness.base import answer_to_fact
+
+    question = Question(field="f", text="q", options=[QuestionOption(id="o1", label="a")], multi_select=True)
+    answer = Answer(question_id=question.question_id, answer_type=AnswerType.OPTION, option_ids=["o9", "o8"])
+    with pytest.raises(HarnessError) as caught:
+        answer_to_fact(question, answer)
+    assert str(caught.value) == "없는 선택지입니다: o9, o8"
+
+
+# ── 수정 뒤 이전 기록 구분(#11) ───────────────────────────────
+
+
+def _current(state, field):
+    return [a for a in state.asked_questions if a.question.field == field and not a.superseded and a.answer_type]
+
+
+def test_later_answer_supersedes_earlier_records_of_field(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.FREE_TEXT, value="30대 직장인")
+
+    records = [a for a in state.asked_questions if a.question.field == "customer"]
+    assert [(a.answer_type, a.superseded) for a in records] == [
+        (AnswerType.DONT_KNOW, True),
+        (AnswerType.FREE_TEXT, False),
+    ]
+    assert [a.value for a in _current(state, "customer")] == [state.facts["customer"].value]
+
+
+def test_revise_makes_revised_record_the_only_current_one(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.FREE_TEXT, value="30대 직장인")
+    first = state.asked_questions[0]
+
+    harness.revise_answer(
+        state, Answer(question_id=first.question.question_id, answer_type=AnswerType.FREE_TEXT, value="40대 부모")
+    )
+
+    assert [a.value for a in _current(state, "customer")] == ["40대 부모"]
+    assert state.facts["customer"].value == "40대 부모"
+
+
+def test_skip_does_not_supersede(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.SKIP)
+    assert state.asked_questions[0].superseded is False
+
+
+# ── 수정 뒤 종료 조건 다시 보기(#12) ─────────────────────────
+
+
+def test_revise_that_completes_session_drops_pending_base_question(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.SKIP)  # customer → 모름
+    reply(harness, state, AnswerType.FREE_TEXT, value="선물 고르기가 어렵다")
+    assert (state.pending_question.field, state.pending_question.level) == ("tone", 0)
+    skipped = state.asked_questions[0]
+
+    harness.revise_answer(
+        state, Answer(question_id=skipped.question.question_id, answer_type=AnswerType.FREE_TEXT, value="부모")
+    )
+
+    assert harness.should_stop(state)
+    assert state.pending_question is None
+    assert state.status is SessionStatus.CONFIRMING
+    assert all(a.answer_type is not None for a in state.asked_questions)
+
+
+def test_revise_that_completes_stale_session_goes_to_revising(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.SKIP)
+    reply(harness, state, AnswerType.FREE_TEXT, value="선물 고르기가 어렵다")
+    state.result = GenerationResult(cards=[], full_text="이전 결과", content={})
+
+    harness.revise_answer(
+        state,
+        Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.FREE_TEXT, value="부모"),
+    )
+
+    assert state.pending_question is None
+    assert state.status is SessionStatus.REVISING
+
+
+def test_revise_keeps_pending_ladder_question_even_if_session_could_stop(harness, reply):
+    state = harness.start("향초", mode=CoachingMode.QUICK)  # 질문 상한 2
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    reply(harness, state, AnswerType.DONT_KNOW)
+    pending = state.pending_question
+    assert (pending.field, pending.level) == ("problem", 1)
+
+    harness.revise_answer(
+        state,
+        Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.FREE_TEXT, value="부모"),
+    )
+
+    assert harness.should_stop(state)
+    assert state.pending_question.question_id == pending.question_id
+    assert state.status is SessionStatus.CLARIFYING

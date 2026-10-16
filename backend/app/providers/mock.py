@@ -1,7 +1,7 @@
 """비용 0, 결정적인 Mock 제공자. 개발·테스트의 기본값이다."""
 from pydantic import BaseModel
 
-from app.providers.base import ProviderError, ProviderOutputError, ProviderResponse, Usage
+from app.providers.base import Prompt, ProviderError, ProviderOutputError, ProviderResponse, Usage
 from app.providers.mock_fill import mock_instance
 
 
@@ -23,7 +23,7 @@ class MockProvider:
         *,
         task_type: str,
         stage: str,
-        prompt: str,
+        prompt: Prompt,
         response_model: type[BaseModel] | None = None,
     ) -> ProviderResponse:
         self.calls.append((task_type, stage))
@@ -39,5 +39,5 @@ class MockProvider:
             text=text,
             model="mock",
             parsed=parsed,
-            usage=Usage(input_tokens=len(prompt), output_tokens=len(text)),
+            usage=Usage(input_tokens=len(prompt.system) + len(prompt.user), output_tokens=len(text)),
         )

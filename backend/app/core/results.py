@@ -28,6 +28,7 @@ class ResultCard(ContractModel):
 class ResultAssumption(ContractModel):
     field: str = Field(description="AI가 보완한 항목의 필드 이름")
     value: str = Field(description="AI가 가정한 값")
+    reason: str = Field(default="", description="그렇게 가정한 이유")
     requires_confirmation: bool = Field(default=True, description="사용자 확인이 필요한지")
 
 

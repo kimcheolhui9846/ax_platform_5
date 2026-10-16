@@ -6,6 +6,12 @@ from app.core.state import SessionState
 
 
 class SessionStore(Protocol):
+    """저장소 계약(tests/test_store_contract.py가 확인한다).
+
+    - get은 복사본을 돌려준다. 받은 객체를 바꿔도 저장된 값은 그대로다. 없는 id면 None.
+    - save는 복사본을 저장한다. 저장 뒤 원래 객체를 바꿔도 새지 않는다. 저장할 때 updated_at을 지금으로 바꾼다.
+    """
+
     def get(self, session_id: str) -> SessionState | None: ...
 
     def save(self, state: SessionState) -> None: ...

@@ -1,17 +1,30 @@
 import { useEffect, useState } from "react";
 
-import { errorMessage } from "./api/client";
-import { createSession, generateResult, listTasks, submitAnswer } from "./api/coaching";
-import type { ApiResult } from "./api/coaching";
+import { toOutcome } from "./api/client";
+import type { ApiResult } from "./api/client";
+import {
+  continueSession,
+  createSession,
+  generateResult,
+  getResult,
+  getSession,
+  listTasks,
+  submitAnswer,
+} from "./api/coaching";
 import type { AnswerBody, ResultView, SessionView, TaskSummary } from "./api/types";
+import { ActionButton } from "./components/ActionButton";
 import { IdeaForm } from "./components/IdeaForm";
 import { QuestionCard } from "./components/QuestionCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SummaryList } from "./components/SummaryList";
 import { TaskPicker } from "./components/TaskPicker";
 import { formatProgress } from "./lib/progress";
+import { STALE_HINT, screenOf, sessionActions } from "./lib/screen";
+import type { SessionAction } from "./lib/screen";
 
-/** 화면 상태(과제, 세션, 결과)와 요청 상태(busy/error)는 이 컴포넌트에서만 바꾼다. */
+const CONNECTION_ERROR = "서버에 연결하지 못했습니다. 백엔드가 켜져 있는지 확인해 주세요.";
+
+/** 화면 상태(과제, 세션, 결과)와 요청 상태(busy/error)는 이 컴포넌트에서만 바꾼다. 어떤 화면인지는 screenOf가 정한다. */
 export default function App() {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [task, setTask] = useState<TaskSummary | null>(null);
@@ -21,17 +34,30 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function run<T>(request: () => Promise<ApiResult<T>>, onData: (data: T) => void) {
+  async function run<T>(request: () => Promise<ApiResult<T>>, onData: (data: T) => void, onFail?: () => void) {
     setBusy(true);
     setError(null);
     try {
-      const { data, error } = await request();
-      if (data !== undefined) onData(data);
-      else setError(errorMessage(error));
+      const outcome = toOutcome(await request());
+      if (outcome.ok) onData(outcome.data);
+      else {
+        setError(outcome.message);
+        onFail?.();
+      }
     } catch {
-      setError("서버에 연결하지 못했습니다. 백엔드가 켜져 있는지 확인해 주세요.");
+      setError(CONNECTION_ERROR);
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** 실패 뒤 서버의 세션 상태(FAILED 등)를 다시 받아 온다. 오류 문구는 건드리지 않는다. */
+  async function refreshSession(sessionId: string) {
+    try {
+      const outcome = toOutcome(await getSession(sessionId));
+      if (outcome.ok) setSession(outcome.data);
+    } catch {
+      // 연결 오류는 이미 보여 준 오류 문구로 충분하다.
     }
   }
 
@@ -54,7 +80,26 @@ export default function App() {
   function generate() {
     if (!session) return;
     const { session_id } = session;
-    void run(() => generateResult(session_id), setResult);
+    void run(() => generateResult(session_id), setResult, () => void refreshSession(session_id));
+  }
+
+  /** 결과에서 질문으로 돌아간다. 남은 질문이 있으면 서버가 다음 질문을 걸어 돌려준다. */
+  function backToQuestions() {
+    if (!result) return;
+    const { session_id } = result;
+    void run(
+      () => continueSession(session_id),
+      (fresh) => {
+        setSession(fresh);
+        setResult(null);
+      },
+    );
+  }
+
+  function showResult() {
+    if (!session) return;
+    const { session_id } = session;
+    void run(() => getResult(session_id), setResult);
   }
 
   function reset() {
@@ -64,6 +109,17 @@ export default function App() {
     setResult(null);
     setError(null);
   }
+
+  function act({ action }: SessionAction) {
+    if (action === "show_result") showResult();
+    else generate();
+  }
+
+  const screen = screenOf(task, session, result);
+  const actions = "session" in screen ? sessionActions(screen.session) : null;
+  const secondary = actions?.secondary ?? null;
+  const banner = error ?? (screen.kind === "failed" ? screen.session.error : null);
+  const question = screen.kind === "clarifying" || screen.kind === "failed" ? screen.question : null;
 
   return (
     <main>
@@ -76,33 +132,53 @@ export default function App() {
         )}
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {banner && <p className="error">{banner}</p>}
 
-      {!task && <TaskPicker tasks={tasks} onPick={setTask} />}
+      {screen.kind === "pick_task" && <TaskPicker tasks={tasks} onPick={setTask} />}
 
-      {task && !session && (
-        <IdeaForm title={task.title} value={rawInput} busy={busy} onChange={setRawInput} onSubmit={startSession} />
+      {screen.kind === "idea" && (
+        <IdeaForm title={screen.task.title} value={rawInput} busy={busy} onChange={setRawInput} onSubmit={startSession} />
       )}
 
-      {session && !result && (
-        <>
-          <p className="progress">{formatProgress(session.progress)}</p>
+      {screen.kind === "result" && <ResultPanel view={screen.result} busy={busy} onBack={backToQuestions} />}
 
-          {session.next_question ? (
-            <QuestionCard question={session.next_question} busy={busy} onAnswer={answer} />
+      {"session" in screen && (
+        <>
+          <p className="progress">{formatProgress(screen.session.progress)}</p>
+          {screen.session.result_stale && <p className="hint">{STALE_HINT}</p>}
+
+          {question ? (
+            <QuestionCard key={question.question_id} question={question} busy={busy} onAnswer={answer} />
+          ) : screen.kind === "generating" ? (
+            <p className="card">결과를 만드는 중이에요…</p>
+          ) : screen.kind === "completed" ? (
+            <p className="card">더 물어볼 것이 없어요. 결과는 지금 답과 맞아요.</p>
           ) : (
             <p className="card">필요한 정보가 모였어요. 결과를 만들어 볼까요?</p>
           )}
 
-          <SummaryList items={session.summary} />
+          <SummaryList items={screen.session.summary} />
 
-          <button type="button" className="primary" disabled={busy || !session.can_generate} onClick={generate}>
-            {busy ? "처리 중…" : "이대로 결과 만들기"}
-          </button>
+          {actions && (
+            <>
+              <ActionButton
+                action={actions.primary}
+                className="primary"
+                state={{ busy, canGenerate: screen.session.can_generate }}
+                onAct={act}
+              />
+              {secondary && (
+                <ActionButton
+                  action={secondary}
+                  className="ghost"
+                  state={{ busy, canGenerate: screen.session.can_generate }}
+                  onAct={act}
+                />
+              )}
+            </>
+          )}
         </>
       )}
-
-      {result && <ResultPanel view={result} />}
     </main>
   );
 }

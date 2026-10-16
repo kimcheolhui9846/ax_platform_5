@@ -1,7 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.messages import (
+    GENERATION_FAILED_MESSAGE,
+    INVALID_REQUEST_MESSAGE,
+    PROVIDER_FAILED_MESSAGE,
+)
+from app.harness.stage_models import Diagnosis, ExtractedField
 from app.main import create_app
+from app.providers.base import ProviderResponse
 from app.providers.mock import MockProvider
 
 BASE = "/api/v1/coaching"
@@ -54,6 +61,7 @@ def test_create_session_returns_first_question(client):
     assert view["progress"] == {"asked": 0, "cap": 5, "readiness": view["progress"]["readiness"]}
     assert view["summary"][0]["field"] == "product_idea"
     assert view["summary"][0]["source"] == "user_free_text"
+    assert view["summary"][0]["source_label"] == "직접 입력"
     assert view["can_generate"] is True
     assert "trace" not in view
 
@@ -111,6 +119,42 @@ def test_harness_errors_are_422(client):
     assert response.json()["detail"] == "지금 답할 수 있는 질문이 아닙니다."
 
 
+class UserDiagnosisProvider(MockProvider):
+    """처음 입력에서 product_planning의 user 필드를 뽑아 AI 가정을 만든다."""
+
+    def complete(self, *, task_type, stage, prompt, response_model=None):
+        if stage == "diagnose":
+            parsed = Diagnosis(extracted=[ExtractedField(field="user", value="30대 직장인")])
+            return ProviderResponse(text="{}", model="stub", parsed=parsed)
+        return super().complete(task_type=task_type, stage=stage, prompt=prompt, response_model=response_model)
+
+
+def test_labels_reach_assumptions_and_unknowns():
+    client = TestClient(create_app(provider=UserDiagnosisProvider(), debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    q = view["next_question"]
+    assert q["field"] == "user"
+
+    result = client.post(f"{BASE}/sessions/{sid}/generate").json()
+    user = next(a for a in result["result"]["assumptions"] if a["field"] == "user")
+    assert user == {
+        "field": "user",
+        "label": "사용자",
+        "value": "30대 직장인",
+        "reason": "처음 입력에서 추출",
+        "requires_confirmation": True,
+    }
+
+    view = create_session(client)
+    sid = view["session_id"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "skip"},
+    ).json()
+    assert view["unknowns"] == [{"field": "user", "label": "사용자"}]
+
+
 def test_result_before_generate_is_404(client):
     sid = create_session(client)["session_id"]
     assert client.get(f"{BASE}/sessions/{sid}/result").status_code == 404
@@ -122,13 +166,29 @@ def test_generate_failure_is_502_and_session_preserved():
 
     response = client.post(f"{BASE}/sessions/{sid}/generate")
     assert response.status_code == 502
-    assert "다시 시도" in response.json()["detail"]
+    assert response.json() == {"detail": GENERATION_FAILED_MESSAGE}
 
     view = client.get(f"{BASE}/sessions/{sid}").json()
     assert view["status"] == "failed"
-    assert view["error"] == "결과를 만드는 중 문제가 생겼습니다. 잠시 뒤 다시 시도해 주세요."
-    assert "[mock]" not in view["error"]
+    assert view["error"] == GENERATION_FAILED_MESSAGE
     assert view["summary"][0]["value"] == "수제 향초"
+
+
+def test_answering_kept_question_after_failed_generate_clears_error():
+    """error는 저장값이 아니라 상태에서 나온다. FAILED를 벗어나면 함께 사라진다."""
+    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+
+    response = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "option", "option_ids": ["o1"]},
+    )
+    assert response.status_code == 200
+    after = response.json()
+    assert after["status"] == "clarifying"
+    assert after["error"] is None
 
 
 def test_trace_hidden_without_debug():
@@ -140,8 +200,8 @@ def test_trace_hidden_without_debug():
 CONTRACT_SCHEMAS = (
     "TaskSummary", "TaskForm", "ModeInfo", "FieldSummary", "CreateSessionRequest",
     "AnswerRequest", "ReviseAnswerRequest", "Progress", "SummaryItem", "SessionView",
-    "ResultView", "Question", "QuestionOption", "GenerationResult", "ResultCard",
-    "ResultAssumption", "ValidationReport", "ValidationIssue", "TraceEntry",
+    "ResultView", "Question", "QuestionOption", "LabeledResult", "ResultCard",
+    "LabeledAssumption", "UnknownItem", "ValidationReport", "ValidationIssue", "TraceEntry",
 )  # fmt: skip
 
 
@@ -161,7 +221,8 @@ def test_openapi_marks_defaulted_response_fields_required(client):
     """응답 필드는 항상 채워져 나가므로 프론트 타입에서 선택 필드가 되면 안 된다."""
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert {"question_id", "options"} <= set(schemas["Question"]["required"])
-    assert "assumptions" in schemas["GenerationResult"]["required"]
+    assert "assumptions" in schemas["LabeledResult"]["required"]
+    assert {"label", "reason"} <= set(schemas["LabeledAssumption"]["required"])
     assert "issues" in schemas["ValidationReport"]["required"]
     # 요청 모델의 기본값 필드는 그대로 선택이다.
     assert "value" not in schemas["AnswerRequest"].get("required", [])
@@ -171,7 +232,7 @@ def test_openapi_marks_defaulted_response_fields_required(client):
 def test_request_format_errors_are_korean_422(client):
     empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
     assert empty.status_code == 422
-    assert empty.json() == {"detail": "요청 형식이 올바르지 않습니다."}
+    assert empty.json()["detail"] == INVALID_REQUEST_MESSAGE
 
     sid = create_session(client)["session_id"]
     qid = client.get(f"{BASE}/sessions/{sid}").json()["next_question"]["question_id"]
@@ -196,7 +257,7 @@ def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
     else:
         pytest.fail("사다리에서 LLM 호출이 필요해지지 않았다")
 
-    assert response.json()["detail"] == "AI 호출에 실패했습니다. 다시 시도해 주세요."
+    assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
     after = client.get(f"{BASE}/sessions/{sid}").json()
     assert after["next_question"]["question_id"] == before["next_question"]["question_id"]
     trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
@@ -213,4 +274,134 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
     monkeypatch.setattr(client.app.state.registry.get("product_planning"), "start", boom)
     response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
     assert response.status_code == 502
-    assert response.json()["detail"] == "AI 호출에 실패했습니다. 다시 시도해 주세요."
+    assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
+
+
+def test_failed_regenerate_serves_previous_result_unchanged():
+    provider = MockProvider()
+    client = TestClient(create_app(provider=provider, debug=True))
+    sid = create_session(client)["session_id"]
+    first = client.post(f"{BASE}/sessions/{sid}/generate").json()
+    assert first["stale"] is False
+
+    provider.fail_stages.add("generate")
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+
+    kept = client.get(f"{BASE}/sessions/{sid}/result").json()
+    assert kept["result"] == first["result"]
+    assert kept["stale"] is False
+    view = client.get(f"{BASE}/sessions/{sid}").json()
+    assert (view["status"], view["error"], view["result_stale"]) == ("failed", GENERATION_FAILED_MESSAGE, False)
+
+
+def test_harness_error_in_generate_is_422(client, monkeypatch):
+    from app.harness.errors import HarnessError
+
+    harness = client.app.state.registry.get("product_planning")
+
+    def rule_problem(state):
+        raise HarnessError("결과를 만들 수 없는 입력입니다.")
+
+    sid = create_session(client)["session_id"]
+    monkeypatch.setattr(harness, "generate", rule_problem)
+    response = client.post(f"{BASE}/sessions/{sid}/generate")
+    assert response.status_code == 422
+    assert response.json() == {"detail": "결과를 만들 수 없는 입력입니다."}
+
+
+def test_continue_after_early_result_returns_next_question(client):
+    view = create_session(client)
+    sid = view["session_id"]
+    assert view["has_result"] is False
+    result = client.post(f"{BASE}/sessions/{sid}/generate").json()
+
+    view = client.post(f"{BASE}/sessions/{sid}/continue").json()
+    assert view["status"] == "clarifying"
+    assert view["next_question"]["field"] == "user"
+    assert (view["has_result"], view["result_stale"]) == (True, False)
+    assert client.get(f"{BASE}/sessions/{sid}/result").json()["result"] == result["result"]
+
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "option", "option_ids": ["o1"]},
+    ).json()
+    assert view["result_stale"] is True
+
+
+def test_continue_when_nothing_is_left_keeps_session(client):
+    sid = create_session(client)["session_id"]
+    for _ in range(10):
+        view = client.get(f"{BASE}/sessions/{sid}").json()
+        if view["next_question"] is None:
+            break
+        client.post(
+            f"{BASE}/sessions/{sid}/answers",
+            json={"question_id": view["next_question"]["question_id"], "answer_type": "free_text", "value": "답"},
+        )
+    client.post(f"{BASE}/sessions/{sid}/generate")
+    before = client.get(f"{BASE}/sessions/{sid}").json()
+    assert before["status"] == "completed"
+
+    after = client.post(f"{BASE}/sessions/{sid}/continue")
+    assert after.status_code == 200
+    assert after.json() == before
+
+
+def test_continue_unknown_session_is_404(client):
+    assert client.post(f"{BASE}/sessions/sess_없음/continue").status_code == 404
+
+
+def _failed_session_with_pending_question():
+    provider = MockProvider()
+    client = TestClient(create_app(provider=provider, debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    first_qid = view["next_question"]["question_id"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": first_qid, "answer_type": "option", "option_ids": ["o1"]},
+    ).json()
+    assert view["next_question"] is not None
+    provider.fail_stages.add("generate")
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+    provider.fail_stages.clear()
+    assert client.get(f"{BASE}/sessions/{sid}").json()["status"] == "failed"
+    return client, sid, first_qid, view["next_question"]["question_id"]
+
+
+def test_revise_after_failed_generate_clears_failed_and_error():
+    client, sid, first_qid, pending_qid = _failed_session_with_pending_question()
+    view = client.patch(
+        f"{BASE}/sessions/{sid}/answers/{first_qid}", json={"answer_type": "free_text", "value": "부모"}
+    ).json()
+    assert (view["status"], view["error"]) == ("clarifying", None)
+    assert view["next_question"]["question_id"] == pending_qid
+
+
+def test_continue_after_failed_generate_with_pending_question_is_clarifying():
+    client, sid, _, pending_qid = _failed_session_with_pending_question()
+    view = client.post(f"{BASE}/sessions/{sid}/continue").json()
+    assert (view["status"], view["error"]) == ("clarifying", None)
+    assert view["next_question"]["question_id"] == pending_qid
+
+
+def test_harness_error_in_generate_keeps_llm_trace(client, monkeypatch):
+    """규칙 문제(422)로 끝나도 이미 성공한 생성 호출의 기록은 남는다. 세션은 그 밖에 그대로다."""
+    from app.harness.errors import HarnessError
+
+    def rule_problem(state, result, policy):
+        raise HarnessError("결과를 만들 수 없는 입력입니다.")
+
+    view = create_session(client)
+    sid = view["session_id"]
+    monkeypatch.setattr(client.app.state.registry.get("product_planning"), "validators", [rule_problem])
+
+    response = client.post(f"{BASE}/sessions/{sid}/generate")
+    assert response.status_code == 422
+
+    trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
+    assert trace[-1]["stage"] == "generate"
+    assert "error" not in trace[-1]["output"]
+    after = client.get(f"{BASE}/sessions/{sid}").json()
+    assert (after["status"], after["next_question"]) == (view["status"], view["next_question"])
+    assert after["has_result"] is False

@@ -5,6 +5,15 @@ from typing import Protocol
 from pydantic import BaseModel
 
 
+@dataclass(frozen=True)
+class Prompt:
+    """모델에 보내는 프롬프트. system은 과제마다 고정된 앞부분(규칙·지침·할 일)이라 캐시할 수 있고,
+    user는 세션마다 바뀌는 맥락(입력·사실·가정·이번 요청)이다."""
+
+    system: str
+    user: str
+
+
 class Usage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
@@ -27,6 +36,17 @@ class ProviderOutputError(ProviderError):
 
 
 class LLMProvider(Protocol):
+    """모델 어댑터 계약.
+
+    prompt.system은 시스템 프롬프트로, prompt.user는 사용자 메시지로 보낸다(system이 캐시 앞부분).
+    response_model이 있으면 어댑터가 그 구조로 출력을 강제한다(도구 호출·구조화 출력 등).
+
+    complete()는 SDK 예외(네트워크·인증·한도·타임아웃 등)를 모두 ProviderError로, 응답을
+    response_model로 파싱하지 못한 경우를 ProviderOutputError로 감싸서 던져야 한다. 감싸지 않은
+    예외는 실패 trace가 남지 않고 502 대신 500으로 끝난다(생성 단계에서는 일반 실패로 뭉개진다).
+    원문 오류 문구는 trace에만 남고 사용자에게는 고정 문구만 나간다.
+    """
+
     name: str
 
     def complete(
@@ -34,6 +54,6 @@ class LLMProvider(Protocol):
         *,
         task_type: str,
         stage: str,
-        prompt: str,
+        prompt: Prompt,
         response_model: type[BaseModel] | None = None,
     ) -> ProviderResponse: ...

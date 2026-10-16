@@ -123,6 +123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Continue Session
+         * @description 결과를 만든 뒤 질문을 이어 간다. 남은 질문이 없으면 세션은 그대로다.
+         */
+        post: operations["continue_session_api_v1_coaching_sessions__session_id__continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/result": {
         parameters: {
             query?: never;
@@ -149,7 +169,7 @@ export interface paths {
         };
         /**
          * Get Trace
-         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다.
+         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다.
          */
         get: operations["get_trace_api_v1_coaching_sessions__session_id__trace_get"];
         put?: never;
@@ -197,6 +217,14 @@ export interface components {
             mode: components["schemas"]["CoachingMode"];
         };
         /**
+         * ErrorBody
+         * @description 모든 오류 응답 본문(404·405·422·500·502). detail은 사용자에게 보여 줄 한국어 문장이다.
+         */
+        ErrorBody: {
+            /** Detail */
+            detail: string;
+        };
+        /**
          * FieldKind
          * @enum {string}
          */
@@ -210,14 +238,32 @@ export interface components {
             kind: components["schemas"]["FieldKind"];
         };
         /**
-         * GenerationResult
-         * @description 세션에 저장되는 결과. content는 과제별 스키마를 통과한 값의 dict다.
+         * InfoSource
+         * @enum {string}
          */
-        GenerationResult: {
+        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default";
+        /** LabeledAssumption */
+        LabeledAssumption: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Reason */
+            reason: string;
+            /** Requires Confirmation */
+            requires_confirmation: boolean;
+        };
+        /**
+         * LabeledResult
+         * @description GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다.
+         */
+        LabeledResult: {
             /** Cards */
             cards: components["schemas"]["ResultCard"][];
             /** Assumptions */
-            assumptions: components["schemas"]["ResultAssumption"][];
+            assumptions: components["schemas"]["LabeledAssumption"][];
             /** Full Text */
             full_text: string;
             /** Content */
@@ -230,16 +276,6 @@ export interface components {
              */
             generated_at: string;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * InfoSource
-         * @enum {string}
-         */
-        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default";
         /** ModeInfo */
         ModeInfo: {
             mode: components["schemas"]["CoachingMode"];
@@ -293,24 +329,27 @@ export interface components {
              */
             ai_suggested: boolean;
         };
-        /** ResultAssumption */
-        ResultAssumption: {
+        /**
+         * RequestErrorBody
+         * @description 422 본문. errors는 DEBUG=true일 때만 실리는 개발용 상세라 선택 필드다(평소에는 키가 없다).
+         */
+        RequestErrorBody: {
+            /** Detail */
+            detail: string;
             /**
-             * Field
-             * @description AI가 보완한 항목의 필드 이름
+             * Errors
+             * @description DEBUG=true일 때만 채워지는 요청 검증 상세(개발용). 평소에는 없다.
              */
-            field: string;
-            /**
-             * Value
-             * @description AI가 가정한 값
-             */
-            value: string;
-            /**
-             * Requires Confirmation
-             * @description 사용자 확인이 필요한지
-             * @default true
-             */
-            requires_confirmation: boolean;
+            errors?: components["schemas"]["RequestErrorItem"][] | null;
+        };
+        /** RequestErrorItem */
+        RequestErrorItem: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
         };
         /** ResultCard */
         ResultCard: {
@@ -337,7 +376,7 @@ export interface components {
             /** Session Id */
             session_id: string;
             status: components["schemas"]["SessionStatus"];
-            result: components["schemas"]["GenerationResult"];
+            result: components["schemas"]["LabeledResult"];
             validation: components["schemas"]["ValidationReport"] | null;
             /** Stale */
             stale: boolean;
@@ -372,9 +411,11 @@ export interface components {
             /** Summary */
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
-            unknowns: string[];
+            unknowns: components["schemas"]["UnknownItem"][];
             /** Can Generate */
             can_generate: boolean;
+            /** Has Result */
+            has_result: boolean;
             /** Result Stale */
             result_stale: boolean;
             /** Error */
@@ -389,6 +430,8 @@ export interface components {
             /** Value */
             value: string;
             source: components["schemas"]["InfoSource"];
+            /** Source Label */
+            source_label: string;
             /** Confidence */
             confidence: number;
             /** Is Assumption */
@@ -434,6 +477,8 @@ export interface components {
             };
             /** Provider */
             provider: string | null;
+            /** Model */
+            model: string | null;
             /** Usage */
             usage: {
                 [key: string]: number;
@@ -444,18 +489,12 @@ export interface components {
              */
             at: string;
         };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
+        /** UnknownItem */
+        UnknownItem: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
         };
         /** ValidationIssue */
         ValidationIssue: {
@@ -511,6 +550,15 @@ export interface operations {
                     "application/json": components["schemas"]["TaskSummary"][];
                 };
             };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     get_task_form_api_v1_coaching_tasks__task_type__form_get: {
@@ -533,13 +581,22 @@ export interface operations {
                     "application/json": components["schemas"]["TaskForm"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description 과제·세션·결과가 없음 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -568,13 +625,40 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description Validation Error */
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -599,13 +683,22 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description 과제·세션·결과가 없음 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -634,13 +727,40 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description Validation Error */
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -670,13 +790,40 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description Validation Error */
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -701,13 +848,89 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description Validation Error */
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    continue_session_api_v1_coaching_sessions__session_id__continue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -732,13 +955,22 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description 과제·세션·결과가 없음 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
@@ -763,13 +995,22 @@ export interface operations {
                     "application/json": components["schemas"]["TraceEntry"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description 과제·세션·결과가 없음 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };

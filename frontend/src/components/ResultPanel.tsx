@@ -1,7 +1,15 @@
 import type { ResultView } from "../api/types";
+import { assumptionKey, formatAssumption } from "../lib/assumption";
 import { cardLabel } from "../lib/labels";
+import { STALE_HINT } from "../lib/screen";
 
-export function ResultPanel({ view }: { view: ResultView }) {
+type Props = {
+  view: ResultView;
+  busy: boolean;
+  onBack: () => void;
+};
+
+export function ResultPanel({ view, busy, onBack }: Props) {
   const { result, validation } = view;
   const cards = [...result.cards].sort((a, b) => a.order - b.order);
   const assumptions = result.assumptions;
@@ -9,6 +17,8 @@ export function ResultPanel({ view }: { view: ResultView }) {
 
   return (
     <section>
+      {view.stale && <p className="hint">{STALE_HINT}</p>}
+
       {cards.map((card) => (
         <article key={`${card.card_type}-${card.order}`} className="card">
           <p className="hint">{cardLabel(card.card_type)}</p>
@@ -21,11 +31,8 @@ export function ResultPanel({ view }: { view: ResultView }) {
         <article className="card">
           <h3>AI가 가정한 내용</h3>
           <ul>
-            {assumptions.map((a) => (
-              <li key={a.field}>
-                {a.field}: {a.value}
-                {a.requires_confirmation && " (확인 필요)"}
-              </li>
+            {assumptions.map((a, idx) => (
+              <li key={assumptionKey(a, idx)}>{formatAssumption(a)}</li>
             ))}
           </ul>
         </article>
@@ -49,6 +56,10 @@ export function ResultPanel({ view }: { view: ResultView }) {
           복사
         </button>
       </article>
+
+      <button type="button" className="ghost" disabled={busy} onClick={onBack}>
+        질문으로 돌아가기
+      </button>
     </section>
   );
 }

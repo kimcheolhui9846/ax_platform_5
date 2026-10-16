@@ -1,5 +1,4 @@
 import type { SummaryItem } from "../api/types";
-import { sourceLabel } from "../lib/labels";
 
 export function SummaryList({ items }: { items: SummaryItem[] }) {
   return (
@@ -8,7 +7,7 @@ export function SummaryList({ items }: { items: SummaryItem[] }) {
       <ul>
         {items.map((item) => (
           <li key={item.field}>
-            {item.label}: {item.value} <span className="badge">{sourceLabel(item.source)}</span>
+            {item.label}: {item.value} <span className="badge">{item.source_label}</span>
           </li>
         ))}
       </ul>

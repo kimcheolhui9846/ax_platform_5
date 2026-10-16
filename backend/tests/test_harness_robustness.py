@@ -121,7 +121,6 @@ def test_trace_provider_name_is_consistent(harness, provider):
     state = harness.start("향초")
     assert state.trace[0].provider == "mock"
     provider.fail_stages.add("diagnose")
-    failed = []
     with pytest.raises(ProviderError):
         harness.diagnose(state)
     failed = state.trace[-1]
@@ -135,3 +134,24 @@ def test_diagnosis_becomes_assumption_offered_first(harness):
     assert state.assumptions["customer"].source is InfoSource.AI_ASSUMPTION
     first = state.pending_question.options[0]
     assert (first.id, first.label, first.ai_suggested) == ("assumed", "30대 직장인", True)
+
+
+def test_trace_records_concrete_model_on_success_only(harness, provider):
+    harness.provider = DiagnosisStub()
+    state = harness.start("향초")
+    assert (state.trace[0].stage, state.trace[0].provider, state.trace[0].model) == ("diagnose", "mock", "stub")
+
+    harness.provider = provider
+    provider.fail_stages.add("diagnose")
+    with pytest.raises(ProviderError):
+        harness.diagnose(state)
+    assert (state.trace[-1].provider, state.trace[-1].model) == ("mock", None)
+
+
+
+def test_trace_input_records_system_and_user(harness):
+    state = harness.start("향초")
+    entry = state.trace[0]
+    assert set(entry.input) == {"system", "user"}
+    assert "샘플 과제" in entry.input["system"]
+    assert "향초" in entry.input["user"]
