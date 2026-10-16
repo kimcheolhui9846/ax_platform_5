@@ -1,0 +1,44 @@
+"""evals 시나리오 형식과 실행기의 엄격한 검사."""
+import pytest
+from pydantic import ValidationError
+
+from app.core.state import AnswerType
+from app.harness.evals import Scenario, ScenarioAnswer, run_scenario
+
+
+def test_scenario_typo_rejected():
+    with pytest.raises(ValidationError, match="expect_staus"):
+        Scenario.model_validate({"name": "s", "raw_input": "향초", "expect_staus": "completed"})
+
+
+def test_scenario_answer_typo_rejected():
+    with pytest.raises(ValidationError, match="option_index"):
+        ScenarioAnswer.model_validate({"answer_type": "option", "option_index": [0]})
+
+
+def test_unknown_answers_key_fails_with_scenario_name(harness):
+    scenario = Scenario(name="오타 시나리오", raw_input="향초", answers={"custmer": [ScenarioAnswer(value="부모")]})
+    with pytest.raises(ValueError, match="오타 시나리오.*custmer"):
+        run_scenario(harness, scenario)
+
+
+def test_default_field_answers_key_fails(harness):
+    """kind=default 필드는 묻지 않으므로 답을 계획할 수 없다."""
+    scenario = Scenario(name="기본값 시나리오", raw_input="향초", answers={"length": [ScenarioAnswer(value="짧게")]})
+    with pytest.raises(ValueError, match="기본값 시나리오.*length"):
+        run_scenario(harness, scenario)
+
+
+def test_leftover_answers_fail_with_scenario_name(harness):
+    scenario = Scenario(
+        name="남는 답 시나리오",
+        raw_input="향초",
+        answers={
+            "customer": [
+                ScenarioAnswer(value="부모"),
+                ScenarioAnswer(answer_type=AnswerType.DONT_KNOW),
+            ]
+        },
+    )
+    with pytest.raises(ValueError, match="남는 답 시나리오.*customer"):
+        run_scenario(harness, scenario)
