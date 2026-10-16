@@ -20,7 +20,6 @@ def create_app(
     app = FastAPI(
         title="AX Coaching Platform API",
         version="0.1.0",
-        separate_input_output_schemas=False,
     )
     app.state.registry = HarnessRegistry(provider or get_provider(settings.provider))
     app.state.store = store or InMemorySessionStore()

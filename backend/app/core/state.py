@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from app.core.contract import ContractModel
 from app.core.results import GenerationResult, ValidationReport, utcnow
 
 
@@ -57,13 +58,13 @@ class Conflict(BaseModel):
     values: list[str]
 
 
-class QuestionOption(BaseModel):
+class QuestionOption(ContractModel):
     id: str
     label: str
     ai_suggested: bool = False
 
 
-class Question(BaseModel):
+class Question(ContractModel):
     question_id: str = Field(default_factory=lambda: f"q_{uuid4().hex[:10]}")
     field: str
     text: str
@@ -87,7 +88,7 @@ class AskedQuestion(BaseModel):
     answered_at: datetime | None = None
 
 
-class TraceEntry(BaseModel):
+class TraceEntry(ContractModel):
     stage: str
     input: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)

@@ -1,0 +1,34 @@
+/* 디자인 HTML을 받기 전까지 쓰는 최소 스타일. 디자인이 오면 통째로 교체한다. */
+:root {
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #1d1d1f;
+  background: #f5f5f7;
+}
+body { margin: 0; }
+main { max-width: 480px; margin: 0 auto; padding: 16px; }
+header { display: flex; justify-content: space-between; align-items: center; }
+h1 { font-size: 20px; }
+h2 { font-size: 18px; }
+h3 { font-size: 16px; margin: 0 0 8px; }
+button {
+  display: block; width: 100%; margin: 8px 0; padding: 12px;
+  border: 1px solid #c7c7cc; border-radius: 10px; background: #fff; font-size: 15px; cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
+button.ghost { background: transparent; }
+header button.ghost { width: auto; }
+button.task { text-align: left; }
+button.task span { display: block; color: #6e6e73; font-size: 13px; margin-top: 4px; }
+textarea { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #c7c7cc; font: inherit; }
+.card { background: #fff; border-radius: 14px; padding: 16px; margin: 12px 0; }
+.card.warn { border: 1px solid #ff9f0a; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { width: auto; margin: 0; padding: 8px 12px; border-radius: 999px; }
+.chip.on { background: #1d1d1f; color: #fff; }
+.row { display: flex; gap: 8px; }
+.hint { color: #6e6e73; font-size: 13px; margin: 0 0 6px; }
+.badge { display: inline-block; margin-left: 8px; font-size: 11px; color: #6e6e73; }
+.progress { color: #6e6e73; font-size: 13px; }
+.error { background: #ffe5e5; color: #a1001b; padding: 12px; border-radius: 10px; }
+.full-text { white-space: pre-wrap; font-family: inherit; }

@@ -5,6 +5,8 @@ from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.core.contract import ContractModel
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -16,14 +18,14 @@ class CardType(StrEnum):
     ACTION = "action"
 
 
-class ResultCard(BaseModel):
+class ResultCard(ContractModel):
     card_type: CardType = Field(description="카드 유형: 진단·제안·실행 과제")
     title: str = Field(description="카드 제목")
     body: str = Field(description="카드 본문")
     order: int = Field(description="표시 순서")
 
 
-class ResultAssumption(BaseModel):
+class ResultAssumption(ContractModel):
     field: str = Field(description="AI가 보완한 항목의 필드 이름")
     value: str = Field(description="AI가 가정한 값")
     requires_confirmation: bool = Field(default=True, description="사용자 확인이 필요한지")
@@ -43,7 +45,7 @@ class TaskResult(BaseModel, Generic[ContentT]):
     content: ContentT
 
 
-class GenerationResult(BaseModel):
+class GenerationResult(ContractModel):
     """세션에 저장되는 결과. content는 과제별 스키마를 통과한 값의 dict다."""
 
     cards: list[ResultCard]
@@ -53,13 +55,13 @@ class GenerationResult(BaseModel):
     generated_at: datetime = Field(default_factory=utcnow)
 
 
-class ValidationIssue(BaseModel):
+class ValidationIssue(ContractModel):
     rule: str = Field(description="어긴 규칙 이름")
     message: str = Field(description="사용자·개발자가 읽을 설명")
     severity: Literal["warning", "error"] = Field(default="warning", description="심각도")
 
 
-class ValidationReport(BaseModel):
+class ValidationReport(ContractModel):
     # passed(computed_field)가 입력·출력 스키마를 갈라놓지 않도록 항상 직렬화 스키마로 낸다.
     model_config = ConfigDict(json_schema_mode_override="serialization")
 

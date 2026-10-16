@@ -18,3 +18,4 @@ frontend/openapi.json
 Thumbs.db
 .vscode/
 .idea/
+.playwright-mcp/
