@@ -4,7 +4,8 @@ from contextlib import contextmanager
 
 from fastapi import APIRouter, HTTPException, Request
 
-from app.api.deps import Registry, Store
+from app.api.deps import Locks, Registry, Store
+from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
 from app.core.messages import (
@@ -47,16 +48,22 @@ def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionSta
 
 
 @contextmanager
-def _save_on_failure(store: SessionStore, state: SessionState) -> Iterator[None]:
-    """AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
+def _session_update(
+    locks: SessionLocks, registry: Registry, store: SessionStore, session_id: str
+) -> Iterator[tuple[SessionState, BaseHarness]]:
+    """세션을 잠그고 읽어 블록에 넘긴 뒤 저장한다. 같은 세션을 바꾸는 요청은 한 번에 하나씩 돈다.
 
-    응답 문구는 app/api/errors.py의 예외 처리기가 정한다(둘 다 502).
+    AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
+    응답 문구는 app/api/errors.py의 예외 처리기가 정한다(둘 다 502). 그 밖의 오류(422 등)는 저장하지 않는다.
     """
-    try:
-        yield
-    except (ProviderError, GenerationFailed):
+    with locks.hold(session_id):
+        state, harness = _load(registry, store, session_id)
+        try:
+            yield state, harness
+        except (ProviderError, GenerationFailed):
+            store.save(state)
+            raise
         store.save(state)
-        raise
 
 
 @router.get("/tasks", response_model=list[TaskSummary])
@@ -94,12 +101,10 @@ def get_session(session_id: str, registry: Registry, store: Store) -> SessionVie
     "/sessions/{session_id}/answers", response_model=SessionView, responses=error_responses(404, 422, 502)
 )
 def submit_answer(
-    session_id: str, body: AnswerRequest, registry: Registry, store: Store
+    session_id: str, body: AnswerRequest, registry: Registry, store: Store, locks: Locks
 ) -> SessionView:
-    state, harness = _load(registry, store, session_id)
-    with _save_on_failure(store, state):
+    with _session_update(locks, registry, store, session_id) as (state, harness):
         harness.apply_answer(state, Answer(**body.model_dump()))
-    store.save(state)
     return to_session_view(state, harness)
 
 
@@ -109,23 +114,24 @@ def submit_answer(
     responses=error_responses(404, 422, 502),
 )
 def revise_answer(
-    session_id: str, question_id: str, body: ReviseAnswerRequest, registry: Registry, store: Store
+    session_id: str,
+    question_id: str,
+    body: ReviseAnswerRequest,
+    registry: Registry,
+    store: Store,
+    locks: Locks,
 ) -> SessionView:
-    state, harness = _load(registry, store, session_id)
-    with _save_on_failure(store, state):
+    with _session_update(locks, registry, store, session_id) as (state, harness):
         harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
-    store.save(state)
     return to_session_view(state, harness)
 
 
 @router.post(
     "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 422, 502)
 )
-def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
-    state, harness = _load(registry, store, session_id)
-    with _save_on_failure(store, state):
+def generate(session_id: str, registry: Registry, store: Store, locks: Locks) -> ResultView:
+    with _session_update(locks, registry, store, session_id) as (state, harness):
         harness.generate(state)
-    store.save(state)
     return to_result_view(state, harness.policy.labels)
 
 

@@ -309,6 +309,28 @@ export interface components {
              */
             ai_suggested: boolean;
         };
+        /**
+         * RequestErrorBody
+         * @description 422 본문. errors는 DEBUG=true일 때만 실리는 개발용 상세라 선택 필드다(평소에는 키가 없다).
+         */
+        RequestErrorBody: {
+            /** Detail */
+            detail: string;
+            /**
+             * Errors
+             * @description DEBUG=true일 때만 채워지는 요청 검증 상세(개발용). 평소에는 없다.
+             */
+            errors?: components["schemas"]["RequestErrorItem"][] | null;
+        };
+        /** RequestErrorItem */
+        RequestErrorItem: {
+            /** Loc */
+            loc: (string | number)[];
+            /** Msg */
+            msg: string;
+            /** Type */
+            type: string;
+        };
         /** ResultCard */
         ResultCard: {
             /** @description 카드 유형: 진단·제안·실행 과제 */
@@ -596,7 +618,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */
@@ -698,7 +720,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */
@@ -761,7 +783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */
@@ -819,7 +841,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorBody"];
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */

@@ -62,7 +62,8 @@ def test_unexpected_exception_is_korean_500_and_logged_once(monkeypatch, caplog)
     assert len(logged) == 1
 
 
-def test_request_validation_details_are_logged_not_returned(client, caplog):
+def test_request_validation_details_are_logged_not_returned(caplog):
+    client = TestClient(create_app(provider=MockProvider(), debug=False))
     with caplog.at_level(logging.INFO, logger="app.api.errors"):
         response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
     assert response.json() == {"detail": INVALID_REQUEST_MESSAGE}
@@ -76,7 +77,7 @@ def test_openapi_documents_error_body_instead_of_validation_error(client):
     assert "HTTPValidationError" not in schemas
     assert "ValidationError" not in schemas
     responses = spec["paths"][f"{BASE}/sessions/{{session_id}}/answers"]["post"]["responses"]
-    for status in ("404", "422", "500", "502"):
+    for status in ("404", "500", "502"):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
         assert ref.endswith("/ErrorBody"), status
 
@@ -94,3 +95,24 @@ def test_each_route_declares_only_errors_it_can_return(client):
     assert _statuses(spec, "/tasks/{task_type}/sessions", "post") == {"201", "404", "422", "500", "502"}
     assert _statuses(spec, "/sessions/{session_id}/answers", "post") == {"200", "404", "422", "500", "502"}
     assert _statuses(spec, "/sessions/{session_id}/generate", "post") == {"200", "404", "422", "500", "502"}
+
+
+def test_request_error_details_only_in_debug():
+    debug = TestClient(create_app(provider=MockProvider(), debug=True))
+    body = debug.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""}).json()
+    assert body["detail"] == INVALID_REQUEST_MESSAGE
+    assert any("raw_input" in item["loc"] for item in body["errors"])
+    assert set(body["errors"][0]) == {"loc", "msg", "type"}
+
+    prod = TestClient(create_app(provider=MockProvider(), debug=False))
+    body = prod.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""}).json()
+    assert body == {"detail": INVALID_REQUEST_MESSAGE}
+
+
+def test_openapi_documents_debug_only_errors_as_optional(client):
+    spec = client.get("/openapi.json").json()
+    responses = spec["paths"][f"{BASE}/sessions/{{session_id}}/answers"]["post"]["responses"]
+    assert responses["422"]["content"]["application/json"]["schema"]["$ref"].endswith("/RequestErrorBody")
+    body = spec["components"]["schemas"]["RequestErrorBody"]
+    assert body["required"] == ["detail"]
+    assert "DEBUG" in body["properties"]["errors"]["description"]

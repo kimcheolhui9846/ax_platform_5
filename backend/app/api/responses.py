@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from app.schemas.coaching import ErrorBody
+from app.schemas.coaching import ErrorBody, RequestErrorBody
 
 _DESCRIPTIONS = {
     404: "과제·세션·결과가 없음",
@@ -22,7 +22,13 @@ _DEFAULT_422_REF = "#/components/schemas/HTTPValidationError"
 
 def error_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
     """[순수] 라우트 데코레이터의 responses 값. 예: error_responses(404, 422, 502)."""
-    return {status: {"model": ErrorBody, "description": _DESCRIPTIONS[status]} for status in statuses}
+    return {
+        status: {
+            "model": RequestErrorBody if status == 422 else ErrorBody,
+            "description": _DESCRIPTIONS[status],
+        }
+        for status in statuses
+    }
 
 
 def strip_default_validation_errors(schema: dict[str, Any]) -> None:

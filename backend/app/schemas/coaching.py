@@ -5,7 +5,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
 from app.core.results import ResultCard, ValidationReport
@@ -17,6 +17,22 @@ class ErrorBody(ContractModel):
     """모든 오류 응답 본문(404·405·422·500·502). detail은 사용자에게 보여 줄 한국어 문장이다."""
 
     detail: str
+
+
+class RequestErrorItem(ContractModel):
+    loc: list[str | int]
+    msg: str
+    type: str
+
+
+class RequestErrorBody(ErrorBody):
+    """422 본문. errors는 DEBUG=true일 때만 실리는 개발용 상세라 선택 필드다(평소에는 키가 없다)."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=False)
+
+    errors: list[RequestErrorItem] | None = Field(
+        default=None, description="DEBUG=true일 때만 채워지는 요청 검증 상세(개발용). 평소에는 없다."
+    )
 
 
 class TaskSummary(ContractModel):

@@ -11,7 +11,7 @@ from app.main import create_app
 from app.providers.mock import MockProvider
 
 # 개발 모드에서만 채워지는 선택 필드. 문서에 그렇게 적혀 있어야 한다.
-DEBUG_ONLY_FIELDS: set[tuple[str, str]] = set()
+DEBUG_ONLY_FIELDS: set[tuple[str, str]] = {("RequestErrorBody", "errors")}
 
 REF_PREFIX = "#/components/schemas/"
 

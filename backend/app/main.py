@@ -3,6 +3,7 @@ from fastapi import FastAPI
 
 from app.api import coaching
 from app.api.errors import install_error_handlers
+from app.api.locks import SessionLocks
 from app.api.responses import install_openapi
 from app.config import settings
 from app.core.store import InMemorySessionStore, SessionStore
@@ -22,6 +23,7 @@ def create_app(
     )
     app.state.registry = HarnessRegistry(provider or get_provider(settings.provider))
     app.state.store = store or InMemorySessionStore()
+    app.state.locks = SessionLocks()
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)
     install_error_handlers(app)

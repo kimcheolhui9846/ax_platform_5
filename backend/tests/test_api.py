@@ -232,7 +232,7 @@ def test_openapi_marks_defaulted_response_fields_required(client):
 def test_request_format_errors_are_korean_422(client):
     empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
     assert empty.status_code == 422
-    assert empty.json() == {"detail": INVALID_REQUEST_MESSAGE}
+    assert empty.json()["detail"] == INVALID_REQUEST_MESSAGE
 
     sid = create_session(client)["session_id"]
     qid = client.get(f"{BASE}/sessions/{sid}").json()["next_question"]["question_id"]

@@ -6,6 +6,7 @@ Exception 처리기는 응답 뒤 예외를 서버로 다시 올려 서버가 �
 """
 import logging
 from http import HTTPStatus
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -39,6 +40,11 @@ def http_error_detail(status_code: int, detail: Any) -> str:
     return HTTP_STATUS_MESSAGES.get(status_code, HTTP_ERROR_FALLBACK_MESSAGE)
 
 
+def request_error_items(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """[순수] 요청 검증 오류에서 개발자에게 필요한 위치·문구·종류만 남긴다(입력값은 싣지 않는다)."""
+    return [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in errors]
+
+
 def _error(status_code: int, detail: str, headers: dict[str, str] | None = None) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"detail": detail}, headers=headers)
 
@@ -51,7 +57,10 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def request_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         logger.info("요청 형식 오류 %s %s: %s", request.method, request.url.path, exc.errors())
-        return _error(422, INVALID_REQUEST_MESSAGE)
+        if not request.app.state.debug:
+            return _error(422, INVALID_REQUEST_MESSAGE)
+        content = {"detail": INVALID_REQUEST_MESSAGE, "errors": request_error_items(exc.errors())}
+        return JSONResponse(status_code=422, content=content)
 
     @app.exception_handler(HarnessError)
     async def harness_error(request: Request, exc: HarnessError) -> JSONResponse:
