@@ -16,7 +16,7 @@ from app.core.messages import (
 from app.core.state import Answer, SessionState, TraceEntry
 from app.core.store import SessionStore
 from app.harness.base import BaseHarness
-from app.harness.errors import GenerationFailed, UnknownTaskError
+from app.harness.errors import GenerationFailed, HarnessError, UnknownTaskError
 from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
@@ -53,8 +53,9 @@ def _session_update(
 ) -> Iterator[tuple[SessionState, BaseHarness]]:
     """세션을 잠그고 읽어 블록에 넘긴 뒤 저장한다. 같은 세션을 바꾸는 요청은 한 번에 하나씩 돈다.
 
-    AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
-    응답 문구는 app/api/errors.py의 예외 처리기가 정한다(둘 다 502). 그 밖의 오류(422 등)는 저장하지 않는다.
+    AI 호출·생성 실패(502)나 입력·규칙 문제(HarnessError, 422)로 끝나도 그때의 state를 저장하고 오류를 다시
+    던진다. 하네스는 이런 실패에서 state를 시작 때로 되돌리고 trace(성공한 LLM 호출 기록 포함)와 FAILED 표시만
+    남기므로, 저장해도 바뀌는 것은 그 기록뿐이다. 응답 문구는 app/api/errors.py의 예외 처리기가 정한다.
 
     잠금은 있는 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다(세션은 지우지 않으므로 확인과 잠금 사이에
     사라질 일이 없다). 잠근 뒤 다시 읽어 앞선 요청이 저장한 최신 상태로 일한다.
@@ -64,7 +65,7 @@ def _session_update(
         state, harness = _load(registry, store, session_id)
         try:
             yield state, harness
-        except (ProviderError, GenerationFailed):
+        except (ProviderError, GenerationFailed, HarnessError):
             store.save(state)
             raise
         store.save(state)

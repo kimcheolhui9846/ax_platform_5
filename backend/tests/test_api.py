@@ -383,3 +383,25 @@ def test_continue_after_failed_generate_with_pending_question_is_clarifying():
     view = client.post(f"{BASE}/sessions/{sid}/continue").json()
     assert (view["status"], view["error"]) == ("clarifying", None)
     assert view["next_question"]["question_id"] == pending_qid
+
+
+def test_harness_error_in_generate_keeps_llm_trace(client, monkeypatch):
+    """규칙 문제(422)로 끝나도 이미 성공한 생성 호출의 기록은 남는다. 세션은 그 밖에 그대로다."""
+    from app.harness.errors import HarnessError
+
+    def rule_problem(state, result, policy):
+        raise HarnessError("결과를 만들 수 없는 입력입니다.")
+
+    view = create_session(client)
+    sid = view["session_id"]
+    monkeypatch.setattr(client.app.state.registry.get("product_planning"), "validators", [rule_problem])
+
+    response = client.post(f"{BASE}/sessions/{sid}/generate")
+    assert response.status_code == 422
+
+    trace = client.get(f"{BASE}/sessions/{sid}/trace").json()
+    assert trace[-1]["stage"] == "generate"
+    assert "error" not in trace[-1]["output"]
+    after = client.get(f"{BASE}/sessions/{sid}").json()
+    assert (after["status"], after["next_question"]) == (view["status"], view["next_question"])
+    assert after["has_result"] is False
