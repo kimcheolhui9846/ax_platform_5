@@ -1,16 +1,27 @@
 import { api } from "./client";
-import type { AnswerBody, CoachingMode, ResultView, SessionView, TaskSummary } from "./types";
+import type { ApiResult } from "./client";
+import type {
+  AnswerBody,
+  CoachingMode,
+  ResultView,
+  ReviseBody,
+  SessionView,
+  TaskForm,
+  TaskSummary,
+} from "./types";
 
-/**
- * openapi-fetch 응답 중 화면이 쓰는 부분. 백엔드 오류 본문은 계약상 ErrorBody({detail})지만
- * 개발 프록시·게이트웨이 오류처럼 계약 밖 본문도 올 수 있어 error는 unknown으로 받고 errorMessage가 거른다.
- */
-export type ApiResult<T> = { data?: T; error?: unknown };
+export type { ApiResult } from "./client";
 
 const BASE = "/api/v1/coaching";
 
 export function listTasks(): Promise<ApiResult<TaskSummary[]>> {
   return api.GET(`${BASE}/tasks`);
+}
+
+export function getTaskForm(taskType: string): Promise<ApiResult<TaskForm>> {
+  return api.GET(`${BASE}/tasks/{task_type}/form`, {
+    params: { path: { task_type: taskType } },
+  });
 }
 
 export function createSession(
@@ -21,6 +32,12 @@ export function createSession(
   return api.POST(`${BASE}/tasks/{task_type}/sessions`, {
     params: { path: { task_type: taskType } },
     body: { raw_input: rawInput, mode },
+  });
+}
+
+export function getSession(sessionId: string): Promise<ApiResult<SessionView>> {
+  return api.GET(`${BASE}/sessions/{session_id}`, {
+    params: { path: { session_id: sessionId } },
   });
 }
 
@@ -35,8 +52,25 @@ export function submitAnswer(
   });
 }
 
+export function reviseAnswer(
+  sessionId: string,
+  questionId: string,
+  body: ReviseBody,
+): Promise<ApiResult<SessionView>> {
+  return api.PATCH(`${BASE}/sessions/{session_id}/answers/{question_id}`, {
+    params: { path: { session_id: sessionId, question_id: questionId } },
+    body,
+  });
+}
+
 export function generateResult(sessionId: string): Promise<ApiResult<ResultView>> {
   return api.POST(`${BASE}/sessions/{session_id}/generate`, {
+    params: { path: { session_id: sessionId } },
+  });
+}
+
+export function getResult(sessionId: string): Promise<ApiResult<ResultView>> {
+  return api.GET(`${BASE}/sessions/{session_id}/result`, {
     params: { path: { session_id: sessionId } },
   });
 }

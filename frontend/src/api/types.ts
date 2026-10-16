@@ -13,3 +13,5 @@ export type AnswerBody = Omit<AnswerRequest, "question_id">;
 export type CoachingMode = Schemas["CoachingMode"];
 export type LabeledAssumption = Schemas["LabeledAssumption"];
 export type UnknownItem = Schemas["UnknownItem"];
+export type TaskForm = Schemas["TaskForm"];
+export type ReviseBody = Schemas["ReviseAnswerRequest"];
