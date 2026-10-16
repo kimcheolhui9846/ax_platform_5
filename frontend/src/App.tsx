@@ -18,7 +18,8 @@ import { ResultPanel } from "./components/ResultPanel";
 import { SummaryList } from "./components/SummaryList";
 import { TaskPicker } from "./components/TaskPicker";
 import { formatProgress } from "./lib/progress";
-import { STALE_HINT, screenOf } from "./lib/screen";
+import { STALE_HINT, screenOf, sessionActions } from "./lib/screen";
+import type { SessionAction } from "./lib/screen";
 
 const CONNECTION_ERROR = "서버에 연결하지 못했습니다. 백엔드가 켜져 있는지 확인해 주세요.";
 
@@ -108,7 +109,14 @@ export default function App() {
     setError(null);
   }
 
+  function act({ action }: SessionAction) {
+    if (action === "show_result") showResult();
+    else generate();
+  }
+
   const screen = screenOf(task, session, result);
+  const actions = "session" in screen ? sessionActions(screen.session) : null;
+  const secondary = actions?.secondary ?? null;
   const banner = error ?? (screen.kind === "failed" ? screen.session.error : null);
   const question = screen.kind === "clarifying" || screen.kind === "failed" ? screen.question : null;
 
@@ -150,15 +158,22 @@ export default function App() {
 
           <SummaryList items={screen.session.summary} />
 
-          {screen.session.has_result && (
-            <button type="button" className="ghost" disabled={busy} onClick={showResult}>
-              결과 보기
-            </button>
-          )}
-          {screen.kind !== "completed" && (
-            <button type="button" className="primary" disabled={busy || !screen.session.can_generate} onClick={generate}>
-              {busy ? "처리 중…" : screen.session.result_stale ? "결과 다시 만들기" : "이대로 결과 만들기"}
-            </button>
+          {actions && (
+            <>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || (actions.primary.action !== "show_result" && !screen.session.can_generate)}
+                onClick={() => act(actions.primary)}
+              >
+                {busy ? "처리 중…" : actions.primary.label}
+              </button>
+              {secondary && (
+                <button type="button" className="ghost" disabled={busy} onClick={() => act(secondary)}>
+                  {secondary.label}
+                </button>
+              )}
+            </>
           )}
         </>
       )}

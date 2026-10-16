@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Question, ResultView, SessionView, TaskSummary } from "../api/types";
-import { STALE_HINT, screenOf } from "./screen";
+import { STALE_HINT, screenOf, sessionActions } from "./screen";
 
 const task: TaskSummary = { task_type: "branding", title: "브랜딩", description: "" };
 
@@ -87,5 +87,28 @@ describe("screenOf", () => {
 describe("STALE_HINT", () => {
   it("최신이 아니라는 안내를 담는다", () => {
     expect(STALE_HINT).toContain("결과가 최신이 아님");
+  });
+});
+
+describe("sessionActions", () => {
+  it("결과가 없으면 만들기만 있다", () => {
+    expect(sessionActions({ has_result: false, result_stale: false })).toEqual({
+      primary: { action: "generate", label: "이대로 결과 만들기" },
+      secondary: null,
+    });
+  });
+
+  it("결과가 최신이면 결과 보기가 먼저이고 다시 만들기는 보조다", () => {
+    expect(sessionActions({ has_result: true, result_stale: false })).toEqual({
+      primary: { action: "show_result", label: "결과 보기" },
+      secondary: { action: "regenerate", label: "다시 만들기" },
+    });
+  });
+
+  it("결과가 최신이 아니면 다시 만들기가 먼저이고 이전 결과 보기는 보조다", () => {
+    expect(sessionActions({ has_result: true, result_stale: true })).toEqual({
+      primary: { action: "regenerate", label: "결과 다시 만들기" },
+      secondary: { action: "show_result", label: "이전 결과 보기" },
+    });
   });
 });

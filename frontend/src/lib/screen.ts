@@ -35,3 +35,30 @@ export function screenOf(
 
 /** 결과가 지금 답과 맞지 않을 때(결과를 만든 뒤 답을 고치거나 더 답했을 때) 보여 줄 안내. */
 export const STALE_HINT = "결과가 최신이 아님 — 바뀐 답을 반영하려면 결과를 다시 만들어 주세요.";
+
+export type SessionAction = {
+  action: "show_result" | "generate" | "regenerate";
+  label: string;
+};
+
+/**
+ * 세션 화면 아래쪽 버튼. 결과가 최신이면 이미 있는 결과를 보는 것이 먼저다(다시 만들면 LLM 호출이 든다).
+ * 결과가 최신이 아니면 다시 만드는 것이 먼저이고, 이전 결과도 볼 수 있다.
+ */
+export function sessionActions(
+  session: Pick<SessionView, "has_result" | "result_stale">,
+): { primary: SessionAction; secondary: SessionAction | null } {
+  if (!session.has_result) {
+    return { primary: { action: "generate", label: "이대로 결과 만들기" }, secondary: null };
+  }
+  if (session.result_stale) {
+    return {
+      primary: { action: "regenerate", label: "결과 다시 만들기" },
+      secondary: { action: "show_result", label: "이전 결과 보기" },
+    };
+  }
+  return {
+    primary: { action: "show_result", label: "결과 보기" },
+    secondary: { action: "regenerate", label: "다시 만들기" },
+  };
+}
