@@ -4,6 +4,5 @@
   "installCommand": "npm ci",
   "buildCommand": "npm test && npm run build",
   "outputDirectory": "dist",
-  "cleanUrls": true,
-  "rewrites": [{ "source": "/preview", "destination": "/preview.html" }]
+  "cleanUrls": true
 }

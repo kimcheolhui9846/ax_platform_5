@@ -1,9 +1,14 @@
 /* 갤러리 전용. 프레임 안의 앱 스타일은 그대로 두고 바깥 배치만 정한다. */
-.gallery { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-10); }
+/* 페이지가 프레임 너비만큼 넓어지고 페이지 자체가 스크롤한다. 프레임을 감싼 스크롤 상자는 html.to.design에서 잘려 들어온다. */
+.gallery { width: max-content; display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-10); }
 .gallery-row { gap: var(--space-4); }
 .gallery-title { font-size: var(--text-lg); line-height: var(--text-lg-line); }
-.gallery-frames { display: flex; align-items: flex-start; gap: var(--space-10); overflow-x: auto; }
-.gallery-frame { flex-shrink: 0; border: 1px solid var(--color-line); background: var(--color-paper); overflow: hidden; }
+.gallery-frames { display: flex; align-items: flex-start; gap: var(--space-10); }
+.gallery-frame { flex-shrink: 0; border: var(--line-width) solid var(--color-line); background: var(--color-paper); overflow: hidden; }
+.gallery-frame-desktop { width: var(--preview-desktop); }
+.gallery-frame-mobile { width: var(--preview-mobile); }
 .gallery-frame .app-shell { min-height: 0; }
 .gallery-frame .rail { position: static; height: auto; }
+/* 본문 바로가기는 키보드용이라 디자인 프레임에는 넣지 않는다. */
+.gallery .skip { display: none; }
 

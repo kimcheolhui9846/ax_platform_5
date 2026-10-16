@@ -22,7 +22,7 @@ import { AppShell } from "./layout/AppShell";
 import { formatProgress } from "./lib/progress";
 import { STALE_HINT, screenOf, sessionActions } from "./lib/screen";
 import type { SessionAction } from "./lib/screen";
-import { phaseOf, railItems } from "./lib/shell";
+import { enabledNav, phaseOf, railItems } from "./lib/shell";
 import type { NavKey } from "./lib/shell";
 
 /** 화면 상태(과제, 세션, 결과)와 요청 상태(busy/error)는 이 컴포넌트에서만 바꾼다. 어떤 화면인지는 screenOf가 정한다. */
@@ -111,7 +111,7 @@ export default function App() {
     setError(null);
   }
 
-  /** 묶음 0에서는 홈만 연다. 내 작업·결과물은 묶음 2에서 연다. */
+  /** 누를 수 있는 메뉴는 enabledNav가 정한다. 내 작업·결과물은 묶음 2에서 연다. */
   function navigate(key: NavKey) {
     if (key === "home") reset();
   }
@@ -129,7 +129,7 @@ export default function App() {
 
   return (
     <AppShell
-      rail={{ items: railItems(screen.kind === "pick_task" ? "home" : null, new Set<NavKey>(["home"])), onNavigate: navigate }}
+      rail={{ items: railItems(screen.kind === "pick_task" ? "home" : null, enabledNav(busy)), onNavigate: navigate }}
       header={{ project: task?.title ?? null, phase: phaseOf(screen.kind), onPickTask: reset, pickDisabled: busy }}
     >
       {banner && <p className="error">{banner}</p>}

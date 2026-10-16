@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HEADER_STEPS, headerSteps, phaseOf, railItems } from "./shell";
+import { HEADER_STEPS, enabledNav, headerSteps, phaseOf, railItems } from "./shell";
 
 describe("headerSteps", () => {
   it("과제 밖(null)이면 단계가 없다", () => {
@@ -38,5 +38,17 @@ describe("railItems", () => {
 
   it("아무 것도 활성이 아닐 수 있다", () => {
     expect(railItems(null, new Set(["home", "work", "documents"])).every((i) => !i.active && !i.disabled)).toBe(true);
+  });
+});
+
+describe("enabledNav", () => {
+  it("묶음 0에서는 홈만 연다", () => {
+    expect([...enabledNav(false)]).toEqual(["home"]);
+  });
+
+  // 요청 중에 홈으로 떠나면 늦게 온 응답이 다음에 고른 과제 화면에 섞인다(헤더 '과제 선택'과 같은 규칙).
+  it("요청 중에는 모든 메뉴를 막는다", () => {
+    expect(enabledNav(true).size).toBe(0);
+    expect(railItems("home", enabledNav(true)).every((item) => item.disabled)).toBe(true);
   });
 });

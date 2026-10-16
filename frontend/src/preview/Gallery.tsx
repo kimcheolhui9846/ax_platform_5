@@ -1,4 +1,4 @@
-import { FRAMES, FRAME_WIDTHS } from "./frames";
+import { FRAMES, FRAME_SIZES } from "./frames";
 
 /** 모든 화면 상태를 PC·모바일 폭으로 나란히 그린다. html.to.design으로 프레임 단위 가져오기를 한다. */
 export function Gallery() {
@@ -15,9 +15,9 @@ export function Gallery() {
         <section key={frame.id} className="gallery-row stack12">
           <h2 className="gallery-title">{frame.title}</h2>
           <div className="gallery-frames">
-            {(["desktop", "mobile"] as const).map((size) => (
-              <div key={size} className="gallery-frame" data-screen={`${frame.id}-${size}`} style={{ width: `${FRAME_WIDTHS[size]}px` }}>
-                {frame.render()}
+            {FRAME_SIZES.map((size) => (
+              <div key={size} className={`gallery-frame gallery-frame-${size}`} data-screen={`${frame.id}-${size}`}>
+                {frame.render(`${frame.id}-${size}-main`)}
               </div>
             ))}
           </div>

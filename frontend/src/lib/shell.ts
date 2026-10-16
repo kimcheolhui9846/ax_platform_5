@@ -24,6 +24,14 @@ export function phaseOf(kind: ScreenKind): Phase | null {
   return 1;
 }
 
+const BUILT_NAV: ReadonlySet<NavKey> = new Set<NavKey>(["home"]);
+const NO_NAV: ReadonlySet<NavKey> = new Set<NavKey>();
+
+/** 지금 누를 수 있는 메뉴. 묶음 0에서는 홈만 만들었고, 요청 중에는 화면을 떠나지 못하게 모두 막는다. */
+export function enabledNav(busy: boolean): ReadonlySet<NavKey> {
+  return busy ? NO_NAV : BUILT_NAV;
+}
+
 /** 왼쪽 메뉴 항목. enabled에 없는 항목은 아직 만들지 않은 화면이라 막아 둔다. */
 export function railItems(active: NavKey | null, enabled: ReadonlySet<NavKey>): RailItem[] {
   return NAV_ORDER.map((key) => ({

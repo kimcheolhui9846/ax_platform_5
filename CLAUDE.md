@@ -40,9 +40,9 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.
 - `frontend/src/lib/` — 화면 로직(순수 함수). `screen.ts`의 `screenOf`가 지금 화면(초기·정보 부족·생성 중·완료·실패·수정)을, `sessionActions`가 아래쪽 버튼(최신 결과가 있으면 새 생성 없이 `결과 보기`가 먼저)을 정하고 App은 그것으로 그린다. `components/`는 표시만 한다.
-- `frontend/src/styles/tokens.css` — 디자인 원시 값(색·글꼴·간격 등)은 여기에만 둔다. 다른 CSS는 `var(--…)`만 쓴다(테스트가 검사한다).
+- `frontend/src/styles/tokens.css` — 디자인 원시 값(색·글꼴·글자 크기·간격·모서리·폭·선 두께)은 여기에만 둔다. 다른 CSS에서 색과 글자 크기·폭·선·모서리는 `var(--…)`만 쓴다(`tokens.test.ts`가 검사한다. 컴포넌트 안쪽 여백의 잔값과 위치 값은 예외).
 - `frontend/src/layout/` — 앱 뼈대(왼쪽 메뉴·헤더·본문·오른쪽 패널). props만 받는다. 배치는 창 폭이 아니라 뼈대 폭(`@container app`)으로 바뀐다(미리보기 390px 프레임도 모바일 배치).
-- `frontend/src/preview/` — 미리보기 갤러리. 앱과 같은 컴포넌트를 샘플 데이터(`fixtures.ts`, 생성된 API 타입)로 그린다. 새 화면 상태를 만들면 `frames.tsx`에 프레임을 더한다.
+- `frontend/src/preview/` — 미리보기 갤러리. 앱과 같은 컴포넌트를 샘플 데이터(`fixtures.ts`, 생성된 API 타입)로 그린다. 새 화면 상태를 만들면 `frames.tsx`에 프레임을 더한다. 프레임 폭은 `--preview-desktop`·`--preview-mobile` 토큰이고, 프레임을 감싸는 스크롤 상자를 두지 않는다(html.to.design이 잘린 채 가져온다).
 - `design/` — 디자인 HTML 원본. 고치지 않는다.
 
 ## 과제 하네스를 고칠 때
@@ -94,7 +94,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 `design/README.md`의 절차를 따른다. 원본은 날짜 폴더에 그대로 두고, 직전 버전과 diff해 바뀐 화면만 React에 반영한다. 디자인 때문에 API가 바뀌어야 하면 위 "API 계약이 바뀔 때"를 먼저 한다.
 
-배포: 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). 백엔드 주소는 `VITE_API_BASE`로 정하고, 지금은 백엔드를 배포하지 않아 앱 화면은 미연결 안내를 띄운다. 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
+배포: 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). `/preview`는 `cleanUrls`가 `preview.html`로 연결한다(로컬 Vite 서버도 같다). 백엔드 주소는 `VITE_API_BASE`로 정하고, 지금은 백엔드를 배포하지 않아 앱 화면은 미연결 안내를 띄운다. 다른 출처(렌더)를 가리키려면 백엔드에 CORS(버셀 도메인 허용)가 먼저 필요하다. CORS 없이 가려면 `vercel.json`의 `rewrites`로 `/api/:path*`를 렌더로 넘겨 같은 출처로 쓴다(이때 `VITE_API_BASE`는 비운다). 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
 
 ## 코드 품질 기준
 

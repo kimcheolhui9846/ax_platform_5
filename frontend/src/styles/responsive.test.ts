@@ -17,8 +17,22 @@ describe("반응형 배치", () => {
     expect(sheets["./layout.css"]).toContain("@container app (max-width: 719px)");
   });
 
-  it("미리보기는 모바일 배치를 따로 베끼지 않는다", () => {
-    expect(sheets["./preview.css"]).not.toContain("-mobile");
+  // 미리보기가 앱 배치를 고치는 곳은 프레임 안에서 창 높이(100vh)에 묶인 값을 푸는 두 규칙과 본문 바로가기 숨김뿐이다.
+  it("미리보기는 앱 배치 규칙을 따로 베끼지 않는다", () => {
+    const css = sheets["./preview.css"] ?? "";
+    const selectors = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim());
+    const touchingApp = selectors.filter((selector) => !/^\.gallery[\w-]*$/.test(selector));
+    expect(touchingApp).toEqual([".gallery-frame .app-shell", ".gallery-frame .rail", ".gallery .skip"]);
+    expect(css).not.toMatch(/@(media|container)\b/);
+  });
+
+  // html.to.design은 스크롤 상자 안에 숨은 부분을 잘린 채 가져온다. 프레임 바깥은 페이지 자체가 스크롤해야 한다.
+  it("미리보기 프레임을 자르는 스크롤 상자가 없다", () => {
+    const css = (sheets["./preview.css"] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+    const clipping = rules.filter((r) => r.selector !== ".gallery-frame" && /overflow/.test(r.body)).map((r) => r.selector);
+    expect(clipping).toEqual([]);
+    expect(rules.find((r) => r.selector === ".gallery")?.body).toMatch(/width:\s*max-content/);
   });
 
   it("뼈대가 스스로 폭 기준 컨테이너를 만든다", () => {

@@ -1,25 +1,9 @@
 /// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import type { Connect, Plugin } from "vite";
-
-/** 버셀의 /preview → /preview.html(vercel.json rewrites)을 로컬 개발·미리보기 서버에서도 똑같이 한다. */
-function previewPath(): Plugin {
-  // @types/node가 없어 IncomingMessage에 url 타입이 없다. 필요한 필드만 좁혀 쓴다.
-  const rewrite: Connect.NextHandleFunction = (req, _res, next) => {
-    const request = req as { url?: string };
-    if (request.url === "/preview" || request.url?.startsWith("/preview?")) request.url = request.url.replace("/preview", "/preview.html");
-    next();
-  };
-  return {
-    name: "preview-path",
-    configureServer: (server) => void server.middlewares.use(rewrite),
-    configurePreviewServer: (server) => void server.middlewares.use(rewrite),
-  };
-}
 
 export default defineConfig({
-  plugins: [react(), previewPath()],
+  plugins: [react()],
   server: {
     proxy: { "/api": "http://localhost:8000" },
   },
