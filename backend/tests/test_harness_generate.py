@@ -442,3 +442,59 @@ def test_resume_with_pending_question_keeps_it(harness):
     before = state.model_dump()
     harness.resume(state)
     assert state.model_dump() == before
+
+
+# ── 실패한 생성 뒤 질문이 걸려 있으면 FAILED에서 벗어난다 ─────────
+
+
+def _failed_with_pending_problem(reply):
+    harness = SampleHarness(SAMPLE_TASK_DIR, MockProvider())
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
+    assert state.pending_question.field == "problem"
+    harness.provider = MockProvider(fail_stages={"generate"})
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status is SessionStatus.FAILED
+    harness.provider = MockProvider()
+    return harness, state
+
+
+def test_revise_other_field_after_failed_generate_returns_to_clarifying(reply):
+    harness, state = _failed_with_pending_problem(reply)
+    pending = state.pending_question
+
+    harness.revise_answer(
+        state,
+        Answer(question_id=state.asked_questions[0].question.question_id, answer_type=AnswerType.FREE_TEXT, value="부모"),
+    )
+
+    assert state.pending_question.question_id == pending.question_id
+    assert state.status is SessionStatus.CLARIFYING
+
+
+def test_resume_after_failed_generate_with_pending_question_returns_to_clarifying(reply):
+    harness, state = _failed_with_pending_problem(reply)
+    pending = state.pending_question
+
+    harness.resume(state)
+
+    assert state.pending_question.question_id == pending.question_id
+    assert state.status is SessionStatus.CLARIFYING
+
+
+@pytest.mark.parametrize(
+    ("pending", "stale", "expected"),
+    [
+        (True, False, SessionStatus.CLARIFYING),
+        (True, True, SessionStatus.CLARIFYING),
+        (False, True, SessionStatus.REVISING),
+        (False, False, SessionStatus.CONFIRMING),
+    ],
+)
+def test_question_status(pending, stale, expected):
+    from app.core.state import Question
+    from app.harness.base import question_status
+
+    question = Question(field="f", text="q") if pending else None
+    assert question_status(question, stale) is expected

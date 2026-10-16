@@ -349,3 +349,37 @@ def test_continue_when_nothing_is_left_keeps_session(client):
 
 def test_continue_unknown_session_is_404(client):
     assert client.post(f"{BASE}/sessions/sess_없음/continue").status_code == 404
+
+
+def _failed_session_with_pending_question():
+    provider = MockProvider()
+    client = TestClient(create_app(provider=provider, debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    first_qid = view["next_question"]["question_id"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": first_qid, "answer_type": "option", "option_ids": ["o1"]},
+    ).json()
+    assert view["next_question"] is not None
+    provider.fail_stages.add("generate")
+    assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
+    provider.fail_stages.clear()
+    assert client.get(f"{BASE}/sessions/{sid}").json()["status"] == "failed"
+    return client, sid, first_qid, view["next_question"]["question_id"]
+
+
+def test_revise_after_failed_generate_clears_failed_and_error():
+    client, sid, first_qid, pending_qid = _failed_session_with_pending_question()
+    view = client.patch(
+        f"{BASE}/sessions/{sid}/answers/{first_qid}", json={"answer_type": "free_text", "value": "부모"}
+    ).json()
+    assert (view["status"], view["error"]) == ("clarifying", None)
+    assert view["next_question"]["question_id"] == pending_qid
+
+
+def test_continue_after_failed_generate_with_pending_question_is_clarifying():
+    client, sid, _, pending_qid = _failed_session_with_pending_question()
+    view = client.post(f"{BASE}/sessions/{sid}/continue").json()
+    assert (view["status"], view["error"]) == ("clarifying", None)
+    assert view["next_question"]["question_id"] == pending_qid

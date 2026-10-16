@@ -133,6 +133,18 @@ def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | N
     return answer_to_fact(question, answer)
 
 
+def question_status(pending: Question | None, result_stale: bool) -> SessionStatus:
+    """[코드·순수] 질문 단계의 상태. 걸린 질문이 있으면 CLARIFYING, 없으면 결과가 낡았는지에 따라 REVISING/CONFIRMING."""
+    if pending is not None:
+        return SessionStatus.CLARIFYING
+    return SessionStatus.REVISING if result_stale else SessionStatus.CONFIRMING
+
+
+def _settle_status(state: SessionState) -> None:
+    """질문 흐름이 상태를 정하는 곳은 여기 한 곳이다(FAILED·COMPLETED도 여기서 벗어난다)."""
+    state.status = question_status(state.pending_question, state.result_stale)
+
+
 @contextmanager
 def _atomic(state: SessionState) -> Iterator[None]:
     """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)만 남긴다."""
@@ -227,28 +239,29 @@ class BaseHarness:
         question = self.select_question(state)
         if question is not None:
             self._pose(state, question)
-        else:
-            state.status = SessionStatus.REVISING if state.result_stale else SessionStatus.CONFIRMING
+        _settle_status(state)
 
     def resume(self, state: SessionState) -> None:
         """결과를 만든 뒤에도 질문을 이어 간다. 결과는 언제든 만들 수 있고, 일찍 만들었다고 질문이 끝나지 않는다.
 
+        이미 걸린 질문이 있으면 그 질문으로 돌아간다(실패한 생성 뒤 FAILED였다면 CLARIFYING이 된다).
         걸린 질문이 없을 때만 평소 규칙(select_question)으로 다음 질문을 고른다. 고를 질문이 없으면
         (상한·종료 조건) 세션을 그대로 둔다. 결과는 stale로 만들지 않는다. 새 답이 _set_fact로 표시한다.
         """
         if state.pending_question is not None:
+            _settle_status(state)
             return
         with _atomic(state):
             question = self.select_question(state)
             if question is not None:
                 self._pose(state, question)
+                _settle_status(state)
 
     @staticmethod
     def _pose(state: SessionState, question: Question) -> None:
-        """질문을 화면에 건다(질문을 거는 곳은 여기 한 곳)."""
+        """질문을 화면에 건다(질문을 거는 곳은 여기 한 곳). 상태는 호출한 쪽이 _settle_status로 정한다."""
         state.pending_question = question
         state.asked_questions.append(AskedQuestion(question=question))
-        state.status = SessionStatus.CLARIFYING
 
     def select_question(self, state: SessionState) -> Question | None:
         """[코드] '모르겠어요' 중인 필드가 먼저, 그다음 policy 순서대로 미충족 필드."""
@@ -364,6 +377,8 @@ class BaseHarness:
                 state.readiness = self.readiness(state)
                 if pending.level == 0 and self.should_stop(state):
                     self.advance(state)
+                else:
+                    _settle_status(state)  # 질문이 걸려 있으므로 CLARIFYING(실패한 생성 뒤의 FAILED도 벗어난다)
             else:
                 self.advance(state)
 
