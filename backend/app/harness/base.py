@@ -4,7 +4,7 @@
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.core.results import (
     GenerationResult,
+    ResultAssumption,
     TaskResult,
     ValidationIssue,
     ValidationReport,
@@ -85,6 +86,37 @@ def to_generation_result(parsed: TaskResult) -> GenerationResult:
         full_text=parsed.full_text,
         content=parsed.content.model_dump(mode="json"),
     )
+
+
+SESSION_ASSUMPTION_REASON = "대화 중 AI가 보완한 값"
+
+
+def merge_assumptions(
+    llm: list[ResultAssumption],
+    session: Mapping[str, Assumption],
+    labels: Mapping[str, str],
+) -> list[ResultAssumption]:
+    """[코드·순수] 결과의 가정 목록에 세션 가정을 코드로 합친다. LLM이 다시 적어 주길 믿지 않는다.
+
+    LLM이 field에 라벨을 적었으면 내부 이름으로 바꾼다. 결과에 없는 세션 가정은 값·이유와 함께 덧붙인다.
+    """
+    name_of = {label: name for name, label in labels.items()}
+    merged = [
+        a if a.field in labels else a.model_copy(update={"field": name_of.get(a.field, a.field)})
+        for a in llm
+    ]
+    present = {a.field for a in merged}
+    merged.extend(
+        ResultAssumption(
+            field=name,
+            value=item.value,
+            reason=item.reason or SESSION_ASSUMPTION_REASON,
+            requires_confirmation=item.requires_confirmation,
+        )
+        for name, item in session.items()
+        if name not in present
+    )
+    return merged
 
 
 def _validation_trace(report: ValidationReport) -> TraceEntry:
@@ -355,6 +387,9 @@ class BaseHarness:
         try:
             result = to_generation_result(
                 self._call_retrying_bad_output(state, "generate", self.result_model)
+            )
+            result.assumptions = merge_assumptions(
+                result.assumptions, state.assumptions, self.policy.labels
             )
             report = self.validate(state, result)
         except Exception as exc:

@@ -6,19 +6,19 @@
 
 ## 확인된 사실
 {% for name, item in state.facts.items() -%}
-- {{ policy.labels.get(name, name) }}: {{ item.value }} (출처: {{ item.source }})
+- {{ name }} ({{ policy.labels.get(name, name) }}): {{ item.value }} (출처: {{ item.source }})
 {% else -%}
 - (없음)
 {% endfor %}
 ## AI 가정 (사용자 확인 전)
 {% for name, item in state.assumptions.items() -%}
-- {{ policy.labels.get(name, name) }}: {{ item.value }}
+- {{ name }} ({{ policy.labels.get(name, name) }}): {{ item.value }}
 {% else -%}
 - (없음)
 {% endfor %}
 ## 아직 모르는 항목
 {% for name in state.unknowns -%}
-- {{ policy.labels.get(name, name) }}
+- {{ name }} ({{ policy.labels.get(name, name) }})
 {% else -%}
 - (없음)
 {% endfor %}

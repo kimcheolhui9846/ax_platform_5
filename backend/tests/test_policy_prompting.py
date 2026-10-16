@@ -5,7 +5,7 @@ import yaml
 from jinja2 import UndefinedError
 from pydantic import ValidationError
 
-from app.core.state import CoachingMode, InfoItem, InfoSource, SessionState
+from app.core.state import Assumption, CoachingMode, InfoItem, InfoSource, SessionState
 from app.harness.policy import FieldKind, load_policy
 from app.harness.prompting import STAGES, PromptContextError, PromptRenderer, context_keys
 
@@ -186,3 +186,21 @@ def test_template_using_another_stage_variable_fails(tmp_path):
     (prompts / "diagnose.md").write_text("{{ field.label }}", encoding="utf-8")
     with pytest.raises(UndefinedError, match="field"):
         PromptRenderer(prompts).render("diagnose", **sample_context("diagnose"))
+
+
+# ── 필드 식별자: 프롬프트는 내부 이름과 라벨을 함께 보여 준다 ─────────
+
+
+def test_context_shows_field_name_and_label():
+    context = sample_context("diagnose")
+    context["state"].assumptions["customer"] = Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)
+    context["state"].unknowns.append("problem")
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **context)
+    assert "- idea (아이디어): 향초" in text
+    assert "- customer (목표 고객): 30대" in text
+    assert "- problem (고객 문제)" in text
+
+
+def test_generate_prompt_lists_allowed_assumption_fields():
+    text = PromptRenderer(SAMPLE_DIR / "prompts").render("generate", **sample_context("generate"))
+    assert "idea, customer, problem, tone, length" in text

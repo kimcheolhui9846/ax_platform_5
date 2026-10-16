@@ -1,9 +1,11 @@
 import pytest
 
-from app.core.results import ValidationIssue
+from app.core.results import GenerationResult, ResultAssumption, ValidationIssue
 from app.core.state import Answer, AnswerType, Assumption, InfoSource, SessionState, SessionStatus
+from app.harness.base import merge_assumptions
 from app.harness.errors import GenerationFailed
 from app.harness.evals import load_scenarios, run_scenario
+from app.harness.validation import check_assumptions_marked
 from app.providers.mock import MockProvider
 from tests.conftest import SAMPLE_TASK_DIR, SampleHarness
 
@@ -92,11 +94,59 @@ def test_task_validators_run(provider):
     assert state.status is SessionStatus.COMPLETED
 
 
-def test_unmarked_assumption_is_flagged(harness):
+def test_generate_marks_session_assumptions_in_code(harness):
+    """LLM이 가정을 다시 적어 주길 믿지 않는다. 세션 가정은 코드가 결과에 넣는다."""
     state = harness.start("향초")
-    state.assumptions["customer"] = Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)
+    state.assumptions["customer"] = Assumption(
+        value="30대", source=InfoSource.AI_ASSUMPTION, reason="처음 입력에서 추출"
+    )
     harness.generate(state)
-    assert "assumptions_marked" in [i.rule for i in state.validation.issues]
+    marked = {a.field: a for a in state.result.assumptions}
+    assert (marked["customer"].value, marked["customer"].reason) == ("30대", "처음 입력에서 추출")
+    assert "assumptions_marked" not in [i.rule for i in state.validation.issues]
+
+
+LABELS = {"customer": "목표 고객", "problem": "고객 문제"}
+
+
+def test_merge_assumptions_adds_missing_session_assumptions():
+    llm = [ResultAssumption(field="problem", value="LLM 값", reason="LLM 이유")]
+    session = {
+        "problem": Assumption(value="세션 값", source=InfoSource.AI_ASSUMPTION),
+        "customer": Assumption(value="30대", source=InfoSource.AI_ASSUMPTION, reason=""),
+    }
+    merged = merge_assumptions(llm, session, LABELS)
+    assert [(a.field, a.value) for a in merged] == [("problem", "LLM 값"), ("customer", "30대")]
+    assert merged[1].reason  # 이유가 비어 있으면 기본 이유를 단다
+    assert merged[1].requires_confirmation is True
+
+
+def test_merge_assumptions_maps_label_to_field_name():
+    """LLM이 field에 라벨을 적어도 같은 항목으로 본다(중복으로 다시 넣지 않는다)."""
+    llm = [ResultAssumption(field="목표 고객", value="30대")]
+    session = {"customer": Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)}
+    merged = merge_assumptions(llm, session, LABELS)
+    assert [(a.field, a.value) for a in merged] == [("customer", "30대")]
+
+
+def test_merge_assumptions_keeps_llm_only_items():
+    llm = [ResultAssumption(field="extra", value="v")]
+    assert [a.field for a in merge_assumptions(llm, {}, LABELS)] == ["extra"]
+
+
+def test_assumptions_marked_flags_missing_and_accepts_label(harness):
+    state = SessionState(task_type="sample_task")
+    state.assumptions["customer"] = Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)
+
+    def result_with(field: str | None) -> GenerationResult:
+        marked = [ResultAssumption(field=field, value="30대")] if field else []
+        return GenerationResult(cards=[], assumptions=marked, full_text="", content={})
+
+    assert [i.rule for i in check_assumptions_marked(state, result_with(None), harness.policy)] == [
+        "assumptions_marked"
+    ]
+    assert not check_assumptions_marked(state, result_with("customer"), harness.policy)
+    assert not check_assumptions_marked(state, result_with("목표 고객"), harness.policy)
 
 
 def test_llm_validation_only_when_enabled(harness, provider):

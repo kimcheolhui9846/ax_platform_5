@@ -105,15 +105,15 @@ def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
     with _save_on_failure(store, state):
         harness.generate(state)
     store.save(state)
-    return to_result_view(state)
+    return to_result_view(state, harness.policy.labels)
 
 
 @router.get("/sessions/{session_id}/result", response_model=ResultView)
 def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
-    state, _ = _load(registry, store, session_id)
+    state, harness = _load(registry, store, session_id)
     if state.result is None:
         raise HTTPException(status_code=404, detail="아직 생성된 결과가 없습니다.")
-    return to_result_view(state)
+    return to_result_view(state, harness.policy.labels)
 
 
 @router.get("/sessions/{session_id}/trace", response_model=list[TraceEntry])

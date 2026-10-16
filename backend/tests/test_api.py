@@ -6,7 +6,9 @@ from app.core.messages import (
     INVALID_REQUEST_MESSAGE,
     PROVIDER_FAILED_MESSAGE,
 )
+from app.harness.stage_models import Diagnosis, ExtractedField
 from app.main import create_app
+from app.providers.base import ProviderResponse
 from app.providers.mock import MockProvider
 
 BASE = "/api/v1/coaching"
@@ -116,6 +118,42 @@ def test_harness_errors_are_422(client):
     assert response.json()["detail"] == "지금 답할 수 있는 질문이 아닙니다."
 
 
+class UserDiagnosisProvider(MockProvider):
+    """처음 입력에서 product_planning의 user 필드를 뽑아 AI 가정을 만든다."""
+
+    def complete(self, *, task_type, stage, prompt, response_model=None):
+        if stage == "diagnose":
+            parsed = Diagnosis(extracted=[ExtractedField(field="user", value="30대 직장인")])
+            return ProviderResponse(text="{}", model="stub", parsed=parsed)
+        return super().complete(task_type=task_type, stage=stage, prompt=prompt, response_model=response_model)
+
+
+def test_labels_reach_assumptions_and_unknowns():
+    client = TestClient(create_app(provider=UserDiagnosisProvider(), debug=True))
+    view = create_session(client)
+    sid = view["session_id"]
+    q = view["next_question"]
+    assert q["field"] == "user"
+
+    result = client.post(f"{BASE}/sessions/{sid}/generate").json()
+    user = next(a for a in result["result"]["assumptions"] if a["field"] == "user")
+    assert user == {
+        "field": "user",
+        "label": "사용자",
+        "value": "30대 직장인",
+        "reason": "처음 입력에서 추출",
+        "requires_confirmation": True,
+    }
+
+    view = create_session(client)
+    sid = view["session_id"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": view["next_question"]["question_id"], "answer_type": "skip"},
+    ).json()
+    assert view["unknowns"] == [{"field": "user", "label": "사용자"}]
+
+
 def test_result_before_generate_is_404(client):
     sid = create_session(client)["session_id"]
     assert client.get(f"{BASE}/sessions/{sid}/result").status_code == 404
@@ -161,8 +199,8 @@ def test_trace_hidden_without_debug():
 CONTRACT_SCHEMAS = (
     "TaskSummary", "TaskForm", "ModeInfo", "FieldSummary", "CreateSessionRequest",
     "AnswerRequest", "ReviseAnswerRequest", "Progress", "SummaryItem", "SessionView",
-    "ResultView", "Question", "QuestionOption", "GenerationResult", "ResultCard",
-    "ResultAssumption", "ValidationReport", "ValidationIssue", "TraceEntry",
+    "ResultView", "Question", "QuestionOption", "LabeledResult", "ResultCard",
+    "LabeledAssumption", "UnknownItem", "ValidationReport", "ValidationIssue", "TraceEntry",
 )  # fmt: skip
 
 
@@ -182,7 +220,8 @@ def test_openapi_marks_defaulted_response_fields_required(client):
     """응답 필드는 항상 채워져 나가므로 프론트 타입에서 선택 필드가 되면 안 된다."""
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert {"question_id", "options"} <= set(schemas["Question"]["required"])
-    assert "assumptions" in schemas["GenerationResult"]["required"]
+    assert "assumptions" in schemas["LabeledResult"]["required"]
+    assert {"label", "reason"} <= set(schemas["LabeledAssumption"]["required"])
     assert "issues" in schemas["ValidationReport"]["required"]
     # 요청 모델의 기본값 필드는 그대로 선택이다.
     assert "value" not in schemas["AnswerRequest"].get("required", [])

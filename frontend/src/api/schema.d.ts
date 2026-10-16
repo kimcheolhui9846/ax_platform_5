@@ -209,15 +209,38 @@ export interface components {
             label: string;
             kind: components["schemas"]["FieldKind"];
         };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /**
-         * GenerationResult
-         * @description 세션에 저장되는 결과. content는 과제별 스키마를 통과한 값의 dict다.
+         * InfoSource
+         * @enum {string}
          */
-        GenerationResult: {
+        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default";
+        /** LabeledAssumption */
+        LabeledAssumption: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Reason */
+            reason: string;
+            /** Requires Confirmation */
+            requires_confirmation: boolean;
+        };
+        /**
+         * LabeledResult
+         * @description GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다.
+         */
+        LabeledResult: {
             /** Cards */
             cards: components["schemas"]["ResultCard"][];
             /** Assumptions */
-            assumptions: components["schemas"]["ResultAssumption"][];
+            assumptions: components["schemas"]["LabeledAssumption"][];
             /** Full Text */
             full_text: string;
             /** Content */
@@ -230,16 +253,6 @@ export interface components {
              */
             generated_at: string;
         };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /**
-         * InfoSource
-         * @enum {string}
-         */
-        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default";
         /** ModeInfo */
         ModeInfo: {
             mode: components["schemas"]["CoachingMode"];
@@ -293,25 +306,6 @@ export interface components {
              */
             ai_suggested: boolean;
         };
-        /** ResultAssumption */
-        ResultAssumption: {
-            /**
-             * Field
-             * @description AI가 보완한 항목의 필드 이름
-             */
-            field: string;
-            /**
-             * Value
-             * @description AI가 가정한 값
-             */
-            value: string;
-            /**
-             * Requires Confirmation
-             * @description 사용자 확인이 필요한지
-             * @default true
-             */
-            requires_confirmation: boolean;
-        };
         /** ResultCard */
         ResultCard: {
             /** @description 카드 유형: 진단·제안·실행 과제 */
@@ -337,7 +331,7 @@ export interface components {
             /** Session Id */
             session_id: string;
             status: components["schemas"]["SessionStatus"];
-            result: components["schemas"]["GenerationResult"];
+            result: components["schemas"]["LabeledResult"];
             validation: components["schemas"]["ValidationReport"] | null;
             /** Stale */
             stale: boolean;
@@ -372,7 +366,7 @@ export interface components {
             /** Summary */
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
-            unknowns: string[];
+            unknowns: components["schemas"]["UnknownItem"][];
             /** Can Generate */
             can_generate: boolean;
             /** Result Stale */
@@ -443,6 +437,13 @@ export interface components {
              * Format: date-time
              */
             at: string;
+        };
+        /** UnknownItem */
+        UnknownItem: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
         };
         /** ValidationError */
         ValidationError: {

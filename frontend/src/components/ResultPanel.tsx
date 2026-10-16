@@ -1,4 +1,5 @@
 import type { ResultView } from "../api/types";
+import { assumptionKey, formatAssumption } from "../lib/assumption";
 import { cardLabel } from "../lib/labels";
 
 export function ResultPanel({ view }: { view: ResultView }) {
@@ -21,11 +22,8 @@ export function ResultPanel({ view }: { view: ResultView }) {
         <article className="card">
           <h3>AI가 가정한 내용</h3>
           <ul>
-            {assumptions.map((a) => (
-              <li key={a.field}>
-                {a.field}: {a.value}
-                {a.requires_confirmation && " (확인 필요)"}
-              </li>
+            {assumptions.map((a, idx) => (
+              <li key={assumptionKey(a, idx)}>{formatAssumption(a)}</li>
             ))}
           </ul>
         </article>

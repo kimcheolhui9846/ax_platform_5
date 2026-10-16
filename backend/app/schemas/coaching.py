@@ -2,12 +2,13 @@
 
 내부 세션 상태(trace, 프롬프트, 정책 규칙)는 여기에 싣지 않는다.
 """
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.contract import ContractModel
-from app.core.results import GenerationResult, ValidationReport
+from app.core.results import ResultCard, ValidationReport
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.policy import FieldKind
 
@@ -72,6 +73,11 @@ class SummaryItem(ContractModel):
     is_assumption: bool
 
 
+class UnknownItem(ContractModel):
+    field: str
+    label: str
+
+
 class SessionView(ContractModel):
     session_id: str
     task_type: str
@@ -80,15 +86,33 @@ class SessionView(ContractModel):
     next_question: Question | None
     progress: Progress
     summary: list[SummaryItem]
-    unknowns: list[str]
+    unknowns: list[UnknownItem]
     can_generate: bool
     result_stale: bool
     error: str | None
 
 
+class LabeledAssumption(ContractModel):
+    field: str
+    label: str
+    value: str
+    reason: str
+    requires_confirmation: bool
+
+
+class LabeledResult(ContractModel):
+    """GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다."""
+
+    cards: list[ResultCard]
+    assumptions: list[LabeledAssumption]
+    full_text: str
+    content: dict[str, Any]
+    generated_at: datetime
+
+
 class ResultView(ContractModel):
     session_id: str
     status: SessionStatus
-    result: GenerationResult
+    result: LabeledResult
     validation: ValidationReport | None
     stale: bool
