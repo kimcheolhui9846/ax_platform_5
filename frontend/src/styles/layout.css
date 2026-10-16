@@ -1,4 +1,6 @@
 /* 앱 뼈대: 왼쪽 메뉴 | (헤더 / 본문 + 오른쪽 패널). flex로만 짠다(피그마 오토 레이아웃). */
+/* 배치는 창(@media)이 아니라 뼈대 폭(@container app)으로 바뀐다. 미리보기의 390px 프레임도 그대로 모바일 배치가 된다. */
+.app-viewport { container: app / inline-size; }
 .app-shell { display: flex; min-height: 100vh; }
 
 .rail {
@@ -34,13 +36,13 @@
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
 .app-side { width: var(--side-width); flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 
-@media (max-width: 1099px) {
+@container app (max-width: 1099px) {
   .header-steps { display: none; }
   .app-body { flex-direction: column; align-items: stretch; padding: var(--space-8); }
   .app-side { width: auto; }
 }
 
-@media (max-width: 719px) {
+@container app (max-width: 719px) {
   .app-shell { flex-direction: column-reverse; }
   .rail {
     position: sticky; bottom: 0; top: auto; height: auto; width: 100%;

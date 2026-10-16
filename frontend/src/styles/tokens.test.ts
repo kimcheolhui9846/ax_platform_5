@@ -18,6 +18,14 @@ describe("디자인 토큰", () => {
     expect(Object.keys(sheets)).toContain("./tokens.css");
   });
 
+  // vitest가 CSS를 빈 문자열로 바꾸면(test.css 꺼짐) 아래 검사가 모두 헛돌므로 먼저 막는다.
+  it("CSS 원문을 읽는다", () => {
+    const empty = Object.entries(sheets)
+      .filter(([, css]) => css.trim() === "")
+      .map(([name]) => name);
+    expect(empty).toEqual([]);
+  });
+
   it("원시 색상은 tokens.css에만 있다", () => {
     const offenders = Object.entries(sheets)
       .filter(([name]) => name !== "./tokens.css")
