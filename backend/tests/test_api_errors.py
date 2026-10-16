@@ -43,21 +43,23 @@ def test_hidden_trace_looks_like_unknown_path():
     assert response.json() == {"detail": "찾을 수 없습니다."}
 
 
-def test_unexpected_exception_is_korean_500_and_logged(monkeypatch, caplog):
+def test_unexpected_exception_is_korean_500_and_logged_once(monkeypatch, caplog):
+    """예상하지 못한 예외는 한 번만 로그에 남고 서버로 다시 올라가지 않는다(서버가 또 로그를 남기지 않는다)."""
     app = create_app(provider=MockProvider(), debug=True)
-    client = TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app)  # 예외가 서버까지 올라가면 여기서 그대로 터진다
 
     def boom(*args, **kwargs):
         raise RuntimeError("secret internal detail")
 
     monkeypatch.setattr(app.state.registry.get("product_planning"), "start", boom)
-    with caplog.at_level(logging.ERROR, logger="app.api.errors"):
+    with caplog.at_level(logging.DEBUG):
         response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
 
     assert response.status_code == 500
     assert response.json() == {"detail": INTERNAL_ERROR_MESSAGE}
     assert "secret" not in response.text
-    assert any("secret internal detail" in str(r.exc_info) for r in caplog.records)
+    logged = [r for r in caplog.records if r.exc_info and "secret internal detail" in str(r.exc_info[1])]
+    assert len(logged) == 1
 
 
 def test_request_validation_details_are_logged_not_returned(client, caplog):
@@ -77,3 +79,18 @@ def test_openapi_documents_error_body_instead_of_validation_error(client):
     for status in ("404", "422", "500", "502"):
         ref = responses[status]["content"]["application/json"]["schema"]["$ref"]
         assert ref.endswith("/ErrorBody"), status
+
+
+def _statuses(spec: dict, path: str, method: str) -> set[str]:
+    return set(spec["paths"][f"{BASE}{path}"][method]["responses"])
+
+
+def test_each_route_declares_only_errors_it_can_return(client):
+    spec = client.get("/openapi.json").json()
+    assert _statuses(spec, "/tasks", "get") == {"200", "500"}
+    assert _statuses(spec, "/tasks/{task_type}/form", "get") == {"200", "404", "500"}
+    assert _statuses(spec, "/sessions/{session_id}", "get") == {"200", "404", "500"}
+    assert _statuses(spec, "/sessions/{session_id}/result", "get") == {"200", "404", "500"}
+    assert _statuses(spec, "/tasks/{task_type}/sessions", "post") == {"201", "404", "422", "500", "502"}
+    assert _statuses(spec, "/sessions/{session_id}/answers", "post") == {"200", "404", "422", "500", "502"}
+    assert _statuses(spec, "/sessions/{session_id}/generate", "post") == {"200", "404", "500", "502"}

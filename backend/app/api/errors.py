@@ -1,6 +1,8 @@
 """예외 → 오류 응답. 본문은 언제나 {"detail": "<한국어 문장>"}(ErrorBody)이다.
 
 내부 사정은 응답에 싣지 않는다. 요청 검증 상세와 예상하지 못한 예외는 logging으로만 남긴다.
+예상하지 못한 예외는 CatchUnexpectedErrors가 받아 한 번만 로그에 남기고 500으로 끝낸다. Starlette의
+Exception 처리기는 응답 뒤 예외를 서버로 다시 올려 서버가 같은 traceback을 또 남기므로 쓰지 않는다.
 """
 import logging
 from http import HTTPStatus
@@ -10,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.messages import (
     GENERATION_FAILED_MESSAGE,
@@ -62,8 +65,34 @@ def install_error_handlers(app: FastAPI) -> None:
     async def generation_failed(request: Request, exc: GenerationFailed) -> JSONResponse:
         return _error(502, GENERATION_FAILED_MESSAGE)
 
-    @app.exception_handler(Exception)
-    async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-        # Starlette는 이 응답을 보낸 뒤 예외를 서버로 다시 올린다(서버 로그에도 남는다).
-        logger.error("처리하지 못한 예외 %s %s", request.method, request.url.path, exc_info=exc)
-        return _error(500, INTERNAL_ERROR_MESSAGE)
+    app.add_middleware(CatchUnexpectedErrors)
+
+
+class CatchUnexpectedErrors:
+    """처리기가 없는 예외를 받아 한 번만 로그에 남기고 500 한국어 본문을 보낸다. 서버로 다시 올리지 않는다.
+
+    응답을 이미 보내기 시작했다면 고칠 수 없으므로 로그 없이 다시 올린다(서버가 한 번 남긴다).
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def send_tracking(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_tracking)
+        except Exception as exc:
+            if started:
+                raise
+            logger.error("처리하지 못한 예외 %s %s", scope["method"], scope["path"], exc_info=exc)
+            await _error(500, INTERNAL_ERROR_MESSAGE)(scope, receive, send)

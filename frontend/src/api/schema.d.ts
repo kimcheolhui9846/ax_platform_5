@@ -502,35 +502,8 @@ export interface operations {
                     "application/json": components["schemas"]["TaskSummary"][];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description AI 호출 또는 결과 생성 실패 */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -569,26 +542,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description AI 호출 또는 결과 생성 실패 */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -689,26 +644,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description AI 호출 또는 결과 생성 실패 */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -872,15 +809,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -930,26 +858,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description AI 호출 또는 결과 생성 실패 */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -988,26 +898,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description AI 호출 또는 결과 생성 실패 */
-            502: {
                 headers: {
                     [name: string]: unknown;
                 };

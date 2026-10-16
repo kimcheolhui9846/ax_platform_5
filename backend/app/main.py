@@ -3,6 +3,7 @@ from fastapi import FastAPI
 
 from app.api import coaching
 from app.api.errors import install_error_handlers
+from app.api.responses import install_openapi
 from app.config import settings
 from app.core.store import InMemorySessionStore, SessionStore
 from app.harness.registry import HarnessRegistry
@@ -24,6 +25,7 @@ def create_app(
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)
     install_error_handlers(app)
+    install_openapi(app)
     return app
 
 

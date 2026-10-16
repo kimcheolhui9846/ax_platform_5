@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.deps import Registry, Store
+from app.api.responses import error_responses
 from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
 from app.core.messages import (
     RESULT_NOT_READY_MESSAGE,
@@ -19,7 +20,6 @@ from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
-    ErrorBody,
     ResultView,
     ReviseAnswerRequest,
     SessionView,
@@ -27,16 +27,9 @@ from app.schemas.coaching import (
     TaskSummary,
 )
 
-# 오류 본문은 app/api/errors.py가 모두 ErrorBody 모양으로 만든다. FastAPI 기본 422(HTTPValidationError)는
-# 런타임 응답과 다르므로 문서에서도 ErrorBody로 덮는다.
-ERROR_RESPONSES: dict[int | str, dict] = {
-    404: {"model": ErrorBody, "description": "과제·세션·결과가 없음"},
-    422: {"model": ErrorBody, "description": "요청 형식이나 답변이 규칙에 맞지 않음"},
-    500: {"model": ErrorBody, "description": "예상하지 못한 서버 오류"},
-    502: {"model": ErrorBody, "description": "AI 호출 또는 결과 생성 실패"},
-}
-
-router = APIRouter(prefix="/api/v1/coaching", tags=["coaching"], responses=ERROR_RESPONSES)
+# 오류 본문은 app/api/errors.py가 모두 ErrorBody 모양으로 만든다. 경로마다 낼 수 있는 오류만 선언하고
+# 500은 어디서나 날 수 있어 라우터 공통으로 둔다.
+router = APIRouter(prefix="/api/v1/coaching", tags=["coaching"], responses=error_responses(500))
 
 
 def _harness(registry: Registry, task_type: str) -> BaseHarness:
@@ -57,7 +50,7 @@ def _load(registry: Registry, store: Store, session_id: str) -> tuple[SessionSta
 def _save_on_failure(store: SessionStore, state: SessionState) -> Iterator[None]:
     """AI 호출이나 생성이 실패해도 그때의 state(실패 trace, FAILED 표시)를 저장하고 오류를 다시 던진다.
 
-    응답 문구는 main.py의 예외 처리기가 정한다(둘 다 502).
+    응답 문구는 app/api/errors.py의 예외 처리기가 정한다(둘 다 502).
     """
     try:
         yield
@@ -71,12 +64,17 @@ def list_tasks(registry: Registry) -> list[TaskSummary]:
     return [to_task_summary(h.policy) for h in registry.all()]
 
 
-@router.get("/tasks/{task_type}/form", response_model=TaskForm)
+@router.get("/tasks/{task_type}/form", response_model=TaskForm, responses=error_responses(404))
 def get_task_form(task_type: str, registry: Registry) -> TaskForm:
     return to_task_form(_harness(registry, task_type).policy)
 
 
-@router.post("/tasks/{task_type}/sessions", response_model=SessionView, status_code=201)
+@router.post(
+    "/tasks/{task_type}/sessions",
+    response_model=SessionView,
+    status_code=201,
+    responses=error_responses(404, 422, 502),
+)
 def create_session(
     task_type: str, body: CreateSessionRequest, registry: Registry, store: Store
 ) -> SessionView:
@@ -86,13 +84,15 @@ def create_session(
     return to_session_view(state, harness)
 
 
-@router.get("/sessions/{session_id}", response_model=SessionView)
+@router.get("/sessions/{session_id}", response_model=SessionView, responses=error_responses(404))
 def get_session(session_id: str, registry: Registry, store: Store) -> SessionView:
     state, harness = _load(registry, store, session_id)
     return to_session_view(state, harness)
 
 
-@router.post("/sessions/{session_id}/answers", response_model=SessionView)
+@router.post(
+    "/sessions/{session_id}/answers", response_model=SessionView, responses=error_responses(404, 422, 502)
+)
 def submit_answer(
     session_id: str, body: AnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
@@ -103,7 +103,11 @@ def submit_answer(
     return to_session_view(state, harness)
 
 
-@router.patch("/sessions/{session_id}/answers/{question_id}", response_model=SessionView)
+@router.patch(
+    "/sessions/{session_id}/answers/{question_id}",
+    response_model=SessionView,
+    responses=error_responses(404, 422, 502),
+)
 def revise_answer(
     session_id: str, question_id: str, body: ReviseAnswerRequest, registry: Registry, store: Store
 ) -> SessionView:
@@ -114,7 +118,9 @@ def revise_answer(
     return to_session_view(state, harness)
 
 
-@router.post("/sessions/{session_id}/generate", response_model=ResultView)
+@router.post(
+    "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 502)
+)
 def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)
     with _save_on_failure(store, state):
@@ -123,7 +129,7 @@ def generate(session_id: str, registry: Registry, store: Store) -> ResultView:
     return to_result_view(state, harness.policy.labels)
 
 
-@router.get("/sessions/{session_id}/result", response_model=ResultView)
+@router.get("/sessions/{session_id}/result", response_model=ResultView, responses=error_responses(404))
 def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
     state, harness = _load(registry, store, session_id)
     if state.result is None:
@@ -131,7 +137,9 @@ def get_result(session_id: str, registry: Registry, store: Store) -> ResultView:
     return to_result_view(state, harness.policy.labels)
 
 
-@router.get("/sessions/{session_id}/trace", response_model=list[TraceEntry])
+@router.get(
+    "/sessions/{session_id}/trace", response_model=list[TraceEntry], responses=error_responses(404)
+)
 def get_trace(session_id: str, request: Request, registry: Registry, store: Store) -> list[TraceEntry]:
     """하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다."""
     if not request.app.state.debug:
