@@ -26,7 +26,7 @@ describe("생성 요청 기록", () => {
   it("응답이 오면 성공이든 실패든 inflight가 비워진다", () => {
     const done = reducer(generating(), { type: "resultLoaded", seq: 1, result: makeResult(), next: result, outdatesSession: true, notice: null });
     expect(done.inflight).toBeNull();
-    const failed = reducer(generating(), { type: "failed", seq: 1, message: "x", outdatesSession: true });
+    const failed = reducer(generating(), { type: "failed", seq: 1, message: "x", outdatesSession: true, next: null });
     expect(failed.inflight).toBeNull();
   });
 
@@ -104,6 +104,7 @@ describe("reducer", () => {
       seq: 1,
       message: "세션을 찾을 수 없습니다.",
       outdatesSession: false,
+      next: null,
     });
     expect(failed.toast).toBe("세션을 찾을 수 없습니다.");
     expect(failed.stalled).toBe("session:sess_1");
@@ -115,8 +116,18 @@ describe("reducer", () => {
     expect(reducer(stalled, { type: "retried" }).stalled).toBeNull();
   });
 
+  it("생성이 실패하면 실패 주소로 옮기고 알림은 메시지로 둔다, next가 없으면 주소는 그대로다", () => {
+    const base = waiting({ ...initialState(confirm), session: makeSession() }, 1);
+    const failedRoute: Route = { name: "failed", sessionId: "sess_1" };
+    const moved = reducer(base, { type: "failed", seq: 1, message: "만들지 못했어요", outdatesSession: true, next: failedRoute });
+    expect(moved.route).toEqual(failedRoute);
+    expect(moved.toast).toBe("만들지 못했어요");
+    const stay = reducer(base, { type: "failed", seq: 1, message: "x", outdatesSession: true, next: null });
+    expect(stay.route).toEqual(confirm);
+  });
+
   it("버튼 요청이 실패하면 불러오기 실패로 표시하지 않는다", () => {
-    const failed = reducer(waiting(initialState(question), 1), { type: "failed", seq: 1, message: "x", outdatesSession: false });
+    const failed = reducer(waiting(initialState(question), 1), { type: "failed", seq: 1, message: "x", outdatesSession: false, next: null });
     expect(failed.stalled).toBeNull();
   });
 
@@ -126,7 +137,7 @@ describe("reducer", () => {
     expect(made.sessionOutdated).toBe(true);
     expect(made.route).toEqual(result);
 
-    const failed = reducer(waiting(base, 2), { type: "failed", seq: 2, message: "결과를 만들지 못했습니다.", outdatesSession: true });
+    const failed = reducer(waiting(base, 2), { type: "failed", seq: 2, message: "결과를 만들지 못했습니다.", outdatesSession: true, next: null });
     expect(failed.sessionOutdated).toBe(true);
 
     const fresh = reducer(waiting(made, 3), {

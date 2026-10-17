@@ -54,6 +54,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), notice: null }),
       load: null,
       generating: false,
+      failedRoute: null,
       outdatesSessionOnFail: false,
     });
 
@@ -78,6 +79,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       }),
       load: null,
       generating: true,
+      failedRoute: { name: "failed", sessionId },
       outdatesSessionOnFail: true,
     });
   };
@@ -132,6 +134,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         }),
         load: null,
         generating: false,
+        failedRoute: null,
         outdatesSessionOnFail: false,
       });
     },
@@ -147,6 +150,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId, version: number } }),
         load: null,
         generating: false,
+        failedRoute: null,
         outdatesSessionOnFail: false,
       });
     },
@@ -158,6 +162,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
         load: null,
         generating: false,
+        failedRoute: null,
         outdatesSessionOnFail: false,
       });
     },
@@ -181,6 +186,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         }),
         load: null,
         generating: false,
+        failedRoute: null,
         outdatesSessionOnFail: false,
       });
     },
@@ -203,6 +209,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         }),
         load: null,
         generating: false,
+        failedRoute: null,
         outdatesSessionOnFail: false,
       });
     },

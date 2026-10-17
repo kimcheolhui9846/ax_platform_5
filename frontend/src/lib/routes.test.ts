@@ -11,6 +11,7 @@ const ROUTES: [Route, string][] = [
   [{ name: "question", sessionId: "sess_1" }, "#/s/sess_1/question"],
   [{ name: "revise", sessionId: "sess_1", questionId: "q_1" }, "#/s/sess_1/question/q_1"],
   [{ name: "confirm", sessionId: "sess_1" }, "#/s/sess_1/confirm"],
+  [{ name: "failed", sessionId: "sess_1" }, "#/s/sess_1/failed"],
   [{ name: "result", sessionId: "sess_1" }, "#/s/sess_1/result"],
   [{ name: "evidence", sessionId: "sess_1" }, "#/s/sess_1/evidence"],
   [{ name: "work" }, "#/work"],
@@ -46,6 +47,7 @@ describe("contextOf", () => {
   it("요청·모드는 같은 과제 묶음, 세션 화면은 같은 세션 묶음이다", () => {
     expect(contextOf({ name: "request", task: "a" })).toBe(contextOf({ name: "mode", task: "a" }));
     expect(contextOf({ name: "question", sessionId: "s" })).toBe(contextOf({ name: "result", sessionId: "s" }));
+    expect(contextOf({ name: "failed", sessionId: "sess_1" })).toBe("session:sess_1");
     expect(contextOf({ name: "revise", sessionId: "s", questionId: "q" })).toBe(contextOf({ name: "confirm", sessionId: "s" }));
   });
 

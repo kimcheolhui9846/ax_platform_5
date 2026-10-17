@@ -180,6 +180,16 @@ describe("이미지를 받아 둔 상태", () => {
     });
   });
 
+  it("실패 주소는 세션이 있으면 세션 상태와 상관없이 실패 화면이다, 생성 중이면 생성 중이 먼저다", () => {
+    const route: Route = { name: "failed", sessionId: "sess_1" };
+    for (const session of [makeSession(), makeSession({ next_question: null })]) {
+      expect(screenModel(at(route, { session }))).toEqual({ kind: "failed", task, session });
+    }
+    const session = makeSession();
+    expect(screenModel(at(route, { session, inflight: { seq: 1, load: null, generating: true } }))).toEqual({ kind: "generating", task, session });
+    expect(screenModel(at(route, {}))).toEqual({ kind: "loading" });
+  });
+
   it("초안을 만드는 동안은 세션 화면이 생성 중 화면이다", () => {
     const session = makeSession();
     const inflight = { seq: 1, load: null, generating: true };

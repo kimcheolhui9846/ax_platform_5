@@ -6,7 +6,7 @@ import { FRAMES, FRAME_SIZES } from "./frames";
 import { Gallery } from "./Gallery";
 
 // 디자인 V2(design/2026-10-16-ux-v2)의 화면 가운데 지금까지 만든 것. 묶음마다 늘린다.
-const DESIGN_SCREENS = ["home", "request", "mode", "question", "confirm", "generating", "result", "guide", "work", "documents", "saved", "version", "edit", "evidence"];
+const DESIGN_SCREENS = ["home", "request", "mode", "question", "confirm", "generating", "failed", "result", "guide", "work", "documents", "saved", "version", "edit", "evidence"];
 
 describe("미리보기 프레임", () => {
   it("이름이 겹치지 않는다", () => {
@@ -26,7 +26,8 @@ describe("미리보기 프레임", () => {
       "revise",
       "confirm",
       "generating",
-      "confirm-failed",
+      "failed",
+      "failed-with-result",
       "result",
       "result-stale",
       "result-supplement",

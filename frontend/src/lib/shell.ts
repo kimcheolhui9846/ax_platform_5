@@ -42,6 +42,7 @@ export function routePhase(route: Route): Phase | null {
     case "question":
     case "revise":
     case "confirm":
+    case "failed":
       return 1;
     case "edit":
     case "evidence":

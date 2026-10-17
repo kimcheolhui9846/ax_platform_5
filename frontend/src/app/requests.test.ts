@@ -32,6 +32,7 @@ describe("createRunner", () => {
       done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
       load: null,
       generating: true,
+      failedRoute: null,
       outdatesSessionOnFail: true,
     });
     expect(actions[0]).toEqual({ type: "requested", seq: 1, load: null, generating: true });
@@ -46,6 +47,7 @@ describe("createRunner", () => {
       done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
       load: "session:sess_1",
       generating: false,
+      failedRoute: null,
       outdatesSessionOnFail: false,
     };
 
@@ -71,9 +73,16 @@ describe("createRunner", () => {
       done: () => ({ type: "toastClosed" }),
       load: null,
       generating: false,
+      failedRoute: { name: "failed", sessionId: "sess_1" },
       outdatesSessionOnFail: true,
     });
-    expect(actions[1]).toEqual({ type: "failed", seq: 1, message: "결과를 만들지 못했습니다.", outdatesSession: true });
+    expect(actions[1]).toEqual({
+      type: "failed",
+      seq: 1,
+      message: "결과를 만들지 못했습니다.",
+      outdatesSession: true,
+      next: { name: "failed", sessionId: "sess_1" },
+    });
   });
 
   it("연결 예외는 백엔드 미연결이다", async () => {
@@ -86,9 +95,16 @@ describe("createRunner", () => {
       done: () => ({ type: "toastClosed" }),
       load: "tasks",
       generating: false,
+      failedRoute: { name: "failed", sessionId: "sess_1" },
       outdatesSessionOnFail: true,
     });
-    expect(actions[1]).toEqual({ type: "failed", seq: 1, message: BACKEND_UNREACHABLE, outdatesSession: false });
+    expect(actions[1]).toEqual({
+      type: "failed",
+      seq: 1,
+      message: BACKEND_UNREACHABLE,
+      outdatesSession: false,
+      next: { name: "failed", sessionId: "sess_1" },
+    });
   });
 });
 

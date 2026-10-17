@@ -6,7 +6,7 @@ import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
 import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
-import { GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
+import { FailedMain, FailedSide, GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
 import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
@@ -377,6 +377,40 @@ describe("생성 중 화면", () => {
   it("옆 패널은 정리할 기준과 흐름 요약을 그린다", () => {
     const html = renderToString(<GeneratingSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
     expect(html).toContain("정리할 기준");
+    expect(html).toContain("부모");
+  });
+});
+
+describe("생성 실패 화면", () => {
+  const props = { hasResult: false, busy: false, canGenerate: true, onRetry: noop, onConfirm: noop, onShowResult: noop };
+
+  it("본문은 실패를 알리고 다시 시도·입력 확인을 준다", () => {
+    const html = renderToString(<FailedMain {...props} />);
+    expect(html).toContain("초안 생성 실패");
+    expect(html).toContain("초안을 만들지 못했어요");
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("생성을 완료하지 못했어요. 입력한 내용은 유지되어 있으니 다시 시도해 주세요.");
+    expect(html).toContain("다시 시도하기");
+    expect(html).toContain("입력 내용 확인");
+    expect(html).toContain("입력 내용과 저장한 결과는 삭제되지 않았어요.");
+    expect(html).not.toContain("이전 결과 보기");
+    expect(html).not.toContain("disabled");
+  });
+
+  it("이전 결과가 있을 때만 이전 결과 보기를 둔다", () => {
+    expect(renderToString(<FailedMain {...props} hasResult />)).toContain("이전 결과 보기");
+  });
+
+  it("만들 수 없거나 요청 중이면 다시 시도하기가 막힌다", () => {
+    const retry = (html: string) => /<button[^>]*disabled[^>]*>다시 시도하기/.test(html);
+    expect(retry(renderToString(<FailedMain {...props} canGenerate={false} />))).toBe(true);
+    expect(retry(renderToString(<FailedMain {...props} busy />))).toBe(true);
+    expect(retry(renderToString(<FailedMain {...props} />))).toBe(false);
+  });
+
+  it("옆 패널은 유지된 답변과 흐름 요약을 그린다", () => {
+    const html = renderToString(<FailedSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
+    expect(html).toContain("유지된 답변");
     expect(html).toContain("부모");
   });
 });

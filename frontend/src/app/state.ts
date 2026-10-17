@@ -26,7 +26,7 @@ export type AppState = {
 export type Action =
   | { type: "navigated"; route: Route }
   | { type: "requested"; seq: number; load: string | null; generating: boolean }
-  | { type: "failed"; seq: number; message: string; outdatesSession: boolean }
+  | { type: "failed"; seq: number; message: string; outdatesSession: boolean; next: Route | null }
   | { type: "tasksLoaded"; seq: number; tasks: TaskSummary[] }
   | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
   | { type: "formLoaded"; seq: number; form: TaskForm }
@@ -135,6 +135,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
     case "failed":
       return {
         ...done,
+        route: action.next ?? done.route,
         toast: action.message,
         stalled: inflight.load ?? done.stalled,
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
