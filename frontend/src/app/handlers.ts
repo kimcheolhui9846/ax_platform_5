@@ -118,5 +118,10 @@ export function makeHandlers({ state, run, dispatch, saveDraft }: Deps): Handler
         outdatesSessionOnFail: false,
       });
     },
+    // 아래 네 동작은 Task 7에서 실제 동작으로 바꾼다.
+    resume: () => {},
+    openVersion: () => {},
+    saveVersion: () => {},
+    download: () => {},
   };
 }

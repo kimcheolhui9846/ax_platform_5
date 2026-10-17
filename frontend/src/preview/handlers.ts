@@ -23,4 +23,8 @@ export const NOOP_HANDLERS: Handlers = {
   showResult: noop,
   confirm: noop,
   continueQuestions: noop,
+  resume: noop,
+  openVersion: noop,
+  saveVersion: noop,
+  download: noop,
 };

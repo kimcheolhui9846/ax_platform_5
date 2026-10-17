@@ -8,11 +8,14 @@ import {
   ANSWERED_USER,
   FORM,
   LADDER_QUESTION,
+  OLD_VERSION,
   PRODUCT,
   PROPOSAL_QUESTION,
   QUESTION,
   REQUEST,
   RESULT,
+  SAVED_RESULT,
+  SESSIONS,
   SESSION_DONE,
   SESSION_FAILED,
   SESSION_LADDER,
@@ -43,7 +46,8 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
 export const FRAMES: Frame[] = [
-  frame("home", "홈 · 과제 선택", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
+  frame("home", "홈 · 이어하기", HOME, { kind: "home", tasks: TASKS, sessions: SESSIONS }),
+  frame("home-new", "홈 · 처음 방문", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
   frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST }),
   frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST }),
   frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
@@ -65,6 +69,17 @@ export const FRAMES: Frame[] = [
   frame("confirm-failed", "답변 확인 · 생성 실패", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_FAILED }),
   frame("result", "결과 문서", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT }),
   frame("result-stale", "결과 · 최신 아님", result, { kind: "result", task: PRODUCT, session: SESSION_STALE, result: { ...RESULT, stale: true } }),
+  frame("saved", "저장 완료", { name: "saved", sessionId: SESSION_ID }, { kind: "saved", task: PRODUCT, session: SESSION_DONE, result: SAVED_RESULT }),
+  frame(
+    "version",
+    "버전 보기 · 지난 버전",
+    { name: "version", sessionId: SESSION_ID, version: 1 },
+    { kind: "version", task: PRODUCT, session: SESSION_DONE, version: OLD_VERSION },
+  ),
+  frame("work", "내 작업", { name: "work" }, { kind: "work", sessions: SESSIONS }),
+  frame("work-empty", "내 작업 · 비어 있음", { name: "work" }, { kind: "work", sessions: [] }),
+  frame("documents", "결과물", { name: "documents" }, { kind: "documents", sessions: SESSIONS }),
+  frame("documents-empty", "결과물 · 비어 있음", { name: "documents" }, { kind: "documents", sessions: [] }),
   frame("guide", "흐름 안내", { name: "guide" }, { kind: "guide" }),
   frame("unavailable", "불러오지 못함", question, { kind: "unavailable" }),
 ];
