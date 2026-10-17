@@ -23,3 +23,6 @@ Thumbs.db
 .vscode/
 .idea/
 .playwright-mcp/
+
+# 오피스가 파일을 여는 동안 만드는 잠금 파일
+~$*
