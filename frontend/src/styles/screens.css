@@ -160,7 +160,7 @@
 .guide { gap: var(--space-6); }
 .guide > .btn { align-self: flex-start; }
 
-/* 생성 중·생성 실패 */
+/* 생성 중 */
 .generation-card { padding: var(--space-12) var(--space-8); align-items: flex-start; gap: var(--space-6); }
 .generation-card h1 { font-size: var(--text-2xl); line-height: var(--text-2xl-line); }
 .spinner {
@@ -173,6 +173,7 @@
 .skeleton span:nth-child(2) { width: 84%; }
 .skeleton span:nth-child(3) { width: 64%; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
 @container app (max-width: 1099px) {
   .mode-grid { grid-template-columns: minmax(0, 1fr); }

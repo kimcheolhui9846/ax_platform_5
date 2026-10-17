@@ -20,6 +20,22 @@ it("requested가 generating을 inflight에 남긴다", () => {
   expect(state.inflight?.generating).toBe(true);
 });
 
+describe("생성 요청 기록", () => {
+  const generating = () => reducer(initialState(confirm), { type: "requested", seq: 1, load: null, generating: true });
+
+  it("응답이 오면 성공이든 실패든 inflight가 비워진다", () => {
+    const done = reducer(generating(), { type: "resultLoaded", seq: 1, result: makeResult(), next: result, outdatesSession: true, notice: null });
+    expect(done.inflight).toBeNull();
+    const failed = reducer(generating(), { type: "failed", seq: 1, message: "x", outdatesSession: true });
+    expect(failed.inflight).toBeNull();
+  });
+
+  it("다른 세션으로 옮기면 비워진다", () => {
+    const moved = reducer(generating(), { type: "navigated", route: { name: "question", sessionId: "sess_2" } });
+    expect(moved.inflight).toBeNull();
+  });
+});
+
 describe("reducer", () => {
   it("같은 주소로 옮기면 상태가 그대로다", () => {
     const state = initialState(HOME);
