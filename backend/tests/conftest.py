@@ -1,4 +1,9 @@
-from datetime import datetime, timedelta, timezone
+import os
+
+# 테스트는 개발자의 backend/.env(STORE=sqlite)와 상관없이 메모리 저장소를 쓴다. app 설정을 읽기 전에 정한다.
+os.environ["STORE"] = "memory"
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
 from pathlib import Path
 
 import pytest

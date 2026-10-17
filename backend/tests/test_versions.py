@@ -71,3 +71,34 @@ def _free_text(question_id: str, value: str):
     from app.core.state import Answer
 
     return Answer(question_id=question_id, answer_type=AnswerType.FREE_TEXT, value=value)
+
+
+def test_version_keeps_its_own_copy_of_the_result(harness):
+    state = harness.start("향초")
+    harness.generate(state)
+
+    state.result.cards[0].title = "나중에 바뀐 제목"
+    state.validation.issues.append(state.validation.issues[0] if state.validation.issues else _issue())
+
+    assert state.versions[0].result.cards[0].title != "나중에 바뀐 제목"
+    assert state.versions[0].validation != state.validation
+
+
+def test_session_saved_before_versions_gets_version_one_when_read(harness):
+    state = harness.start("향초")
+    harness.generate(state)
+    legacy = state.model_dump(mode="json")
+    legacy["versions"] = []  # 버전 기록이 생기기 전에 저장한 세션
+
+    loaded = type(state).model_validate(legacy)
+
+    [version] = loaded.versions
+    assert (version.version, version.reason) == (1, VersionReason.FIRST)
+    assert version.result == loaded.result
+    assert version.facts == loaded.facts
+
+
+def _issue():
+    from app.core.results import ValidationIssue
+
+    return ValidationIssue(rule="r", message="m")

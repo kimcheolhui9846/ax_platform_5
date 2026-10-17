@@ -137,15 +137,14 @@ def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | N
 
 def new_version(state: SessionState, result: GenerationResult, report: ValidationReport) -> ResultVersion:
     """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정을 복사해 함께 남긴다."""
-    return ResultVersion(
-        version=len(state.versions) + 1,
-        created_at=result.generated_at,
-        reason=VersionReason.REGENERATE if state.versions else VersionReason.FIRST,
-        result=result,
-        validation=report,
-        facts={name: item.model_copy() for name, item in state.facts.items()},
-        assumptions={name: item.model_copy() for name, item in state.assumptions.items()},
-        unknowns=list(state.unknowns),
+    return ResultVersion.snapshot(
+        len(state.versions) + 1,
+        VersionReason.REGENERATE if state.versions else VersionReason.FIRST,
+        result,
+        report,
+        state.facts,
+        state.assumptions,
+        state.unknowns,
     )
 
 

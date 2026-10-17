@@ -23,7 +23,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 설정은 `backend/.env`(실행 위치와 상관없이 이 파일)나 환경 변수에서 읽는다. `DEBUG` 기본값은 `false`이고, `.env.example`을 복사하면 로컬 개발용으로 `DEBUG=true`가 된다.
 
-저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. 계약은 `tests/test_store_contract.py`가 두 구현에 함께 돌린다.
+저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. 계약은 `tests/test_store_contract.py`가 두 구현에 함께 돌린다. 테스트는 `tests/conftest.py`가 개발자 `.env`와 상관없이 늘 `memory`로 정한다(실제 DB를 건드리지 않는다). 목록 조회(`list_by_owner`)는 무거운 trace를 빼고 읽는다.
 
 배포: 세션별 잠금(`app/api/locks.py`)은 서버 프로세스 하나를 전제로 한다. SQLite 파일도 한 프로세스가 쓴다. 인스턴스(워커)는 하나만 띄우고, 여러 프로세스가 필요해지면 잠금과 저장소를 공유 저장소(DB 잠금)로 함께 바꾼다.
 

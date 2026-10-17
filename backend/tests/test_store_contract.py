@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.core.state import InfoItem, InfoSource, SessionState
+from app.core.state import InfoItem, InfoSource, SessionState, TraceEntry
 from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 
@@ -83,3 +83,13 @@ def test_list_by_owner_returns_copies(store):
     store.list_by_owner("client-aaaa")[0].raw_input = "목록에서 바꾼 값"
 
     assert store.get(state.session_id).raw_input == ""
+
+
+def test_list_by_owner_leaves_out_the_trace(store):
+    """목록은 요약만 쓴다. 단계별 프롬프트가 쌓이는 trace는 무거워 빼고 읽는다(get은 그대로 준다)."""
+    state = SessionState(task_type="branding", owner_id="client-aaaa")
+    state.trace.append(TraceEntry(stage="diagnose", input={"system": "긴 프롬프트"}))
+    store.save(state)
+
+    assert store.list_by_owner("client-aaaa")[0].trace == []
+    assert len(store.get(state.session_id).trace) == 1

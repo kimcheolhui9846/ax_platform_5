@@ -113,7 +113,7 @@ def create_session(
 def list_sessions(registry: Registry, store: Store, owner: Owner) -> list[SessionSummary]:
     """내 세션 요약(최근에 바뀐 순서). 등록부에서 빠진 과제의 세션은 건너뛴다."""
     return [
-        to_session_summary(state, registry.get(state.task_type).policy)
+        to_session_summary(state, registry.get(state.task_type).policy.title)
         for state in store.list_by_owner(owner)
         if state.task_type in registry
     ]
@@ -161,7 +161,7 @@ def revise_answer(
 def generate(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> ResultView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.generate(state)
-    return to_result_view(state, harness.policy)
+    return to_result_view(state, harness.policy.fields)
 
 
 @router.post(
@@ -195,7 +195,7 @@ def get_result(session_id: str, registry: Registry, store: Store, owner: Owner) 
     state, harness = _load(registry, store, session_id, owner)
     if state.result is None:
         raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
-    return to_result_view(state, harness.policy)
+    return to_result_view(state, harness.policy.fields)
 
 
 @router.get(
@@ -208,7 +208,7 @@ def get_version(session_id: str, version: int, registry: Registry, store: Store,
     found = find_version(state.versions, version)
     if found is None:
         raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return to_version_view(state, found, harness.policy)
+    return to_version_view(state, found, harness.policy.fields)
 
 
 @router.post(
@@ -224,7 +224,7 @@ def save_version(
         saved = harness.save_version(state, version)
         if saved is None:
             raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return to_version_view(state, saved, harness.policy)
+    return to_version_view(state, saved, harness.policy.fields)
 
 
 @router.get(

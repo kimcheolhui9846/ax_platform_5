@@ -19,7 +19,8 @@ class SessionStore(Protocol):
 
     - get은 복사본을 돌려준다. 받은 객체를 바꿔도 저장된 값은 그대로다. 없는 id면 None.
     - save는 복사본을 저장한다. 저장 뒤 원래 객체를 바꿔도 새지 않는다. 저장할 때 updated_at을 지금으로 바꾼다.
-    - list_by_owner는 그 사용자의 세션 복사본을 최근에 저장한 순서로 돌려준다.
+    - list_by_owner는 그 사용자의 세션 복사본을 최근에 저장한 순서로 돌려준다. 목록은 요약만 쓰므로 무거운
+      trace(단계별 프롬프트·응답)는 빼고 읽는다(get은 그대로 준다).
     """
 
     def get(self, session_id: str) -> SessionState | None: ...
@@ -45,7 +46,8 @@ class InMemorySessionStore:
 
     def list_by_owner(self, owner_id: str) -> list[SessionState]:
         owned = [s for s in self._sessions.values() if s.owner_id == owner_id]
-        return [s.model_copy(deep=True) for s in sorted(owned, key=lambda s: s.updated_at, reverse=True)]
+        newest = sorted(owned, key=lambda s: s.updated_at, reverse=True)
+        return [s.model_copy(update={"trace": []}).model_copy(deep=True) for s in newest]
 
 
 _SCHEMA = """
@@ -97,7 +99,8 @@ class SqliteSessionStore:
     def list_by_owner(self, owner_id: str) -> list[SessionState]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT data FROM sessions WHERE owner_id = ? ORDER BY updated_at DESC", (owner_id,)
+                "SELECT json_remove(data, '$.trace') FROM sessions WHERE owner_id = ? ORDER BY updated_at DESC",
+                (owner_id,),
             ).fetchall()
         return [SessionState.model_validate_json(row[0]) for row in rows]
 

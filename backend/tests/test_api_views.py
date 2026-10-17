@@ -1,6 +1,6 @@
 import pytest
 
-from app.api.views import build_summary, session_error, to_result_view, to_task_form, to_task_summary
+from app.api.views import build_summary, session_error, to_result_view, to_session_summary, to_task_form, to_task_summary
 from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.state import Assumption, InfoItem, InfoSource, SessionState, SessionStatus
 from app.harness.policy import FieldKind, FieldPolicy, TaskPolicy
@@ -36,9 +36,8 @@ def test_build_summary_prefers_fact_over_assumption():
 
 
 def test_to_result_view_requires_result():
-    policy = TaskPolicy(task_type="t", title="t", heading="h", deliverable="d", fields=_fields())
     with pytest.raises(ValueError):
-        to_result_view(SessionState(task_type="t"), policy)
+        to_result_view(SessionState(task_type="t"), _fields())
 
 
 @pytest.mark.parametrize("status", list(SessionStatus))
@@ -61,3 +60,8 @@ def test_task_views_take_only_the_policy():
     form = to_task_form(policy)
     assert [m.question_cap for m in form.modes] == [3, 5, 10]
     assert [f.label for f in form.fields] == ["가", "나", "다"]
+
+
+def test_session_summary_takes_only_the_task_title():
+    summary = to_session_summary(SessionState(task_type="t", raw_input="향초"), "상품기획")
+    assert (summary.title, summary.raw_input, summary.latest_version, summary.saved_versions) == ("상품기획", "향초", None, [])
