@@ -2,8 +2,7 @@ import type { ResultView, SessionView, TaskSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { ResultDocument } from "../components/ResultDocument";
 import { STALE_NOTICE, actionState, regenerateAction } from "../lib/actions";
-import { criteriaRows } from "../lib/criteria";
-import { resultKicker, resultTitle } from "../lib/document";
+import { documentContent } from "../lib/document";
 
 type MainProps = {
   task: TaskSummary;
@@ -26,14 +25,7 @@ export function ResultMain({ task, session, result, busy, onConfirm }: MainProps
       </section>
     );
   }
-  return (
-    <ResultDocument
-      result={result}
-      title={resultTitle(task.title)}
-      kicker={resultKicker(task.deliverable, session.result_stale)}
-      rows={criteriaRows(session.summary, session.unknowns)}
-    />
-  );
+  return <ResultDocument {...documentContent(task, result, session.result_stale)} />;
 }
 
 type SideProps = {

@@ -1,4 +1,4 @@
-import type { SessionView } from "../api/types";
+import type { SessionView, VersionSummary } from "../api/types";
 
 export type ResultAction = { action: "generate" | "show_result"; label: string; primary: boolean };
 
@@ -34,4 +34,13 @@ export function actionState(
 ): { label: string; disabled: boolean } {
   const calls = action.action === "generate";
   return { label: busy && calls ? "초안을 만드는 중…" : action.label, disabled: busy || (calls && !canGenerate) };
+}
+
+/** [순수] '현재 버전 저장' 버튼. 저장 전이고 결과가 최신일 때만 주 버튼이고, 이미 저장했으면 막는다. */
+export function saveButton(
+  version: Pick<VersionSummary, "saved">,
+  stale: boolean,
+): { label: string; primary: boolean; done: boolean } {
+  if (version.saved) return { label: "저장한 버전이에요", primary: false, done: true };
+  return { label: "현재 버전 저장", primary: !stale, done: false };
 }

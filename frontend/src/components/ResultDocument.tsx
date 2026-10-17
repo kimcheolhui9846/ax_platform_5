@@ -1,15 +1,11 @@
-import type { ResultView } from "../api/types";
 import { assumptionKey, formatAssumption } from "../lib/assumption";
-import type { CriteriaRow } from "../lib/criteria";
+import type { DocumentContent } from "../lib/document";
 import { documentSections } from "../lib/document";
 import { CriteriaBox } from "./CriteriaBox";
 
-type Props = { result: ResultView; title: string; kicker: string; rows: CriteriaRow[] };
-
 /** 결과 문서(텍스트). 섹션은 순서대로 번호를 매기고, AI 가정과 검토할 부분을 따로 둔다. */
-export function ResultDocument({ result, title, kicker, rows }: Props) {
-  const { assumptions } = result.result;
-  const issues = result.validation?.issues ?? [];
+export function ResultDocument({ title, kicker, rows, result, issues }: DocumentContent) {
+  const { assumptions } = result;
   return (
     <article className="card document stack">
       <div className="doc-title stack8">
@@ -17,7 +13,7 @@ export function ResultDocument({ result, title, kicker, rows }: Props) {
         <h1>{title}</h1>
       </div>
       <CriteriaBox rows={rows} />
-      {documentSections(result.result.cards).map((section) => (
+      {documentSections(result.cards).map((section) => (
         <section key={section.key} className="document-section">
           <h2 className="section-heading">
             <span className="section-number">{section.number}</span>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { actionState, confirmActions, regenerateAction } from "./actions";
+import { actionState, confirmActions, regenerateAction, saveButton } from "./actions";
 
 describe("결과 버튼", () => {
   it("결과가 없으면 만들기 하나", () => {
@@ -32,5 +32,13 @@ describe("결과 버튼", () => {
     expect(actionState(generate, false, false)).toEqual({ label: "초안 다시 만들기", disabled: true });
     expect(actionState(show, false, false)).toEqual({ label: "결과 보기", disabled: false });
     expect(actionState(show, true, true)).toEqual({ label: "결과 보기", disabled: true });
+  });
+});
+
+describe("현재 버전 저장 버튼", () => {
+  it("저장 전이고 최신이면 주 버튼, 저장했으면 막는다, 낡았으면 보조 버튼", () => {
+    expect(saveButton({ saved: false }, false)).toEqual({ label: "현재 버전 저장", primary: true, done: false });
+    expect(saveButton({ saved: false }, true)).toEqual({ label: "현재 버전 저장", primary: false, done: false });
+    expect(saveButton({ saved: true }, false)).toEqual({ label: "저장한 버전이에요", primary: false, done: true });
   });
 });
