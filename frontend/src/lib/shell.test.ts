@@ -74,6 +74,7 @@ describe("routePhase", () => {
     expect(routePhase({ name: "revise", sessionId: "s", questionId: "q" })).toBe(1);
     expect(routePhase({ name: "confirm", sessionId: "s" })).toBe(1);
     expect(routePhase({ name: "result", sessionId: "s" })).toBe(2);
+    expect(routePhase({ name: "evidence", sessionId: "s" })).toBe(2);
   });
 });
 
@@ -84,6 +85,7 @@ describe("railActive", () => {
     expect(railActive({ name: "request", task: "t" })).toBe("work");
     expect(railActive({ name: "confirm", sessionId: "s" })).toBe("work");
     expect(railActive({ name: "result", sessionId: "s" })).toBe("documents");
+    expect(railActive({ name: "evidence", sessionId: "s" })).toBe("documents");
   });
 });
 

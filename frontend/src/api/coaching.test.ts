@@ -5,10 +5,13 @@ vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(),
 import { api } from "./client";
 import type { ApiResult } from "./coaching";
 import {
+  applyEvidence,
   continueSession,
   createSession,
   editResultSection,
   generateResult,
+  getAsset,
+  getEvidence,
   getResult,
   getVersion,
   listSessions,
@@ -128,6 +131,33 @@ describe("coaching API 래퍼", () => {
       body: { values: { material: "면", size: null } },
     });
     expectTypeOf(saveSupplements).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
+  });
+
+  it("근거 자료 목록과 반영", async () => {
+    await getEvidence("s1");
+    expect(api.GET).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/evidence`, {
+      params: { path: { session_id: "s1" } },
+    });
+    await applyEvidence("s1", "zip");
+    expect(api.POST).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/evidence/{source_id}/apply`, {
+      params: { path: { session_id: "s1", source_id: "zip" } },
+    });
+  });
+
+  it("이미지는 헤더를 붙여 받아 data URL로 돌려준다", async () => {
+    const response = new Response(null, { status: 200 });
+    vi.mocked(api.GET).mockResolvedValueOnce({ data: new Blob(["<svg/>"], { type: "image/svg+xml" }), response } as never);
+    const result = await getAsset("asset_a");
+    expect(api.GET).toHaveBeenCalledWith(`${BASE}/assets/{asset_id}`, { params: { path: { asset_id: "asset_a" } }, parseAs: "blob" });
+    expect(result.data).toBe("data:image/svg+xml;base64,PHN2Zy8+");
+  });
+
+  it("이미지를 못 받으면 데이터 없이 오류를 전한다", async () => {
+    const response = new Response(null, { status: 404 });
+    vi.mocked(api.GET).mockResolvedValueOnce({ error: { detail: "없는 이미지예요." }, response } as never);
+    const result = await getAsset("nope");
+    expect(result.data).toBeUndefined();
+    expect(result.error).toEqual({ detail: "없는 이미지예요." });
   });
 
   it("돌려주는 타입", () => {

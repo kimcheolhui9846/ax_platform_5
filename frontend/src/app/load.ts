@@ -8,6 +8,7 @@ export type Load =
   | { kind: "form"; task: string }
   | { kind: "session"; sessionId: string }
   | { kind: "result"; sessionId: string }
+  | { kind: "evidence"; sessionId: string }
   | { kind: "version"; sessionId: string; version: number };
 
 export function loadKey(load: Load): string {
@@ -48,7 +49,9 @@ function missing(state: AppState): Load | null {
     const loaded = version !== null && version.session_id === sessionId && version.version.version === route.version;
     return loaded ? null : { kind: "version", sessionId, version: route.version };
   }
-  // 결과 화면과 문구 수정 화면은 결과까지 있어야 그린다
-  const wantsResult = (route.name === "result" || route.name === "edit") && session.has_result;
-  return wantsResult && state.result?.session_id !== sessionId ? { kind: "result", sessionId } : null;
+  // 결과 화면·문구 수정·근거 검토는 결과까지 있어야 그린다
+  const wantsResult = (route.name === "result" || route.name === "edit" || route.name === "evidence") && session.has_result;
+  if (wantsResult && state.result?.session_id !== sessionId) return { kind: "result", sessionId };
+  if (route.name === "evidence" && session.has_result && state.evidence?.sessionId !== sessionId) return { kind: "evidence", sessionId };
+  return null;
 }

@@ -13,6 +13,7 @@ export type Route =
   | { name: "revise"; sessionId: string; questionId: string }
   | { name: "confirm"; sessionId: string }
   | { name: "result"; sessionId: string }
+  | { name: "evidence"; sessionId: string }
   | { name: "edit"; sessionId: string; order: number }
   | { name: "saved"; sessionId: string; version: number }
   | { name: "version"; sessionId: string; version: number };
@@ -54,6 +55,8 @@ function sessionView(sessionId: string, view: string): Route | null {
       return { name: "confirm", sessionId };
     case "result":
       return { name: "result", sessionId };
+    case "evidence":
+      return { name: "evidence", sessionId };
     default:
       return null;
   }

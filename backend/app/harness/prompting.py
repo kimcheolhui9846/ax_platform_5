@@ -24,6 +24,7 @@ STAGE_CONTEXT: dict[str, frozenset[str]] = {
     "propose_value": frozenset({"field", "level", "previous"}),
     "generate": frozenset(),
     "validate": frozenset({"result_text"}),
+    "image": frozenset({"heading", "text"}),
 }
 STAGES = tuple(STAGE_CONTEXT)
 

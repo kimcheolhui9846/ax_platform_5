@@ -51,6 +51,18 @@ describe("needsLoad", () => {
     expect(needsLoad({ ...withSession, result: makeResult({ session_id: "sess_1" }) })).toBeNull();
   });
 
+  it("근거 검토 화면은 세션, 결과, 근거 자료 순서로 모자란 것을 고른다", () => {
+    const route: Route = { name: "evidence", sessionId: "sess_1" };
+    const done = makeSession({ session_id: "sess_1", has_result: true });
+    expect(needsLoad(at(route))).toEqual({ kind: "session", sessionId: "sess_1" });
+    expect(needsLoad(at(route, { session: done }))).toEqual({ kind: "result", sessionId: "sess_1" });
+    const withResult = at(route, { session: done, result: makeResult({ session_id: "sess_1" }) });
+    expect(needsLoad(withResult)).toEqual({ kind: "evidence", sessionId: "sess_1" });
+    expect(needsLoad({ ...withResult, evidence: { sessionId: "sess_1", items: [] } })).toBeNull();
+    // 결과가 없는 세션이면 근거를 부르지 않는다
+    expect(needsLoad(at(route, { session: makeSession({ session_id: "sess_1", has_result: false }) }))).toBeNull();
+  });
+
   it("기다리는 요청이 있거나 같은 불러오기가 실패했으면 부르지 않는다", () => {
     const question: Route = { name: "question", sessionId: "sess_1" };
     expect(needsLoad(at(question, { inflight: { seq: 1, load: null } }))).toBeNull();
@@ -65,6 +77,7 @@ describe("loadKey", () => {
     expect(loadKey({ kind: "form", task: "branding" })).toBe("form:branding");
     expect(loadKey({ kind: "session", sessionId: "s" })).toBe("session:s");
     expect(loadKey({ kind: "result", sessionId: "s" })).toBe("result:s");
+    expect(loadKey({ kind: "evidence", sessionId: "s1" })).toBe("evidence:s1");
   });
 });
 

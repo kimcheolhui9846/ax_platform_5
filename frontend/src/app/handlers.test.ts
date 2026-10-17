@@ -10,9 +10,11 @@ vi.mock("../api/coaching", () => ({
   saveVersion: vi.fn(),
   saveSupplements: vi.fn(),
   editResultSection: vi.fn(),
+  applyEvidence: vi.fn(),
 }));
 
-import { continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { applyEvidence, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
 import { HOME } from "../lib/routes";
 import type { DocumentFile } from "../lib/documentHtml";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
@@ -271,5 +273,51 @@ describe("makeHandlers — 보완·문구 수정", () => {
     on.editSection(1);
     on.submitEdit(1, "x");
     expect([calls, actions]).toEqual([[], []]);
+  });
+});
+
+describe("makeHandlers — 근거 검토", () => {
+  it("근거 검토 화면으로 간다", () => {
+    const { on, actions } = setup({ session });
+    on.reviewEvidence();
+    expect(actions).toEqual([{ type: "navigated", route: { name: "evidence", sessionId: "sess_1" } }]);
+  });
+
+  it("근거를 반영하면 세션은 그대로 두고 결과 화면으로 알림과 함께 간다", async () => {
+    const { on, calls } = setup({ session });
+    on.applyEvidence("zip");
+    await calls[0].request();
+    expect(applyEvidence).toHaveBeenCalledWith("sess_1", "zip");
+    const result = makeResult();
+    expect(calls[0].done(result, 3)).toEqual({
+      type: "resultLoaded",
+      seq: 3,
+      result,
+      next: { name: "result", sessionId: "sess_1" },
+      outdatesSession: false,
+      notice: EVIDENCE_APPLIED_NOTICE,
+    });
+    expect(calls[0].load).toBeNull();
+    expect(calls[0].outdatesSessionOnFail).toBe(false);
+  });
+
+  it("근거 반영 전 보기는 근거 버전의 바로 앞 버전을 연다", () => {
+    const evidenceVersion = makeResult({ version: { version: 3, created_at: "2026-10-16T10:00:00Z", reason: "evidence", saved: false } });
+    const { on, actions } = setup({ session, result: evidenceVersion });
+    on.openBeforeEvidence();
+    expect(actions).toEqual([{ type: "navigated", route: { name: "version", sessionId: "sess_1", version: 2 } }]);
+
+    const plain = setup({ session, result: makeResult() });
+    plain.on.openBeforeEvidence();
+    expect(plain.actions).toEqual([]);
+  });
+
+  it("세션이 없으면 아무것도 하지 않는다", () => {
+    const { on, calls, actions } = setup();
+    on.reviewEvidence();
+    on.applyEvidence("zip");
+    on.openBeforeEvidence();
+    expect(calls).toEqual([]);
+    expect(actions).toEqual([]);
   });
 });

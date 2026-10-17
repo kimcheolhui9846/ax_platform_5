@@ -8,6 +8,7 @@ from app.api.deps import Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.api.views import (
+    to_evidence_items,
     to_result_view,
     to_session_summary,
     to_session_view,
@@ -16,6 +17,7 @@ from app.api.views import (
     to_version_view,
 )
 from app.core.messages import (
+    EVIDENCE_NOT_FOUND_MESSAGE,
     RESULT_NOT_READY_MESSAGE,
     SECTION_NOT_FOUND_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
@@ -31,6 +33,7 @@ from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
     EditSectionRequest,
+    EvidenceItem,
     ResultView,
     ReviseAnswerRequest,
     SessionSummary,
@@ -89,7 +92,7 @@ def _session_update(
 
 @router.get("/tasks", response_model=list[TaskSummary])
 def list_tasks(registry: Registry) -> list[TaskSummary]:
-    return [to_task_summary(h.policy) for h in registry.all()]
+    return [to_task_summary(h.policy, len(h.evidence)) for h in registry.all()]
 
 
 @router.get("/tasks/{task_type}/form", response_model=TaskForm, responses=error_responses(404))
@@ -254,6 +257,36 @@ def edit_result_section(
             raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
         if not harness.edit_section(state, order, body.text):
             raise HTTPException(status_code=404, detail=SECTION_NOT_FOUND_MESSAGE)
+    return to_result_view(state, harness.policy.fields, harness.policy.supplement_fields)
+
+
+@router.get(
+    "/sessions/{session_id}/evidence",
+    response_model=list[EvidenceItem],
+    responses=error_responses(404, 422),
+)
+def list_evidence(session_id: str, registry: Registry, store: Store, owner: Owner) -> list[EvidenceItem]:
+    """결과를 검토할 근거 자료(지금은 샘플). 결과가 있어야 검토할 수 있다."""
+    state, harness = _load(registry, store, session_id, owner)
+    if state.result is None:
+        raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+    return to_evidence_items(harness.find_evidence(state))
+
+
+@router.post(
+    "/sessions/{session_id}/evidence/{source_id}/apply",
+    response_model=ResultView,
+    responses=error_responses(404, 422),
+)
+def apply_evidence(
+    session_id: str, source_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> ResultView:
+    """근거 자료의 점검 문구와 출처를 결과에 붙인 새 버전(evidence). LLM을 부르지 않는다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        if state.result is None:
+            raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+        if not harness.apply_evidence(state, source_id):
+            raise HTTPException(status_code=404, detail=EVIDENCE_NOT_FOUND_MESSAGE)
     return to_result_view(state, harness.policy.fields, harness.policy.supplement_fields)
 
 

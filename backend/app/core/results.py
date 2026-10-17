@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from enum import StrEnum
 from collections.abc import Sequence
-from typing import Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -20,12 +20,13 @@ class CardType(StrEnum):
 
 
 class VersionReason(StrEnum):
-    """결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다."""
+    """결과 버전이 생긴 까닭."""
 
     FIRST = "first"  # 첫 초안
     REGENERATE = "regenerate"  # 다시 만든 초안
     EDIT = "edit"  # 문구 수정
     SUPPLEMENT = "supplement"  # 보완 정보 반영
+    EVIDENCE = "evidence"  # 근거 자료 반영
 
 
 class ResultCard(ContractModel):
@@ -57,10 +58,42 @@ class TaskResult(BaseModel, Generic[ContentT]):
 
 
 class TextBlock(ContractModel):
-    """결과 섹션의 글 블록. 이미지 블록(묶음 3b)과 type으로 구분한다."""
+    """결과 섹션의 글 블록. 이미지 블록과 type으로 구분한다."""
 
     type: Literal["text"] = "text"
     text: str
+
+
+class ImageOrigin(StrEnum):
+    AI_GENERATED = "ai_generated"  # image 단계가 만든 이미지
+    USER_UPLOAD = "user_upload"  # 사용자가 올린 이미지(올리기는 아직 없다)
+
+
+class ImageBlock(ContractModel):
+    """결과 섹션의 이미지 블록. 파일은 AssetStore에 있고 여기에는 그 id만 둔다."""
+
+    type: Literal["image"] = "image"
+    asset_id: str
+    alt: str  # 화면 낭독기·이미지를 못 불러왔을 때의 대체 글
+    caption: str
+    origin: ImageOrigin
+
+
+Block = Annotated[TextBlock | ImageBlock, Field(discriminator="type")]
+
+
+class EvidenceRecord(ContractModel):
+    """결과에 붙인 근거 검토 기록(점검 문구와 출처). 그 종류의 첫 섹션 뒤에 보이고, 자리가 없으면 문서 끝이다."""
+
+    source_id: str
+    title: str  # 점검 항목 이름
+    text: str
+    note: str  # 출처 옆 한 줄(예: 제품 시험 전)
+    source_title: str
+    publisher: str
+    url: str
+    section_kind: CardType
+    section_order: int | None
 
 
 class ResultSection(ContractModel):
@@ -69,7 +102,17 @@ class ResultSection(ContractModel):
     order: int
     heading: str
     kind: CardType
-    blocks: list[TextBlock]
+    blocks: list[Block]
+
+
+def section_order_for(sections: Sequence[ResultSection], kind: CardType) -> int | None:
+    """[순수] 그 종류의 첫 섹션 order. 없으면 None."""
+    return next((s.order for s in sections if s.kind is kind), None)
+
+
+def carry_evidence(records: Sequence[EvidenceRecord], sections: Sequence[ResultSection]) -> list[EvidenceRecord]:
+    """[순수] 다시 만든 결과로 옮기는 근거 기록. 섹션이 바뀌었으니 종류로 자리를 다시 잡는다."""
+    return [r.model_copy(update={"section_order": section_order_for(sections, r.section_kind)}) for r in records]
 
 
 def sections_from_cards(cards: Sequence[ResultCard]) -> list[ResultSection]:
@@ -100,6 +143,7 @@ class GenerationResult(ContractModel):
     sections: list[ResultSection]
     assumptions: list[ResultAssumption] = Field(default_factory=list)
     full_text: str
+    evidence: list[EvidenceRecord] = Field(default_factory=list)  # 근거 검토 기록
     content: dict[str, Any]
     generated_at: datetime = Field(default_factory=utcnow)
 
@@ -114,8 +158,21 @@ class GenerationResult(ContractModel):
         return data
 
 
+def _replace_text(blocks: Sequence[TextBlock | ImageBlock], text: str) -> list[TextBlock | ImageBlock]:
+    """[순수] 글 블록들을 새 글 하나로 바꾼다. 첫 글 블록 자리에 두고, 이미지 블록은 순서대로 지킨다(글이 없었으면 맨 앞)."""
+    replaced: list[TextBlock | ImageBlock] = []
+    placed = False
+    for block in blocks:
+        if block.type != "text":
+            replaced.append(block.model_copy())
+        elif not placed:
+            replaced.append(TextBlock(text=text))
+            placed = True
+    return replaced if placed else [TextBlock(text=text), *replaced]
+
+
 def with_section_text(result: GenerationResult, order: int, text: str) -> GenerationResult | None:
-    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다.
+    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 이미지 블록은 그대로 둔다. 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다.
 
     과제 스키마 값(content)은 LLM이 쓴 그대로 둔다. 바뀌는 것은 섹션과 full_text(섹션을 이어 붙인 글)뿐이라,
     content를 읽는 과제 검증은 고친 글이 아니라 원래 내용을 판정한다.
@@ -123,10 +180,16 @@ def with_section_text(result: GenerationResult, order: int, text: str) -> Genera
     if not any(s.order == order for s in result.sections):
         return None
     sections = [
-        s.model_copy(update={"blocks": [TextBlock(text=text)]}) if s.order == order else s.model_copy(deep=True)
+        s.model_copy(update={"blocks": _replace_text(s.blocks, text)}) if s.order == order else s.model_copy(deep=True)
         for s in result.sections
     ]
     return result.model_copy(deep=True, update={"sections": sections, "full_text": compose_full_text(sections)})
+
+
+def with_evidence(result: GenerationResult, record: EvidenceRecord) -> GenerationResult:
+    """[순수] 근거 기록을 덧붙인 새 결과(복사본). 섹션과 글은 그대로다."""
+    copied = result.model_copy(deep=True)
+    return copied.model_copy(update={"evidence": [*copied.evidence, record]})
 
 
 class ValidationIssue(ContractModel):
@@ -145,3 +208,17 @@ class ValidationReport(ContractModel):
     @property
     def passed(self) -> bool:
         return not any(issue.severity == "error" for issue in self.issues)
+
+
+def image_target(sections: Sequence[ResultSection]) -> ResultSection | None:
+    """[순수] 이미지를 붙일 대표 섹션: 첫 제안(suggestion) 섹션, 없으면 첫 섹션. 섹션이 없으면 None."""
+    return next((s for s in sections if s.kind is CardType.SUGGESTION), sections[0] if sections else None)
+
+
+def with_image(result: GenerationResult, order: int, block: ImageBlock) -> GenerationResult:
+    """[순수] 그 섹션 끝에 이미지 블록을 붙인 새 결과(복사본). 완성본 글(full_text)은 그대로다."""
+    sections = [
+        s.model_copy(update={"blocks": [*(b.model_copy() for b in s.blocks), block]}) if s.order == order else s.model_copy(deep=True)
+        for s in result.sections
+    ]
+    return result.model_copy(deep=True, update={"sections": sections})

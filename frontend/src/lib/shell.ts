@@ -44,6 +44,7 @@ export function routePhase(route: Route): Phase | null {
     case "confirm":
       return 1;
     case "edit":
+    case "evidence":
     case "result":
     case "saved":
     case "version":
@@ -61,6 +62,7 @@ export function railActive(route: Route): NavKey {
       return "home";
     case "documents":
     case "edit":
+    case "evidence":
     case "result":
     case "saved":
     case "version":

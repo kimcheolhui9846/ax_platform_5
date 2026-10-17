@@ -78,6 +78,7 @@ class TaskPolicy(BaseModel):
     question_caps: dict[CoachingMode, PositiveInt] = Field(default_factory=_default_caps)
     max_easier_level: int = Field(default=4, ge=1)  # 이 단계부터 AI 후보 제안
     llm_validation: bool = False  # 생성 후 LLM 검토 호출 (비용 때문에 기본 꺼짐)
+    image_generation: bool = False  # 생성마다 참고 이미지 한 장 (비용 때문에 기본 꺼짐)
     fields: list[FieldPolicy]
     supplement_fields: list[SupplementField] = Field(default_factory=list)
     rules: list[str] = Field(default_factory=list)  # 금지·주의 규칙

@@ -1,0 +1,24 @@
+# 상품기획 근거 자료(샘플). 실제 웹 검색을 붙이면 find_evidence가 같은 모양으로 돌려준다.
+# 자료마다: id, title, publisher, meta, summary, scope, url, applies_to(섹션 종류), record(결과에 붙일 점검 문구, 배경 자료면 없음)
+sources:
+  - id: ykk_zipper_caution
+    title: 제작 점검 · 지퍼 사용상 주의
+    publisher: YKK KOREA
+    meta: 제조사 기술 안내 · 작성일 미표기 · 확인 2026.10.15
+    summary: 가방을 가득 채운 상태에서 지퍼를 억지로 닫으면 손상될 수 있으며, 봉제 시 옷감 끼임에 주의하도록 안내합니다.
+    scope: "적용: 지퍼 여밈을 선택할 때의 점검 참고. 이 상품의 품질시험 결과는 아닙니다."
+    url: https://ykkkorea.com/support/caution/caution
+    applies_to: suggestion
+    record:
+      title: 제작 점검 항목
+      text: 지퍼 여밈을 선택할 경우, 내용물을 넣고 여닫기와 안감 끼임을 점검합니다.
+      note: 제품 시험 전
+      caution: 제작 점검 항목을 추가하는 단계이며, 제품 성능이 검증된 것은 아니에요.
+  - id: kcdf_craft_trend_fair_2025
+    title: 시장 배경 · 2025 공예트렌드페어 결과
+    publisher: 한국공예·디자인문화진흥원
+    meta: 보도자료 · 작성 2026.01.12 · 확인 2026.10.15
+    summary: 공예 사업체 311개가 참여한 행사에서 전시·판매·구매자 상담이 진행된 사례를 소개합니다.
+    scope: "적용: 공예 유통 경로를 살펴보는 배경 자료. 이 상품의 수요·매출 근거로 사용하지 않습니다."
+    url: https://www.kcdf.or.kr/brd/board/324/L/menu/293?bbIdx=8680&brdType=R
+    applies_to: diagnosis

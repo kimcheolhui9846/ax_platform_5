@@ -1,4 +1,5 @@
 import type {
+  EvidenceItem,
   Question,
   ResultSection,
   ResultView,
@@ -8,6 +9,7 @@ import type {
   TaskSummary,
   VersionView,
 } from "../api/types";
+import type { Images } from "../lib/document";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import type { AppState } from "./state";
@@ -25,10 +27,11 @@ export type ScreenModel =
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
-  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null }
-  | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection }
-  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView }
-  | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView };
+  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null; images: Images }
+  | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection; images: Images }
+  | { kind: "evidence"; task: TaskSummary; session: SessionView; result: ResultView; items: EvidenceItem[] }
+  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView; images: Images }
+  | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView; images: Images };
 
 const LOADING: ScreenModel = { kind: "loading" };
 
@@ -70,15 +73,22 @@ function resolve(state: AppState): ScreenModel {
         if (!loaded) return LOADING;
         // 저장하지 않은 번호로 저장 완료 주소를 열었으면(직접 입력·북마크) 버전 보기로 보여 준다
         const saved = route.name === "saved" && version.version.saved;
-        return saved ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
+        return saved ? { kind: "saved", task, session, version, images: state.assets }
+          : { kind: "version", task, session, version, images: state.assets };
       }
-      if (route.name === "result" || route.name === "edit") {
-        if (!session.has_result) return { kind: "result", task, session, result: null };
+      if (route.name === "result" || route.name === "edit" || route.name === "evidence") {
+        if (!session.has_result) return { kind: "result", task, session, result: null, images: state.assets };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
         if (result === null) return LOADING;
+        if (route.name === "evidence") {
+          const evidence = state.evidence !== null && state.evidence.sessionId === session.session_id ? state.evidence : null;
+          return evidence === null ? LOADING : { kind: "evidence", task, session, result, items: evidence.items };
+        }
         // 없는 섹션 번호로 문구 수정 주소를 열었으면(직접 입력·지난 주소) 결과 화면으로 보여 준다
         const section = route.name === "edit" ? result.result.sections.find((s) => s.order === route.order) : undefined;
-        return section ? { kind: "edit", task, session, result, section } : { kind: "result", task, session, result };
+        return section
+          ? { kind: "edit", task, session, result, section, images: state.assets }
+          : { kind: "result", task, session, result, images: state.assets };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);

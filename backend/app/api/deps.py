@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, Request
 
 from app.api.locks import SessionLocks
 from app.api.owner import current_owner
+from app.core.assets import AssetStore
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
 
@@ -20,9 +21,14 @@ def get_locks(request: Request) -> SessionLocks:
     return request.app.state.locks
 
 
+def get_assets(request: Request) -> AssetStore:
+    return request.app.state.assets
+
+
 Registry = Annotated[HarnessRegistry, Depends(get_registry)]
 Store = Annotated[SessionStore, Depends(get_store)]
 Locks = Annotated[SessionLocks, Depends(get_locks)]
+Assets = Annotated[AssetStore, Depends(get_assets)]
 
 
 def require_debug(request: Request) -> None:

@@ -1,0 +1,23 @@
+# 테스트용 샘플 근거 자료. 점검 문구(record)가 있는 자료 하나, 배경 자료 하나.
+sources:
+  - id: zipper_caution
+    title: 제작 점검 · 지퍼 사용상 주의
+    publisher: 샘플 제조사
+    meta: 제조사 기술 안내 · 확인 2026.10.15
+    summary: 가득 채운 상태로 지퍼를 억지로 닫으면 손상될 수 있다고 안내합니다.
+    scope: "적용: 여밈 방식을 고를 때의 점검 참고. 이 상품의 시험 결과는 아닙니다."
+    url: https://example.com/zipper
+    applies_to: suggestion
+    record:
+      title: 제작 점검 항목
+      text: 지퍼 여밈을 고르면 내용물을 넣고 여닫기와 안감 끼임을 점검합니다.
+      note: 제품 시험 전
+      caution: 점검 항목을 더하는 단계이며 성능이 검증된 것은 아니에요.
+  - id: craft_fair
+    title: 시장 배경 · 공예 박람회 결과
+    publisher: 샘플 진흥원
+    meta: 보도자료 · 확인 2026.10.15
+    summary: 공예 사업체가 참여해 전시·판매가 진행된 사례를 소개합니다.
+    scope: "적용: 유통 경로를 살펴보는 배경 자료. 수요·매출 근거로 쓰지 않습니다."
+    url: https://example.com/fair
+    applies_to: diagnosis

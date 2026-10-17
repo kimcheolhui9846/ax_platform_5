@@ -12,6 +12,8 @@ SESSION_NOT_FOUND_MESSAGE = "세션을 찾을 수 없습니다."
 RESULT_NOT_READY_MESSAGE = "아직 생성된 결과가 없습니다."
 VERSION_NOT_FOUND_MESSAGE = "그 버전을 찾을 수 없습니다."
 SECTION_NOT_FOUND_MESSAGE = "그 섹션을 찾을 수 없습니다."
+IMAGE_FAILED_MESSAGE = "참고 이미지를 만들지 못했어요. 결과 글은 그대로예요."
+ASSET_NOT_FOUND_MESSAGE = "그 파일을 찾을 수 없습니다."
 CLIENT_ID_REQUIRED_MESSAGE = "사용자 식별 정보(X-Client-Id 헤더)가 없거나 형식이 맞지 않습니다."
 
 
@@ -30,3 +32,6 @@ HTTP_STATUS_MESSAGES: dict[int, str] = {
     429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
 }
 HTTP_ERROR_FALLBACK_MESSAGE = "요청을 처리하지 못했습니다."
+
+EVIDENCE_NOT_FOUND_MESSAGE = "그 근거 자료를 찾을 수 없습니다."
+EVIDENCE_NO_RECORD_MESSAGE = "결과에 반영할 점검 문구가 없는 자료입니다."

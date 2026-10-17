@@ -2,12 +2,15 @@
 from app.core.results import (
     CardType,
     GenerationResult,
+    ImageBlock,
+    ImageOrigin,
     ResultCard,
     ResultSection,
     TextBlock,
     compose_full_text,
     section_text,
     sections_from_cards,
+    with_section_text,
 )
 
 
@@ -73,3 +76,36 @@ def test_card_body_is_bounded_by_the_edit_limit():
     body_max = next(m.max_length for m in ResultCard.model_fields["body"].metadata if hasattr(m, "max_length"))
     edit_max = next(m.max_length for m in EditSectionRequest.model_fields["text"].metadata if hasattr(m, "max_length"))
     assert body_max <= edit_max
+
+
+def image(asset_id: str = "asset_" + "0" * 32) -> ImageBlock:
+    return ImageBlock(asset_id=asset_id, alt="향초 참고 이미지", caption="AI 참고 이미지", origin=ImageOrigin.AI_GENERATED)
+
+
+def result_with(blocks) -> GenerationResult:
+    section = ResultSection(order=1, heading="콘셉트", kind="diagnosis", blocks=blocks)
+    return GenerationResult(sections=[section], full_text="", content={})
+
+
+def test_section_blocks_tell_text_and_image_apart_by_type():
+    loaded = GenerationResult.model_validate(
+        result_with([TextBlock(text="글"), image()]).model_dump(mode="json")
+    )
+    assert [b.type for b in loaded.sections[0].blocks] == ["text", "image"]
+    assert isinstance(loaded.sections[0].blocks[1], ImageBlock)
+    assert section_text(loaded.sections[0]) == "글"  # 이미지는 본문 글이 아니다
+
+
+def test_editing_text_keeps_image_blocks_in_place():
+    original = result_with([TextBlock(text="앞 글"), image(), TextBlock(text="뒤 글")])
+
+    edited = with_section_text(original, 1, "새 글")
+
+    assert [b.type for b in edited.sections[0].blocks] == ["text", "image"]
+    assert edited.sections[0].blocks[0].text == "새 글"
+    assert edited.sections[0].blocks[1] == original.sections[0].blocks[1]
+
+
+def test_editing_a_section_with_only_an_image_puts_the_text_first():
+    edited = with_section_text(result_with([image()]), 1, "새 글")
+    assert [b.type for b in edited.sections[0].blocks] == ["text", "image"]

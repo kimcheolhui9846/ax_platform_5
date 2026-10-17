@@ -13,9 +13,12 @@ from app.core.state import (
     source_label,
 )
 from app.harness.base import BaseHarness, supplements_changed
+from app.harness.evidence import EvidenceSource
 from app.harness.flow import plan_flow
 from app.harness.policy import FieldPolicy, SupplementField, TaskPolicy
 from app.schemas.coaching import (
+    EvidenceItem,
+    EvidenceProposalView,
     FieldSummary,
     LabeledAssumption,
     LabeledResult,
@@ -34,14 +37,33 @@ from app.schemas.coaching import (
 )
 
 
-def to_task_summary(policy: TaskPolicy) -> TaskSummary:
+def to_task_summary(policy: TaskPolicy, evidence_sources: int) -> TaskSummary:
     return TaskSummary(
         task_type=policy.task_type,
         title=policy.title,
         description=policy.description,
         heading=policy.heading,
         deliverable=policy.deliverable,
+        evidence_sources=evidence_sources,
     )
+
+
+def to_evidence_items(sources: Sequence[EvidenceSource]) -> list[EvidenceItem]:
+    """[순수] 근거 자료를 화면용으로(점검 문구는 그대로 옮긴다)."""
+    return [
+        EvidenceItem(
+            id=s.id,
+            title=s.title,
+            publisher=s.publisher,
+            meta=s.meta,
+            summary=s.summary,
+            scope=s.scope,
+            url=s.url,
+            applies_to=s.applies_to,
+            record=EvidenceProposalView(title=s.record.title, text=s.record.text, note=s.record.note, caution=s.record.caution) if s.record else None,
+        )
+        for s in sources
+    ]
 
 
 def to_task_form(policy: TaskPolicy) -> TaskForm:
@@ -100,6 +122,7 @@ def label_result(result: GenerationResult, labels: Mapping[str, str]) -> Labeled
     return LabeledResult(
         sections=result.sections,
         assumptions=label_assumptions(result.assumptions, labels),
+        evidence=result.evidence,
         full_text=result.full_text,
         content=result.content,
         generated_at=result.generated_at,

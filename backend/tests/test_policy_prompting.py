@@ -97,6 +97,8 @@ def sample_values() -> dict:
         "level": 3,
         "previous": ["이전 질문"],
         "result_text": "결과 본문",
+        "heading": "섹션 제목",
+        "text": "섹션 본문",
     }
 
 
@@ -174,6 +176,7 @@ def test_stage_context_declares_specific_keys():
     assert context_keys("easier_question") == {"state", "policy", "profile", "field", "level", "previous"}
     assert context_keys("generate") == {"state", "policy", "profile"}
     assert context_keys("validate") == {"state", "policy", "profile", "result_text"}
+    assert context_keys("image") == {"state", "policy", "profile", "heading", "text"}
 
 
 def test_render_rejects_unexpected_key():

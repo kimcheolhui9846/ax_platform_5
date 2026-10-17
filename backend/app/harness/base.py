@@ -10,16 +10,24 @@ from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
+from app.core.assets import AssetStore, InMemoryAssetStore
+from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE
 from app.core.results import (
     GenerationResult,
+    ImageBlock,
+    ImageOrigin,
     ResultAssumption,
     TaskResult,
     ValidationIssue,
     ValidationReport,
     VersionReason,
+    carry_evidence,
+    image_target,
     section_text,
     sections_from_cards,
     utcnow,
+    with_evidence,
+    with_image,
     with_section_text,
 )
 from app.core.state import (
@@ -39,11 +47,13 @@ from app.core.state import (
     TraceEntry,
 )
 from app.harness.errors import GenerationFailed, HarnessError
+from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
+from app.providers.image import ImageProvider, MockImageProvider
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -93,6 +103,7 @@ def to_generation_result(parsed: TaskResult) -> GenerationResult:
 
 
 SESSION_ASSUMPTION_REASON = "대화 중 AI가 보완한 값"
+IMAGE_CAPTION = "AI가 만든 참고 이미지예요. 실제 결과물과 다를 수 있어요."  # 결과 이미지 설명(AI 생성임을 밝힌다)
 
 
 def merge_assumptions(
@@ -262,10 +273,19 @@ class BaseHarness:
     content_model: ClassVar[type[BaseModel]]
     validators: ClassVar[list[Validator]] = []
 
-    def __init__(self, task_dir: Path, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        task_dir: Path,
+        provider: LLMProvider,
+        images: ImageProvider | None = None,
+        assets: AssetStore | None = None,
+    ) -> None:
         self.task_dir = task_dir
         self.policy = load_policy(task_dir / "policy.yaml")
+        self.evidence = load_evidence(task_dir / "evidence.yaml")  # 샘플 근거 자료(없으면 빈 목록)
         self.provider = provider
+        self.images = images or MockImageProvider()  # 앱은 등록부가 넘긴다. 없으면 이 하네스만의 Mock·메모리
+        self.assets = assets or InMemoryAssetStore()
         self.prompts = PromptRenderer(task_dir / "prompts")
         self.result_model = TaskResult[self.content_model]
 
@@ -556,7 +576,11 @@ class BaseHarness:
                 result.assumptions = merge_assumptions(
                     result.assumptions, state.assumptions, self.policy.labels
                 )
+                if state.result is not None:  # 반영해 둔 근거 기록은 다시 만든 초안으로 옮긴다
+                    result.evidence = carry_evidence(state.result.evidence, result.sections)
+                result, image_issues = self.illustrate(state, result)
                 report = self.validate(state, result)
+                report = report.model_copy(update={"issues": [*report.issues, *image_issues]})
         except HarnessError:
             raise
         except Exception as exc:
@@ -609,6 +633,15 @@ class BaseHarness:
         current = next(s for s in state.result.sections if s.order == order)
         if cleaned == section_text(current):
             return True
+        self._add_derived_version(state, VersionReason.EDIT, result)
+        return True
+
+    def _add_derived_version(self, state: SessionState, reason: VersionReason, result: GenerationResult) -> None:
+        """[코드] 직전 버전의 기준(사실·가정·미정·보완 정보)을 이어받고 결과만 바꾼 새 버전(문구 수정·근거 반영).
+
+        LLM을 부르지 않는다. 코드 검증은 지금 세션의 바뀐 답이 아니라 그 기준으로 다시 돈다. 상태(FAILED 포함)와
+        result_stale은 건드리지 않는다.
+        """
         latest = state.versions[-1]
         basis = state.model_copy(
             update={
@@ -619,10 +652,9 @@ class BaseHarness:
             }
         )
         report = ValidationReport(issues=collect_issues([*COMMON_VALIDATORS, *self.validators], basis, result, self.policy))
-        state.versions.append(latest.derived(len(state.versions) + 1, VersionReason.EDIT, result, report))
+        state.versions.append(latest.derived(len(state.versions) + 1, reason, result, report))
         state.result = result
         state.validation = report
-        return True
 
     def set_supplements(self, state: SessionState, values: Mapping[str, str | None]) -> None:
         """미확인 정보를 저장한다(사용자 입력·검증 전). 다음 생성에 반영된다.
@@ -641,6 +673,66 @@ class BaseHarness:
             latest = state.versions[-1]
             state.result_stale = answers_changed(state, latest) or supplements_changed(merged, latest)
         _settle_status(state)
+
+    def find_evidence(self, state: SessionState) -> list[EvidenceSource]:
+        """[자료] 결과를 검토할 근거 자료. 지금은 과제 폴더 evidence.yaml(샘플)이고, 웹 검색을 붙이면 이 단계만 바꾼다."""
+        return list(self.evidence)
+
+    def apply_evidence(self, state: SessionState, source_id: str) -> bool:
+        """[코드] 자료의 점검 문구와 출처를 결과에 붙인 새 버전(evidence)을 만든다. LLM을 부르지 않는다.
+
+        직전 버전의 기준을 이어받는다(_add_derived_version). 이미 반영한 자료면 버전 없이 True. 결과가 없거나 그런
+        자료가 없으면 False(세션은 그대로). 점검 문구가 없는 자료(배경 자료)면 HarnessError.
+        """
+        if state.result is None or not state.versions:
+            return False
+        source = next((s for s in self.find_evidence(state) if s.id == source_id), None)
+        if source is None:
+            return False
+        if source.record is None:
+            raise HarnessError(EVIDENCE_NO_RECORD_MESSAGE)
+        if any(r.source_id == source_id for r in state.result.evidence):
+            return True
+        record = evidence_record(source, source.record, state.result.sections)
+        self._add_derived_version(state, VersionReason.EVIDENCE, with_evidence(state.result, record))
+        return True
+
+    def illustrate(self, state: SessionState, result: GenerationResult) -> tuple[GenerationResult, list[ValidationIssue]]:
+        """[이미지] policy.image_generation일 때만 대표 섹션(image_target) 끝에 참고 이미지 한 장을 붙인다.
+
+        파일은 세션 주인 것으로 AssetStore에 둔다. 이미지는 보조라 제공자가 실패해도 결과는 살리고 경고 하나로 줄인다.
+        이 뒤의 단계가 실패하면 저장한 파일은 남는다(결과에서 가리키지 않을 뿐이다).
+        """
+        target = image_target(result.sections) if self.policy.image_generation else None
+        if target is None:
+            return result, []
+        prompt = self.prompts.render(
+            "image", state=state, policy=self.policy, profile=state.profile, heading=target.heading, text=section_text(target)
+        )
+        trace_input = {"system": prompt.system, "user": prompt.user}
+        try:
+            image = self.images.generate(task_type=self.task_type, prompt=prompt)
+        except ProviderError as exc:
+            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
+        try:
+            asset_id = self.assets.put(state.owner_id, image.data, image.mime)
+        except OSError as exc:  # 디스크 문제도 제공자 실패처럼 경고로 줄인다
+            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
+        state.trace.append(
+            TraceEntry(
+                stage="image",
+                input=trace_input,
+                output={"asset_id": asset_id, "mime": image.mime, "bytes": len(image.data)},
+                provider=self.images.name,
+                model=image.model,
+            )
+        )
+        block = ImageBlock(
+            asset_id=asset_id, alt=f"{target.heading} 참고 이미지", caption=IMAGE_CAPTION, origin=ImageOrigin.AI_GENERATED
+        )
+        return with_image(result, target.order, block), []
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
         """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""

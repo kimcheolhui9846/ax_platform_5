@@ -1,8 +1,10 @@
+import { blobToDataUrl } from "../lib/dataUrl";
 import { api } from "./client";
 import type { ApiResult } from "./client";
 import type {
   AnswerBody,
   CoachingMode,
+  EvidenceItem,
   ResultView,
   ReviseBody,
   SessionSummary,
@@ -124,4 +126,27 @@ export function saveVersion(sessionId: string, version: number): Promise<ApiResu
   return api.POST(`${BASE}/sessions/{session_id}/versions/{version}/save`, {
     params: { path: { session_id: sessionId, version } },
   });
+}
+
+/** 결과를 검토할 근거 자료(지금은 샘플). */
+export function getEvidence(sessionId: string): Promise<ApiResult<EvidenceItem[]>> {
+  return api.GET(`${BASE}/sessions/{session_id}/evidence`, {
+    params: { path: { session_id: sessionId } },
+  });
+}
+
+/** 근거 자료의 점검 문구와 출처를 결과에 붙인 새 버전을 만든다(LLM 호출 없음). */
+export function applyEvidence(sessionId: string, sourceId: string): Promise<ApiResult<ResultView>> {
+  return api.POST(`${BASE}/sessions/{session_id}/evidence/{source_id}/apply`, {
+    params: { path: { session_id: sessionId, source_id: sourceId } },
+  });
+}
+
+/** 결과 이미지 하나. 브라우저 <img>는 사용자 헤더를 못 보내서 헤더를 붙여 받아 data URL로 돌려준다. */
+export async function getAsset(assetId: string): Promise<ApiResult<string>> {
+  const { data, error, response } = await api.GET(`${BASE}/assets/{asset_id}`, {
+    params: { path: { asset_id: assetId } },
+    parseAs: "blob",
+  });
+  return { data: data instanceof Blob ? await blobToDataUrl(data) : undefined, error, response };
 }

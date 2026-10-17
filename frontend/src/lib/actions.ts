@@ -36,11 +36,12 @@ export function actionState(
   return { label: busy && calls ? "초안을 만드는 중…" : action.label, disabled: busy || (calls && !canGenerate) };
 }
 
-/** [순수] '현재 버전 저장' 버튼. 저장 전이고 결과가 최신일 때만 주 버튼이고, 이미 저장했으면 막는다. */
+/** [순수] '현재 버전 저장' 버튼. 저장 전이고 결과가 최신일 때만 주 버튼이고, 이미 저장했으면 막는다. 근거 기록이 있으면 출처와 함께 저장한다고 알린다. */
 export function saveButton(
   version: Pick<VersionSummary, "saved">,
   stale: boolean,
+  withSources: boolean,
 ): { label: string; primary: boolean; done: boolean } {
   if (version.saved) return { label: "저장한 버전이에요", primary: false, done: true };
-  return { label: "현재 버전 저장", primary: !stale, done: false };
+  return { label: withSources ? "출처와 함께 저장" : "현재 버전 저장", primary: !stale, done: false };
 }
