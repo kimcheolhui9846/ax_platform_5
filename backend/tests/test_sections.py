@@ -43,3 +43,19 @@ def test_results_saved_with_cards_are_read_as_sections():
     result = GenerationResult.model_validate(legacy)
 
     assert [(s.heading, section_text(s)) for s in result.sections] == [("콘셉트", "한글 파우치")]
+
+
+def test_section_orders_are_renumbered_even_when_cards_repeat_an_order():
+    overlapped = sections_from_cards([card(1, "가", "a"), card(1, "나", "b"), card(2, "다", "c")])
+    assert [(s.order, s.heading) for s in overlapped] == [(1, "가"), (2, "나"), (3, "다")]
+
+    all_same = sections_from_cards([card(1, "가", "a"), card(1, "나", "b"), card(1, "다", "c")])
+    assert [(s.order, s.heading) for s in all_same] == [(1, "가"), (2, "나"), (3, "다")]
+
+
+def test_card_body_is_bounded_by_the_edit_limit():
+    from app.schemas.coaching import EditSectionRequest
+
+    body_max = next(m.max_length for m in ResultCard.model_fields["body"].metadata if hasattr(m, "max_length"))
+    edit_max = next(m.max_length for m in EditSectionRequest.model_fields["text"].metadata if hasattr(m, "max_length"))
+    assert body_max <= edit_max

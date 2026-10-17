@@ -31,7 +31,7 @@ class VersionReason(StrEnum):
 class ResultCard(ContractModel):
     card_type: CardType = Field(description="카드 유형: 진단·제안·실행 과제")
     title: str = Field(description="카드 제목")
-    body: str = Field(description="카드 본문")
+    body: str = Field(max_length=2500, description="카드 본문")  # 문구 수정 입력 상한(EditSectionRequest)과 맞춘다
     order: int = Field(description="표시 순서")
 
 
@@ -73,10 +73,14 @@ class ResultSection(ContractModel):
 
 
 def sections_from_cards(cards: Sequence[ResultCard]) -> list[ResultSection]:
-    """[순수] LLM이 쓴 카드를 순서대로 섹션으로 바꾼다(본문은 글 블록 하나)."""
+    """[순수] LLM이 쓴 카드를 순서대로 섹션으로 바꾼다(본문은 글 블록 하나).
+
+    카드 order가 겹쳐도 섹션 order는 1..n으로 다시 매긴다(order가 섹션의 주소라 겹치면 고칠 섹션을 가를 수 없다).
+    """
+    ordered = sorted(cards, key=lambda c: c.order)  # 안정 정렬: 같은 order는 쓴 순서를 지킨다
     return [
-        ResultSection(order=c.order, heading=c.title, kind=c.card_type, blocks=[TextBlock(text=c.body)])
-        for c in sorted(cards, key=lambda c: c.order)
+        ResultSection(order=i, heading=c.title, kind=c.card_type, blocks=[TextBlock(text=c.body)])
+        for i, c in enumerate(ordered, start=1)
     ]
 
 
@@ -110,7 +114,11 @@ class GenerationResult(ContractModel):
 
 
 def with_section_text(result: GenerationResult, order: int, text: str) -> GenerationResult | None:
-    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다."""
+    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다.
+
+    과제 스키마 값(content)은 LLM이 쓴 그대로 둔다. 바뀌는 것은 섹션과 full_text(섹션을 이어 붙인 글)뿐이라,
+    content를 읽는 과제 검증은 고친 글이 아니라 원래 내용을 판정한다.
+    """
     if not any(s.order == order for s in result.sections):
         return None
     sections = [

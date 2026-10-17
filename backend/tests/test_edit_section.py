@@ -73,3 +73,37 @@ def test_edit_api():
     missing = client.patch(f"{BASE}/sessions/{sid}/result/sections/99", json={"text": "x"})
     assert (missing.status_code, missing.json()) == (404, {"detail": SECTION_NOT_FOUND_MESSAGE})
     assert client.patch(f"{BASE}/sessions/{sid}/result/sections/{order}", json={"text": ""}).status_code == 422
+
+
+def test_edit_validates_against_the_previous_versions_basis(harness, reply):
+    seen = []
+
+    def spy(state, result, policy):
+        seen.append(dict(state.facts))
+        return []
+
+    harness.validators = [spy]
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o2",))
+    harness.generate(state)
+    old_facts = {k: v.value for k, v in state.versions[-1].facts.items()}
+    first_question = state.asked_questions[0].question.question_id
+    harness.revise_answer(state, Answer(question_id=first_question, answer_type=AnswerType.FREE_TEXT, value="초등학생 부모"))
+    assert {k: v.value for k, v in state.facts.items()} != old_facts
+    seen.clear()
+
+    assert harness.edit_section(state, state.result.sections[0].order, "고친 문구") is True
+
+    assert {k: v.value for k, v in seen[-1].items()} == old_facts
+
+
+def test_editing_to_the_same_text_makes_no_version(harness):
+    state = harness.start("향초")
+    harness.generate(state)
+    section = state.result.sections[0]
+    before = state.model_dump(exclude={"trace"})
+
+    assert harness.edit_section(state, section.order, f"  {section_text(section)} ") is True
+
+    assert state.model_dump(exclude={"trace"}) == before
+    assert len(state.versions) == 1

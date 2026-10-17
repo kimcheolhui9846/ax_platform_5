@@ -4,7 +4,7 @@ import pytest
 from app.core.results import VersionReason
 from app.core.state import Answer, AnswerType, InfoItem, InfoSource
 from app.harness.base import apply_supplements, generate_reason, supplements_changed
-from app.harness.errors import HarnessError
+from app.harness.errors import GenerationFailed, HarnessError
 from app.main import create_app
 from app.providers.mock import MockProvider
 from tests.conftest import api_client
@@ -104,3 +104,65 @@ def test_supplements_api():
     assert bad.status_code == 422
     too_long = client.put(f"{BASE}/sessions/{sid}/supplements", json={"values": {"material": "x" * 251}})
     assert too_long.status_code == 422
+
+
+def test_saving_supplements_clears_failed_without_a_result(harness, provider):
+    provider.fail_stages = {"generate"}
+    state = harness.start("향초")
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status.value == "failed"
+
+    harness.set_supplements(state, {"material": "면"})
+
+    assert state.status.value != "failed"
+    assert state.result_stale is False  # 결과가 없으면 최신 여부는 건드리지 않는다
+
+
+def test_saving_supplements_clears_failed_with_a_result(harness, provider):
+    state = harness.start("향초")
+    harness.generate(state)
+    provider.fail_stages = {"generate"}
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status.value == "failed"
+
+    harness.set_supplements(state, {"material": "면"})
+
+    assert (state.status.value, state.result_stale) == ("revising", True)
+
+
+def test_reverting_supplements_makes_the_result_current_again(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o2",))
+    harness.generate(state)
+
+    harness.set_supplements(state, {"material": "면"})
+    assert state.result_stale is True
+    harness.set_supplements(state, {"material": None})
+
+    assert state.result_stale is False
+    assert supplements_changed(state.supplements, state.versions[-1]) is False
+    assert state.status.value != "revising"
+
+
+def test_reverting_supplements_keeps_stale_when_answers_changed(harness, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.OPTION, option_ids=("o2",))
+    harness.generate(state)
+    first_question = state.asked_questions[0].question.question_id
+    harness.revise_answer(state, Answer(question_id=first_question, answer_type=AnswerType.FREE_TEXT, value="초등학생 부모"))
+
+    harness.set_supplements(state, {"material": "면"})
+    harness.set_supplements(state, {"material": None})
+
+    assert state.result_stale is True
+
+
+def test_supplements_are_in_the_generate_prompt_only(harness):
+    state = harness.start("향초")
+    harness.set_supplements(state, {"material": "면 100%"})
+    harness.generate(state)
+
+    diagnose = next(t for t in state.trace if t.stage == "diagnose").input["user"]
+    assert "보완 정보" not in diagnose

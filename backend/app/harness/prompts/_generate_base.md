@@ -13,6 +13,13 @@
 {% block user %}
 {% include "_context.md" %}
 
+## 보완 정보 (사용자 입력 · 검증 전)
+{% for name, item in state.supplements.items() %}
+- {{ name }} ({{ policy.supplement_labels.get(name, name) }}): {{ item.value }}
+{% else %}
+- (없음)
+{% endfor %}
+
 ## 사용자 선호
 - 상세도: {{ profile.preferred_detail }} / 피드백 강도: {{ profile.feedback_tone }} / 결과 형식: {{ profile.result_format }}
 {% endblock %}
