@@ -197,7 +197,10 @@ class SessionState(BaseModel):
 
     @model_validator(mode="after")
     def _version_legacy_result(self) -> "SessionState":
-        """버전 기록이 생기기 전에 저장한 세션은 지금 결과를 V1로 붙인다(지금 결과 = 마지막 버전)."""
+        """버전 기록이 생기기 전에 저장한 세션은 지금 결과를 V1로 붙인다(지금 결과 = 마지막 버전).
+
+        그때의 기준은 남아 있지 않아 지금 세션의 사실·가정·미정으로 대신한다(개발 중에 만든 세션에만 해당하는 근사값).
+        """
         if self.result is not None and not self.versions:
             self.versions = [
                 ResultVersion.snapshot(

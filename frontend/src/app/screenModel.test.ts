@@ -98,10 +98,17 @@ describe("screenModel", () => {
   it("저장 완료는 저장한 그 버전으로 그린다(지금 결과가 아니다)", () => {
     const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
-    const version = makeVersionView();
+    const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
     expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version });
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
+  });
+
+  it("저장하지 않은 버전 번호로 저장 완료 주소를 열면 버전 보기로 보여 준다", () => {
+    const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
+    const session = makeSession({ next_question: null, has_result: true });
+    const unsaved = makeVersionView();
+    expect(screenModel(at(route, { session, version: unsaved }))).toEqual({ kind: "version", task, session, version: unsaved });
   });
 
   it("내 세션 목록을 못 받아도 홈은 이어하기 없이 열린다(새 과제는 시작할 수 있다)", () => {

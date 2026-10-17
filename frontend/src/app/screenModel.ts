@@ -66,7 +66,9 @@ function resolve(state: AppState): ScreenModel {
         const version = state.version;
         const loaded = version !== null && version.session_id === session.session_id && version.version.version === route.version;
         if (!loaded) return LOADING;
-        return route.name === "saved" ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
+        // 저장하지 않은 번호로 저장 완료 주소를 열었으면(직접 입력·북마크) 버전 보기로 보여 준다
+        const saved = route.name === "saved" && version.version.saved;
+        return saved ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
       }
       if (route.name === "result") {
         if (!session.has_result) return { kind: "result", task, session, result: null };
