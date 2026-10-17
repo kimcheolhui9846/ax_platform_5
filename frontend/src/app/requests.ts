@@ -1,6 +1,6 @@
 import { BACKEND_UNREACHABLE, toOutcome } from "../api/client";
 import type { ApiResult } from "../api/client";
-import { getResult, getSession, getTaskForm, listTasks } from "../api/coaching";
+import { getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
 import { loadKey } from "./load";
 import type { Load } from "./load";
 import type { Action } from "./state";
@@ -46,6 +46,13 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         load: key,
         outdatesSessionOnFail: false,
       });
+    case "sessions":
+      return run({
+        request: listSessions,
+        done: (sessions, seq) => ({ type: "sessionsLoaded", seq, sessions }),
+        load: key,
+        outdatesSessionOnFail: false,
+      });
     case "form":
       return run({
         request: () => getTaskForm(load.task),
@@ -67,8 +74,12 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         load: key,
         outdatesSessionOnFail: false,
       });
-    default:
-      // 임시: 목록·버전 불러오기는 Task 7에서 연결한다
-      return Promise.resolve();
+    case "version":
+      return run({
+        request: () => getVersion(load.sessionId, load.version),
+        done: (version, seq) => ({ type: "versionLoaded", seq, version }),
+        load: key,
+        outdatesSessionOnFail: false,
+      });
   }
 }

@@ -7,12 +7,14 @@ vi.mock("../api/coaching", () => ({
   generateResult: vi.fn(),
   continueSession: vi.fn(),
   showOriginalQuestion: vi.fn(),
+  saveVersion: vi.fn(),
 }));
 
-import { continueSession, createSession, generateResult, reviseAnswer, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { continueSession, createSession, generateResult, reviseAnswer, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { HOME } from "../lib/routes";
-import { makeQuestion, makeResult, makeSession } from "../testing/factories";
-import { NOTHING_LEFT_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
+import type { DocumentFile } from "../lib/documentHtml";
+import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
+import { DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
 import type { Action, AppState } from "./state";
@@ -23,6 +25,7 @@ function setup(patch: Partial<AppState> = {}) {
   const calls: Call<unknown>[] = [];
   const actions: Action[] = [];
   const saved: [string, string][] = [];
+  const files: DocumentFile[] = [];
   const run: Runner = async <T>(call: Call<T>) => {
     calls.push(call as unknown as Call<unknown>);
   };
@@ -31,8 +34,9 @@ function setup(patch: Partial<AppState> = {}) {
     run,
     dispatch: (action) => actions.push(action),
     saveDraft: (task, text) => saved.push([task, text]),
+    saveFile: (file) => files.push(file),
   });
-  return { on, calls, actions, saved };
+  return { on, calls, actions, saved, files };
 }
 
 const session = makeSession({ session_id: "sess_1", next_question: makeQuestion({ question_id: "q_1" }) });
@@ -53,7 +57,6 @@ describe("makeHandlers — 이동", () => {
     on.guide();
     on.goHome();
     on.navigate("home");
-    on.navigate("work"); // 묶음 2에서 연다
     on.retry();
     expect(actions).toEqual([
       { type: "navigated", route: { name: "request", task: "branding" } },
@@ -163,5 +166,48 @@ describe("makeHandlers — 요청", () => {
     });
     const nothing = makeSession({ next_question: null });
     expect(calls[0].done(nothing, 2)).toEqual({ type: "sessionLoaded", seq: 2, session: nothing, next: null, notice: NOTHING_LEFT_NOTICE });
+  });
+
+  it("왼쪽 메뉴는 홈·내 작업·결과물을 연다", () => {
+    const { on, actions } = setup();
+    on.navigate("home");
+    on.navigate("work");
+    on.navigate("documents");
+    expect(actions.map((a) => (a.type === "navigated" ? a.route : a))).toEqual([HOME, { name: "work" }, { name: "documents" }]);
+  });
+
+  it("이어하기는 세션의 진행 단계로, 버전 열기는 버전 보기로 간다", () => {
+    const { on, actions } = setup();
+    on.resume(makeSessionSummary({ has_question: false, has_result: true }));
+    on.openVersion("sess_9", 3);
+    expect(actions.map((a) => (a.type === "navigated" ? a.route : a))).toEqual([
+      { name: "result", sessionId: "sess_1" },
+      { name: "version", sessionId: "sess_9", version: 3 },
+    ]);
+  });
+
+  it("현재 버전 저장은 지금 결과의 버전을 저장하고 저장 완료로 간다", async () => {
+    const result = makeResult({ version: { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate", saved: false } });
+    const { on, calls } = setup({ session, result });
+    on.saveVersion();
+    await calls[0].request();
+    expect(saveVersion).toHaveBeenCalledWith("sess_1", 2);
+    const view = makeVersionView();
+    expect(calls[0].done(view, 4)).toEqual({ type: "versionSaved", seq: 4, version: view, next: { name: "saved", sessionId: "sess_1" } });
+    expect(calls[0].load).toBeNull();
+  });
+
+  it("결과가 없으면 저장하지 않는다", () => {
+    const { on, calls } = setup({ session });
+    on.saveVersion();
+    expect(calls).toEqual([]);
+  });
+
+  it("문서 내려받기는 파일을 저장하고 알린다", () => {
+    const { on, files, actions } = setup();
+    const file = { filename: "AX_product_planning_V1.html", html: "<!doctype html>" };
+    on.download(file);
+    expect(files).toEqual([file]);
+    expect(actions).toEqual([{ type: "noticed", message: DOWNLOADED_NOTICE }]);
   });
 });

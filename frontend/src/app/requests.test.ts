@@ -5,11 +5,13 @@ vi.mock("../api/coaching", () => ({
   getTaskForm: vi.fn(),
   getSession: vi.fn(),
   getResult: vi.fn(),
+  listSessions: vi.fn(),
+  getVersion: vi.fn(),
 }));
 
 import { BACKEND_UNREACHABLE } from "../api/client";
-import { getResult, getSession, getTaskForm, listTasks } from "../api/coaching";
-import { makeForm, makeResult, makeSession, makeTask } from "../testing/factories";
+import { getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
+import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { createRunner, startLoad } from "./requests";
 import type { Call, Runner } from "./requests";
 import type { Action } from "./state";
@@ -102,5 +104,20 @@ describe("startLoad", () => {
     expect(form.done(makeForm(), 2)).toEqual({ type: "formLoaded", seq: 2, form: makeForm() });
     expect(session.done(makeSession(), 3)).toEqual({ type: "sessionLoaded", seq: 3, session: makeSession(), next: null, notice: null });
     expect(result.done(makeResult(), 4)).toEqual({ type: "resultLoaded", seq: 4, result: makeResult(), next: null, outdatesSession: false });
+  });
+
+  it("내 세션 목록과 버전을 부른다", async () => {
+    const { run, calls } = capture();
+    await startLoad(run, { kind: "sessions" });
+    await startLoad(run, { kind: "version", sessionId: "sess_1", version: 2 });
+
+    expect(calls.map((c) => c.load)).toEqual(["sessions", "version:sess_1:2"]);
+    for (const call of calls) await call.request();
+    expect(listSessions).toHaveBeenCalled();
+    expect(getVersion).toHaveBeenCalledWith("sess_1", 2);
+
+    const [sessions, version] = calls;
+    expect(sessions.done([makeSessionSummary()], 1)).toEqual({ type: "sessionsLoaded", seq: 1, sessions: [makeSessionSummary()] });
+    expect(version.done(makeVersionView(), 2)).toEqual({ type: "versionLoaded", seq: 2, version: makeVersionView() });
   });
 });

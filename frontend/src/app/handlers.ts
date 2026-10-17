@@ -4,17 +4,21 @@ import {
   createSession,
   generateResult,
   reviseAnswer,
+  saveVersion as saveVersionRequest,
   showOriginalQuestion,
   submitAnswer,
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
+import type { DocumentFile } from "../lib/documentHtml";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
+import { resumeRoute } from "../lib/sessions";
 import type { Runner } from "./requests";
 import type { Action, AppState } from "./state";
 import type { Handlers } from "./view";
 
 export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
+export const DOWNLOADED_NOTICE = "문서를 내려받았어요.";
 
 /** [순수] 답이 바뀐 세션의 다음 화면. 걸린 질문이 있으면 질문, 없으면 답변 확인. */
 export function routeAfterSession(session: SessionView): Route {
@@ -24,14 +28,15 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts">;
+  state: Pick<AppState, "session" | "drafts" | "result">;
   run: Runner;
   dispatch: (action: Action) => void;
   saveDraft: (task: string, text: string) => void;
+  saveFile: (file: DocumentFile) => void;
 };
 
 /** 화면 버튼 → 화면 이동(dispatch) 또는 API 요청(run). 상태는 리듀서만 바꾼다. */
-export function makeHandlers({ state, run, dispatch, saveDraft }: Deps): Handlers {
+export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps): Handlers {
   const session = state.session;
   const go = (route: Route) => dispatch({ type: "navigated", route });
 
@@ -50,9 +55,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft }: Deps): Handler
   };
 
   return {
-    navigate: (key) => {
-      if (key === "home") go(HOME);
-    },
+    navigate: (key) => go(key === "home" ? HOME : key === "work" ? { name: "work" } : { name: "documents" }),
     guide: () => go({ name: "guide" }),
     goHome: () => go(HOME),
     retry: () => dispatch({ type: "retried" }),
@@ -118,10 +121,23 @@ export function makeHandlers({ state, run, dispatch, saveDraft }: Deps): Handler
         outdatesSessionOnFail: false,
       });
     },
-    // 아래 네 동작은 Task 7에서 실제 동작으로 바꾼다.
-    resume: () => {},
-    openVersion: () => {},
-    saveVersion: () => {},
-    download: () => {},
+    resume: (summary) => go(resumeRoute(summary)),
+    openVersion: (sessionId, version) => go({ name: "version", sessionId, version }),
+    saveVersion: () => {
+      const result = state.result;
+      if (!session || !result) return;
+      const sessionId = session.session_id;
+      const number = result.version.version;
+      void run({
+        request: () => saveVersionRequest(sessionId, number),
+        done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId } }),
+        load: null,
+        outdatesSessionOnFail: false,
+      });
+    },
+    download: (file) => {
+      saveFile(file);
+      dispatch({ type: "noticed", message: DOWNLOADED_NOTICE });
+    },
   };
 }
