@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), PUT: vi.fn() } }));
+vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 
 import { api } from "./client";
 import type { ApiResult } from "./coaching";
 import {
   applyEvidence,
   continueSession,
+  clearContext,
   createSession,
   editResultSection,
   generateResult,
@@ -15,6 +16,7 @@ import {
   getResult,
   getVersion,
   listSessions,
+  previewContext,
   saveVersion,
   getSession,
   getTaskForm,
@@ -166,5 +168,31 @@ describe("coaching API 래퍼", () => {
     expectTypeOf(getSession).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
     expectTypeOf(reviseAnswer).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
     expectTypeOf(getResult).returns.resolves.toEqualTypeOf<ApiResult<ResultView>>();
+  });
+});
+
+describe("이어가기", () => {
+  it("createSession은 출처가 있을 때만 본문에 싣는다", async () => {
+    await createSession("branding", "글", "standard", { sessionId: "s1", version: 2 });
+    expect(api.POST).toHaveBeenLastCalledWith(`${BASE}/tasks/{task_type}/sessions`, {
+      params: { path: { task_type: "branding" } },
+      body: { raw_input: "글", mode: "standard", from_session_id: "s1", from_version: 2 },
+    });
+    await createSession("branding", "글");
+    expect(api.POST).toHaveBeenLastCalledWith(`${BASE}/tasks/{task_type}/sessions`, {
+      params: { path: { task_type: "branding" } },
+      body: { raw_input: "글", mode: "standard" },
+    });
+  });
+
+  it("미리보기와 빼기", async () => {
+    await previewContext("branding", "s1", 2);
+    expect(api.GET).toHaveBeenCalledWith(`${BASE}/tasks/{task_type}/context`, {
+      params: { path: { task_type: "branding" }, query: { session_id: "s1", version: 2 } },
+    });
+    await clearContext("s1");
+    expect(api.DELETE).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/context`, {
+      params: { path: { session_id: "s1" } },
+    });
   });
 });

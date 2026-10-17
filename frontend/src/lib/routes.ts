@@ -1,3 +1,5 @@
+import type { CarrySource } from "./carry";
+
 /**
  * 화면 주소(해시). 주소를 읽고 만드는 곳은 parseRoute·toHash 두 함수뿐이다.
  * 과제 화면(요청·모드)은 세션 전이라 과제 이름으로, 세션 화면은 세션 id로 연다.
@@ -7,8 +9,8 @@ export type Route =
   | { name: "guide" }
   | { name: "work" }
   | { name: "documents" }
-  | { name: "request"; task: string }
-  | { name: "mode"; task: string }
+  | { name: "request"; task: string; from: CarrySource | null }
+  | { name: "mode"; task: string; from: CarrySource | null }
   | { name: "question"; sessionId: string }
   | { name: "revise"; sessionId: string; questionId: string }
   | { name: "confirm"; sessionId: string }
@@ -65,13 +67,21 @@ function sessionView(sessionId: string, view: string): Route | null {
   }
 }
 
+/** 과제 화면(요청·모드). */
+function taskView(view: string, task: string, from: CarrySource | null): Route {
+  return view === "request" ? { name: "request", task, from } : { name: "mode", task, from };
+}
+
 /** [순수] 해시를 주소로. 모르는 모양은 홈이다. */
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decode);
   const [first, second, third, fourth] = parts;
   if (parts.length === 1) return page(first) ?? HOME;
   if (parts.length === 2 && first !== "s" && TASK_VIEWS.has(second)) {
-    return second === "request" ? { name: "request", task: first } : { name: "mode", task: first };
+    return taskView(second, first, null);
+  }
+  if (parts.length === 5 && first !== "s" && TASK_VIEWS.has(second) && third === "from" && VERSION_NUMBER.test(parts[4])) {
+    return taskView(second, first, { sessionId: fourth, version: Number(parts[4]) });
   }
   if (first === "s" && parts.length === 3) return sessionView(second, third) ?? HOME;
   if (first === "s" && parts.length === 4 && third === "question") {
@@ -104,7 +114,7 @@ export function toHash(route: Route): string {
       return `#/${route.name}`;
     case "request":
     case "mode":
-      return `#/${e(route.task)}/${route.name}`;
+      return `#/${e(route.task)}/${route.name}${route.from ? `/from/${e(route.from.sessionId)}/${route.from.version}` : ""}`;
     case "revise":
       return `#/s/${e(route.sessionId)}/question/${e(route.questionId)}`;
     case "version":
@@ -145,4 +155,9 @@ export function taskOf(route: Route): string | null {
 
 export function sessionIdOf(route: Route): string | null {
   return "sessionId" in route ? route.sessionId : null;
+}
+
+/** [순수] 요청·모드 주소가 이어 가는 이전 작업. 다른 주소나 출처가 없으면 null. */
+export function carryOf(route: Route): CarrySource | null {
+  return route.name === "request" || route.name === "mode" ? route.from : null;
 }

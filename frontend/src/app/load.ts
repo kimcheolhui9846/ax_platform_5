@@ -1,4 +1,6 @@
-import { isListRoute, sessionIdOf, taskOf } from "../lib/routes";
+import { carryKey } from "../lib/carry";
+import type { CarrySource } from "../lib/carry";
+import { carryOf, isListRoute, sessionIdOf, taskOf } from "../lib/routes";
 import type { AppState } from "./state";
 
 /** 화면을 그리는 데 모자란 데이터 하나. */
@@ -6,6 +8,7 @@ export type Load =
   | { kind: "tasks" }
   | { kind: "sessions" }
   | { kind: "form"; task: string }
+  | { kind: "carry"; task: string; from: CarrySource }
   | { kind: "session"; sessionId: string }
   | { kind: "result"; sessionId: string }
   | { kind: "evidence"; sessionId: string }
@@ -18,6 +21,8 @@ export function loadKey(load: Load): string {
       return load.kind;
     case "form":
       return `form:${load.task}`;
+    case "carry":
+      return `carry:${carryKey(load.task, load.from)}`;
     case "version":
       return `version:${load.sessionId}:${load.version}`;
     default:
@@ -37,7 +42,11 @@ function missing(state: AppState): Load | null {
   if (state.tasks === null) return { kind: "tasks" };
   if (isListRoute(route)) return state.sessions === null ? { kind: "sessions" } : null;
   const task = taskOf(route);
-  if (task !== null) return state.form?.task_type === task ? null : { kind: "form", task };
+  if (task !== null) {
+    if (state.form?.task_type !== task) return { kind: "form", task };
+    const from = carryOf(route);
+    return from !== null && state.carry?.key !== carryKey(task, from) ? { kind: "carry", task, from } : null;
+  }
   const sessionId = sessionIdOf(route);
   if (sessionId === null) return null;
   const session = state.session;

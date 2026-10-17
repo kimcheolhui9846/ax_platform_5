@@ -34,4 +34,7 @@ export const NOOP_HANDLERS: Handlers = {
   reviewEvidence: noop,
   applyEvidence: noop,
   openBeforeEvidence: noop,
+  startNext: noop,
+  dropCarry: noop,
+  clearContext: noop,
 };

@@ -174,6 +174,7 @@ const SESSION_BASE: SessionView = {
   can_generate: true,
   has_result: false,
   result_stale: false,
+  context: null,
   error: null,
 };
 

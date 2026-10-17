@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { EvidenceItem } from "../api/types";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
-import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
+import { makeContext, makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { screenModel } from "./screenModel";
 import { initialState } from "./state";
 import type { AppState } from "./state";
@@ -27,13 +27,13 @@ describe("screenModel", () => {
 
   it("요청·모드는 양식과 쓰다 만 글로 그린다", () => {
     const form = makeForm();
-    const state = at({ name: "mode", task: "product_planning" }, { form, drafts: { product_planning: "수제 향초" } });
-    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초" });
-    expect(screenModel(at({ name: "request", task: "product_planning" }, { form }))).toEqual({ kind: "request", task, form, draft: "" });
+    const state = at({ name: "mode", task: "product_planning", from: null }, { form, drafts: { product_planning: "수제 향초" } });
+    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초", context: null });
+    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form }))).toEqual({ kind: "request", task, form, draft: "", context: null });
   });
 
   it("데이터가 모자라면 불러오는 중이고, 그 불러오기가 실패했으면 열 수 없다", () => {
-    const route: Route = { name: "request", task: "nope" };
+    const route: Route = { name: "request", task: "nope", from: null };
     expect(screenModel(at(route))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { stalled: "form:nope" }))).toEqual({ kind: "unavailable" });
     expect(screenModel(at({ name: "question", sessionId: "sess_1" }))).toEqual({ kind: "loading" });
@@ -200,5 +200,24 @@ describe("이미지를 받아 둔 상태", () => {
     expect(screenModel(at({ name: "confirm", sessionId: "sess_1" }, { inflight }))).toEqual({ kind: "loading" });
     expect(screenModel(at(HOME, { sessions: [], session, inflight }))).toEqual({ kind: "home", tasks: [task], sessions: [] });
     expect(screenModel(at({ name: "confirm", sessionId: "sess_1" }, { session, inflight: { ...inflight, generating: false } }))).toMatchObject({ kind: "confirm" });
+  });
+});
+
+describe("screenModel — 이어가기", () => {
+  const from = { sessionId: "s1", version: 2 };
+  const form = makeForm();
+  const context = makeContext();
+
+  it("출처가 있으면 미리보기가 올 때까지 loading, 맞으면 context를 싣는다", () => {
+    const route: Route = { name: "request", task: "product_planning", from };
+    expect(screenModel(at(route, { form }))).toEqual({ kind: "loading" });
+    const carry = { key: "product_planning:s1:2", context };
+    expect(screenModel(at(route, { form, carry }))).toEqual({ kind: "request", task, form, draft: "", context });
+    expect(screenModel(at(route, { form, carry: { key: "product_planning:other:1", context } }))).toEqual({ kind: "loading" });
+  });
+
+  it("출처가 없으면 context는 null", () => {
+    const model = screenModel(at({ name: "mode", task: "product_planning", from: null }, { form, carry: { key: "x", context } }));
+    expect(model).toMatchObject({ kind: "mode", context: null });
   });
 });

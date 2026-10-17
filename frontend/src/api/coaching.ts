@@ -1,4 +1,5 @@
 import { blobToDataUrl } from "../lib/dataUrl";
+import type { CarrySource } from "../lib/carry";
 import { api } from "./client";
 import type { ApiResult } from "./client";
 import type {
@@ -7,6 +8,7 @@ import type {
   EvidenceItem,
   ResultView,
   ReviseBody,
+  SessionContext,
   SessionSummary,
   SessionView,
   TaskForm,
@@ -32,10 +34,29 @@ export function createSession(
   taskType: string,
   rawInput: string,
   mode: CoachingMode = "standard",
+  from: CarrySource | null = null,
 ): Promise<ApiResult<SessionView>> {
   return api.POST(`${BASE}/tasks/{task_type}/sessions`, {
     params: { path: { task_type: taskType } },
-    body: { raw_input: rawInput, mode },
+    body: {
+      raw_input: rawInput,
+      mode,
+      ...(from ? { from_session_id: from.sessionId, from_version: from.version } : {}),
+    },
+  });
+}
+
+/** 이어 갈 이전 작업의 한 버전에서 새 과제로 가져올 내용 미리보기. */
+export function previewContext(taskType: string, sessionId: string, version: number): Promise<ApiResult<SessionContext>> {
+  return api.GET(`${BASE}/tasks/{task_type}/context`, {
+    params: { path: { task_type: taskType }, query: { session_id: sessionId, version } },
+  });
+}
+
+/** 세션에 가져온 내용을 뺀다. */
+export function clearContext(sessionId: string): Promise<ApiResult<SessionView>> {
+  return api.DELETE(`${BASE}/sessions/{session_id}/context`, {
+    params: { path: { session_id: sessionId } },
   });
 }
 

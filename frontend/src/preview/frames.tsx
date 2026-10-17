@@ -64,8 +64,8 @@ function dialogFrame(id: string, title: string, route: Route, model: ScreenModel
 }
 
 const SESSION_ID = SESSION_QUESTION.session_id;
-const request: Route = { name: "request", task: PRODUCT.task_type };
-const mode: Route = { name: "mode", task: PRODUCT.task_type };
+const request: Route = { name: "request", task: PRODUCT.task_type, from: null };
+const mode: Route = { name: "mode", task: PRODUCT.task_type, from: null };
 const question: Route = { name: "question", sessionId: SESSION_ID };
 const confirm: Route = { name: "confirm", sessionId: SESSION_ID };
 const failed: Route = { name: "failed", sessionId: SESSION_ID };
@@ -75,8 +75,8 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 export const FRAMES: Frame[] = [
   frame("home", "홈 · 이어하기", HOME, { kind: "home", tasks: TASKS, sessions: SESSIONS }),
   frame("home-new", "홈 · 처음 방문", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
-  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST }),
-  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST }),
+  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: null }),
+  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST, context: null }),
   frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
   frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION }),
   frame("question-proposal", "질문 · AI 후보 제안", question, {

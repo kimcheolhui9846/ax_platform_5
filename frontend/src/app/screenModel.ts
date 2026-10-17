@@ -3,6 +3,7 @@ import type {
   Question,
   ResultSection,
   ResultView,
+  SessionContext,
   SessionSummary,
   SessionView,
   TaskForm,
@@ -10,6 +11,7 @@ import type {
   VersionView,
 } from "../api/types";
 import type { Images } from "../lib/document";
+import { carryKey } from "../lib/carry";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import type { AppState } from "./state";
@@ -22,8 +24,8 @@ export type ScreenModel =
   | { kind: "guide" }
   | { kind: "work"; sessions: SessionSummary[] }
   | { kind: "documents"; sessions: SessionSummary[] }
-  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string }
-  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string }
+  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null }
+  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "generating"; task: TaskSummary; session: SessionView }
@@ -61,7 +63,11 @@ function resolve(state: AppState): ScreenModel {
     case "mode": {
       const task = findTask(state.tasks, route.task);
       if (task === null || state.form === null || state.form.task_type !== route.task) return LOADING;
-      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "" };
+      // 이어 가는 화면은 가져올 내용 미리보기가 올 때까지 기다린다
+      const from = route.from;
+      if (from !== null && state.carry?.key !== carryKey(route.task, from)) return LOADING;
+      const context = from !== null ? (state.carry?.context ?? null) : null;
+      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "", context };
       return route.name === "request" ? { kind: "request", ...data } : { kind: "mode", ...data };
     }
     default: {

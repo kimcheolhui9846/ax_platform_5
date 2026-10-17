@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
-import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
+import { makeContext, makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { loadKey, needsLoad } from "./load";
 import { initialState } from "./state";
 import type { AppState } from "./state";
@@ -22,10 +22,10 @@ describe("needsLoad", () => {
   });
 
   it("요청·모드 화면은 그 과제의 입력 양식이 있어야 한다", () => {
-    const request: Route = { name: "request", task: "product_planning" };
+    const request: Route = { name: "request", task: "product_planning", from: null };
     expect(needsLoad(at(request))).toEqual({ kind: "form", task: "product_planning" });
     expect(needsLoad(at(request, { form: makeForm() }))).toBeNull();
-    expect(needsLoad(at({ name: "mode", task: "branding" }, { form: makeForm() }))).toEqual({ kind: "form", task: "branding" });
+    expect(needsLoad(at({ name: "mode", task: "branding", from: null }, { form: makeForm() }))).toEqual({ kind: "form", task: "branding" });
   });
 
   it("세션 화면은 그 세션이 있어야 하고, 낡았으면 다시 받는다", () => {
@@ -109,5 +109,22 @@ describe("needsLoad — 묶음 2 화면", () => {
   it("목록·버전 불러오기의 이름", () => {
     expect(loadKey({ kind: "sessions" })).toBe("sessions");
     expect(loadKey({ kind: "version", sessionId: "s", version: 3 })).toBe("version:s:3");
+  });
+});
+
+describe("needsLoad — 이어가기 미리보기", () => {
+  const from = { sessionId: "s1", version: 2 };
+  const route: Route = { name: "request", task: "branding", from };
+  const form = makeForm({ task_type: "branding" });
+
+  it("양식 다음에 부른다", () => {
+    expect(needsLoad(at(route))).toEqual({ kind: "form", task: "branding" });
+    expect(needsLoad(at(route, { form }))).toEqual({ kind: "carry", task: "branding", from });
+    expect(loadKey({ kind: "carry", task: "branding", from })).toBe("carry:branding:s1:2");
+  });
+
+  it("이미 받았거나 출처가 없으면 부르지 않는다", () => {
+    expect(needsLoad(at(route, { form, carry: { key: "branding:s1:2", context: makeContext() } }))).toBeNull();
+    expect(needsLoad(at({ name: "mode", task: "branding", from: null }, { form }))).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import type { ApiResult } from "../api/client";
 import {
   applyEvidence as applyEvidenceRequest,
   continueSession,
+  clearContext as clearContextRequest,
   createSession,
   editResultSection,
   generateResult,
@@ -14,7 +15,8 @@ import {
 import type { AnswerBody, SessionView } from "../api/types";
 import type { DocumentFile } from "../lib/documentHtml";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
-import { HOME } from "../lib/routes";
+import type { CarrySource } from "../lib/carry";
+import { HOME, carryOf } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
 import { PLAIN } from "./requests";
@@ -26,6 +28,7 @@ export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
 export const DOWNLOADED_NOTICE = "문서를 내려받았어요.";
 export const SUPPLEMENTS_SAVED_NOTICE = "입력 내용을 저장했어요. ‘초안에 반영’을 눌러 적용해 주세요.";
 export const SUPPLEMENTS_APPLIED_NOTICE = "입력한 정보를 초안의 보완 기준에 반영했어요.";
+export const CONTEXT_CLEARED_NOTICE = "가져온 내용을 뺐어요.";
 export const SECTION_EDITED_NOTICE = "문구를 반영했어요. 다른 기준과 검토 기록은 그대로예요.";
 
 /** [순수] 답이 바뀐 세션의 다음 화면. 걸린 질문이 있으면 질문, 없으면 답변 확인. */
@@ -36,7 +39,7 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts" | "result">;
+  state: Pick<AppState, "route" | "session" | "drafts" | "result">;
   run: Runner;
   dispatch: (action: Action) => void;
   saveDraft: (task: string, text: string) => void;
@@ -87,14 +90,28 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
     guide: () => go({ name: "guide" }),
     goHome: () => go(HOME),
     retry: () => dispatch({ type: "retried" }),
-    start: (task) => go({ name: "request", task }),
+    start: (task) => go({ name: "request", task, from: null }),
     changeDraft: (task, text) => {
       dispatch({ type: "draftChanged", task, text });
       saveDraft(task, text);
     },
-    submitRequest: (task) => go({ name: "mode", task }),
-    editRequest: (task) => go({ name: "request", task }),
-    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode)),
+    submitRequest: (task) => go({ name: "mode", task, from: carryOf(state.route) }),
+    editRequest: (task) => go({ name: "request", task, from: carryOf(state.route) }),
+    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, carryOf(state.route))),
+    startNext: (task, from: CarrySource) => go({ name: "request", task, from }),
+    dropCarry: (task) => {
+      const route = state.route;
+      if ((route.name === "request" || route.name === "mode") && route.task === task) go({ ...route, from: null });
+    },
+    clearContext: () => {
+      if (!session) return;
+      const sessionId = session.session_id;
+      void run({
+        request: () => clearContextRequest(sessionId),
+        done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: CONTEXT_CLEARED_NOTICE }),
+        ...PLAIN,
+      });
+    },
     answer,
     example: (action) => {
       if (action === "easier") answer({ answer_type: "easier" });

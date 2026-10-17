@@ -12,6 +12,7 @@ import { modeName } from "../lib/modes";
 import { questionKicker } from "../lib/question";
 import { appliedSourceIds, evidenceButton, resultHeading, versionBeforeEvidence } from "../lib/evidence";
 import type { ExampleAction } from "../lib/question";
+import type { CarrySource } from "../lib/carry";
 import type { Route } from "../lib/routes";
 import { versionIsStale } from "../lib/sessions";
 import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
@@ -65,6 +66,9 @@ export type Handlers = {
   reviewEvidence: () => void;
   applyEvidence: (sourceId: string) => void;
   openBeforeEvidence: () => void;
+  startNext: (task: string, from: CarrySource) => void;
+  dropCarry: (task: string) => void;
+  clearContext: () => void;
 };
 
 export type ScreenParts = { main: JSX.Element; side: JSX.Element | null };

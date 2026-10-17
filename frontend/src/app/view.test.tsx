@@ -35,20 +35,20 @@ describe("renderScreen", () => {
   });
 
   it("요청은 입력창과 예시", () => {
-    const { main } = draw({ kind: "request", task, form, draft: "" });
+    const { main } = draw({ kind: "request", task, form, draft: "", context: null });
     expect(main).toContain("상품기획에서 어떤 도움이 필요한가요?");
     expect(main).toContain('placeholder="예) 집들이 선물용 수제 향초"');
     expect(main).toContain("이 문장 넣기");
   });
 
   it("모드는 보낸 요청과 세 모드(질문 수 없이), 요청이 없으면 요청으로 안내", () => {
-    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초" });
+    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초", context: null });
     expect(main).toContain("수제 향초");
     expect(main).toContain("스탠다드 코칭 시작");
     expect(main).toContain("꼭 필요한 질문으로 방향을 잡고");
     expect(main).not.toContain("최대 10개");
-    expect(draw({ kind: "mode", task, form, draft: " " }).main).toContain("먼저 요청을 보내 주세요");
-    expect(draw({ kind: "mode", task, form, draft: "x" }, true).main).toContain("코칭을 준비하는 중…");
+    expect(draw({ kind: "mode", task, form, draft: " ", context: null }).main).toContain("먼저 요청을 보내 주세요");
+    expect(draw({ kind: "mode", task, form, draft: "x", context: null }, true).main).toContain("코칭을 준비하는 중…");
   });
 
   it("질문은 질문 카드와 흐름 패널", () => {
@@ -258,9 +258,9 @@ describe("AppView", () => {
 describe("projectOf·pageTitle", () => {
   it("과제 화면은 과제 이름", () => {
     expect(projectOf({ kind: "home", tasks: [], sessions: [] })).toBeNull();
-    expect(projectOf({ kind: "request", task, form, draft: "" })).toBe("상품기획");
+    expect(projectOf({ kind: "request", task, form, draft: "", context: null })).toBe("상품기획");
     expect(pageTitle({ kind: "guide" })).toBe("창작자 AX");
-    expect(pageTitle({ kind: "request", task, form, draft: "" })).toBe("창작자 AX · 상품기획");
+    expect(pageTitle({ kind: "request", task, form, draft: "", context: null })).toBe("창작자 AX · 상품기획");
   });
 });
 
