@@ -2,24 +2,28 @@
 import importlib
 from pathlib import Path
 
+from app.core.assets import AssetStore
 from app.harness.base import BaseHarness
 from app.harness.errors import UnknownTaskError
 from app.providers.base import LLMProvider
+from app.providers.image import ImageProvider
 
 TASKS_DIR = Path(__file__).parent / "tasks"
 TASK_TYPES = ("business_plan", "product_planning", "branding", "marketing_content")
 
 
-def build_harness(task_type: str, provider: LLMProvider) -> BaseHarness:
+def build_harness(
+    task_type: str, provider: LLMProvider, images: ImageProvider | None = None, assets: AssetStore | None = None
+) -> BaseHarness:
     if task_type not in TASK_TYPES:
         raise UnknownTaskError(task_type)
     module = importlib.import_module(f"app.harness.tasks.{task_type}.harness")
-    return module.Harness(TASKS_DIR / task_type, provider)
+    return module.Harness(TASKS_DIR / task_type, provider, images, assets)
 
 
 class HarnessRegistry:
-    def __init__(self, provider: LLMProvider) -> None:
-        self._harnesses = {t: build_harness(t, provider) for t in TASK_TYPES}
+    def __init__(self, provider: LLMProvider, images: ImageProvider | None = None, assets: AssetStore | None = None) -> None:
+        self._harnesses = {t: build_harness(t, provider, images, assets) for t in TASK_TYPES}
 
     def __contains__(self, task_type: object) -> bool:
         return task_type in self._harnesses

@@ -10,16 +10,22 @@ from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
+from app.core.assets import AssetStore, InMemoryAssetStore
+from app.core.messages import IMAGE_FAILED_MESSAGE
 from app.core.results import (
     GenerationResult,
+    ImageBlock,
+    ImageOrigin,
     ResultAssumption,
     TaskResult,
     ValidationIssue,
     ValidationReport,
     VersionReason,
+    image_target,
     section_text,
     sections_from_cards,
     utcnow,
+    with_image,
     with_section_text,
 )
 from app.core.state import (
@@ -44,6 +50,7 @@ from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
+from app.providers.image import ImageProvider, MockImageProvider
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -93,6 +100,7 @@ def to_generation_result(parsed: TaskResult) -> GenerationResult:
 
 
 SESSION_ASSUMPTION_REASON = "대화 중 AI가 보완한 값"
+IMAGE_CAPTION = "AI가 만든 참고 이미지예요. 실제 결과물과 다를 수 있어요."  # 결과 이미지 설명(AI 생성임을 밝힌다)
 
 
 def merge_assumptions(
@@ -262,10 +270,18 @@ class BaseHarness:
     content_model: ClassVar[type[BaseModel]]
     validators: ClassVar[list[Validator]] = []
 
-    def __init__(self, task_dir: Path, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        task_dir: Path,
+        provider: LLMProvider,
+        images: ImageProvider | None = None,
+        assets: AssetStore | None = None,
+    ) -> None:
         self.task_dir = task_dir
         self.policy = load_policy(task_dir / "policy.yaml")
         self.provider = provider
+        self.images = images or MockImageProvider()  # 앱은 등록부가 넘긴다. 없으면 이 하네스만의 Mock·메모리
+        self.assets = assets or InMemoryAssetStore()
         self.prompts = PromptRenderer(task_dir / "prompts")
         self.result_model = TaskResult[self.content_model]
 
@@ -556,7 +572,9 @@ class BaseHarness:
                 result.assumptions = merge_assumptions(
                     result.assumptions, state.assumptions, self.policy.labels
                 )
+                result, image_issues = self.illustrate(state, result)
                 report = self.validate(state, result)
+                report.issues.extend(image_issues)
         except HarnessError:
             raise
         except Exception as exc:
@@ -641,6 +659,39 @@ class BaseHarness:
             latest = state.versions[-1]
             state.result_stale = answers_changed(state, latest) or supplements_changed(merged, latest)
         _settle_status(state)
+
+    def illustrate(self, state: SessionState, result: GenerationResult) -> tuple[GenerationResult, list[ValidationIssue]]:
+        """[이미지] policy.image_generation일 때만 대표 섹션(image_target) 끝에 참고 이미지 한 장을 붙인다.
+
+        파일은 세션 주인 것으로 AssetStore에 둔다. 이미지는 보조라 제공자가 실패해도 결과는 살리고 경고 하나로 줄인다.
+        이 뒤의 단계가 실패하면 저장한 파일은 남는다(결과에서 가리키지 않을 뿐이다).
+        """
+        target = image_target(result.sections) if self.policy.image_generation else None
+        if target is None:
+            return result, []
+        prompt = self.prompts.render(
+            "image", state=state, policy=self.policy, profile=state.profile, heading=target.heading, text=section_text(target)
+        )
+        trace_input = {"system": prompt.system, "user": prompt.user}
+        try:
+            image = self.images.generate(task_type=self.task_type, prompt=prompt)
+        except ProviderError as exc:
+            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
+        asset_id = self.assets.put(state.owner_id, image.data, image.mime)
+        state.trace.append(
+            TraceEntry(
+                stage="image",
+                input=trace_input,
+                output={"asset_id": asset_id, "mime": image.mime, "bytes": len(image.data)},
+                provider=self.images.name,
+                model=image.model,
+            )
+        )
+        block = ImageBlock(
+            asset_id=asset_id, alt=f"{target.heading} 참고 이미지", caption=IMAGE_CAPTION, origin=ImageOrigin.AI_GENERATED
+        )
+        return with_image(result, target.order, block), []
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
         """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""

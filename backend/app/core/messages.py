@@ -12,6 +12,7 @@ SESSION_NOT_FOUND_MESSAGE = "세션을 찾을 수 없습니다."
 RESULT_NOT_READY_MESSAGE = "아직 생성된 결과가 없습니다."
 VERSION_NOT_FOUND_MESSAGE = "그 버전을 찾을 수 없습니다."
 SECTION_NOT_FOUND_MESSAGE = "그 섹션을 찾을 수 없습니다."
+IMAGE_FAILED_MESSAGE = "참고 이미지를 만들지 못했어요. 결과 글은 그대로예요."
 ASSET_NOT_FOUND_MESSAGE = "그 파일을 찾을 수 없습니다."
 CLIENT_ID_REQUIRED_MESSAGE = "사용자 식별 정보(X-Client-Id 헤더)가 없거나 형식이 맞지 않습니다."
 

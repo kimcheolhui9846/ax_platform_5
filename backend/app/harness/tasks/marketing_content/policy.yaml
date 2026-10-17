@@ -11,6 +11,7 @@ raw_input_field: product
 readiness_threshold: 0.7
 question_caps: { quick: 3, standard: 5, precise: 10 }
 max_easier_level: 4
+image_generation: true
 fields:
   - name: product
     label: 홍보 상품

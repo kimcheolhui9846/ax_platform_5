@@ -51,6 +51,8 @@ def test_every_stage_template_renders(registry, task_type, stage):
         "level": 3,
         "previous": [],
         "result_text": "결과",
+        "heading": "섹션 제목",
+        "text": "섹션 본문",
     }
     prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert prompt.system.strip() and prompt.user.strip()
@@ -187,6 +189,8 @@ def test_system_prompt_is_identical_across_sessions(registry, task_type, stage):
             "level": level,
             "previous": previous,
             "result_text": result_text,
+            "heading": result_text,
+            "text": result_text,
         }
         return harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
 

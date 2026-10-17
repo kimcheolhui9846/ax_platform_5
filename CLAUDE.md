@@ -37,8 +37,8 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/harness/prompting.py` — 단계별 템플릿 변수 선언(`STAGE_CONTEXT`). 넘긴 키가 선언과 다르면 렌더링이 실패한다. 렌더 결과는 `Prompt(system, user)`.
 - `backend/app/harness/registry.py` — 과제 등록부(`TASK_TYPES`). 등록되지 않은 과제는 `build_harness`가 거부한다.
 - `backend/app/api/` — 얇은 라우터(`/api/v1/coaching/...`), 상태→응답 변환(`views.py`, 순수 함수), 예외 처리기(`errors.py`), 경로별 오류 응답 선언(`responses.py`), 세션별 잠금(`locks.py`), 요청한 사용자(`owner.py`).
-- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, 계약은 `tests/test_store_contract.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
-- `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다. `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다.
+- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, 계약은 `tests/test_store_contract.py`), 파일 저장소(`assets.py`: 결과 이미지 바이트, 메모리·로컬 폴더 `ASSET_DIR`. 세션 저장소 `STORE`와 짝), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
+- `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다. `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다. 이미지는 별도 제공자 `ImageProvider`(`image.py`, Mock은 SVG 자리표시)다.
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.
 - `frontend/src/app/` — 앱 상태와 연결. `state.ts`의 `reducer`(순수)만 상태를 바꾼다. 응답은 지금 기다리는 요청 번호(`inflight.seq`)일 때만 받고, 과제·세션 묶음(`contextOf`)을 떠나면 늦게 온 응답을 버린다. `load.ts`의 `needsLoad`가 화면에 모자란 데이터를, `screenModel.ts`가 그릴 화면을 정하고, `handlers.ts`가 버튼을 이동·요청으로 바꾼다(`requests.ts`가 요청 번호를 붙여 실행). `view.tsx`의 `AppView`는 앱과 미리보기 갤러리가 같이 쓴다. 내 세션 목록(`sessions`)은 목록 화면(홈·내 작업·결과물)에 새로 들어올 때마다 다시 받는다. 내려받는 문서는 `documentFile.ts`가 화면 모델에서 만들고(`lib/documentHtml.ts`, 이스케이프한 HTML 한 파일), 파일 저장(`lib/download.ts`)은 App이 handlers에 넘긴다.
@@ -54,8 +54,8 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 결과물에서 거꾸로 따라간다.
 
 1. `output_schema.py` — 원하는 결과물이 바뀌었나?
-2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '다른 예시 보기' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 미확인 정보 항목(`supplement_fields`, 필드와 다른 이름), 금지 규칙(`rules`)
-3. `prompts/` — 이 과제에서만 다르게 할 단계 템플릿 (`diagnose`, `easier_question`, `propose_value`, `generate`, `validate`). 과제마다 고정인 내용은 `system` 블록, 세션 값은 `user` 블록에 둔다(`generate`는 보통 `task_guidance` 블록만 덮는다). 단계마다 쓸 수 있는 변수는 `prompting.py`의 `STAGE_CONTEXT`에 있다.
+2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '다른 예시 보기' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 미확인 정보 항목(`supplement_fields`, 필드와 다른 이름), 금지 규칙(`rules`), 참고 이미지(`image_generation`, 기본 꺼짐·비용)
+3. `prompts/` — 이 과제에서만 다르게 할 단계 템플릿 (`diagnose`, `easier_question`, `propose_value`, `generate`, `validate`, `image`). 과제마다 고정인 내용은 `system` 블록, 세션 값은 `user` 블록에 둔다(`generate`는 보통 `task_guidance` 블록만 덮는다). 단계마다 쓸 수 있는 변수는 `prompting.py`의 `STAGE_CONTEXT`에 있다.
 4. `validators.py` — 결과를 기계적으로 확인할 규칙. '이 표현이 있으면 경고'는 `validation.term_rule(rule, terms, message_template)`로 만든다.
 5. `harness.py` — 위로 표현할 수 없는 로직만 `BaseHarness` 메서드를 오버라이드
 6. `evals/*.yaml` — 바뀐 흐름을 시나리오로 남긴다
@@ -89,6 +89,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 흐름 패널의 질문 목록(`SessionView.flow`)은 `app/harness/flow.py`의 `plan_flow`(순수)가 만든다. 물어본 필드(처음 물은 순서, 완료·미정·멈춤) → 지금 질문 → 예정(정책 순서, `questions_left`만큼)이다. 멈춤(`paused`)은 '다른 예시 보기' 중에 결과를 먼저 만들어 걸린 질문이 내려간 필드다. 이미 상한에 셌으므로 예정 자리를 쓰지 않고, 이어 가면 다시 묻는다. 답한 항목에는 그 답을 정한 질문이 실려 있어 그 `question_id`로 답을 고친다.
 - 결과는 버전으로 쌓인다(`SessionState.versions`, `ResultVersion`). 생성이 성공할 때마다 `new_version`이 하나를 덧붙이고(첫 번째는 `first`, 그 뒤는 `regenerate`), 마지막 버전의 결과가 지금 결과(`state.result`)다. 버전은 그때의 사실·가정·미정을 복사해 두므로 결과 화면·버전 보기의 '반영한 기준'은 그 버전의 것이다(`ResultView.summary`). 실패한 생성은 버전을 남기지 않는다. `POST /sessions/{id}/versions/{n}/save`가 저장 표시를 하고, `GET …/versions/{n}`이 지난 버전을 보여 준다.
 - 미확인 정보 보완은 정책의 `supplement_fields`(필드와 이름이 겹치지 않는 별도 항목)다. `PUT /sessions/{id}/supplements`가 세션의 `supplements`에 사용자 입력(`user_supplement`, "사용자 입력 · 검증 전")으로 두고, 질문 흐름·준비도에는 넣지 않는다. 값이 바뀌면 수정처럼 `FAILED`를 풀고, 결과가 있으면 `result_stale`을 "답(사실·가정·미정) 또는 보완 정보가 마지막 버전과 다른지"(`answers_changed`·`supplements_changed`)로 다시 정한다(바꿨다 되돌려 마지막 버전과 같아지면 답도 그대로인 한 결과는 다시 최신이고, 답이 바뀐 채면 낡은 채다). 결과가 없으면 `result_stale`은 건드리지 않는다. 보완 정보는 생성과 LLM 검토 프롬프트(user 블록, `_supplements.md`)에만 "보완 정보"로 실린다(질문 단계에는 싣지 않는다). 생성 이유는 `generate_reason`이 정한다: 답(사실·가정·미정)은 그대로이고 보완 정보만 바뀌었으면 `supplement`. 문구 수정(`PATCH /sessions/{id}/result/sections/{order}`)은 LLM 없이 섹션 글을 바꾼 `edit` 버전이고 직전 버전의 기준(사실·가정·미정·보완 정보)을 이어받고 코드 검증도 그 기준으로 돈다. `content`(과제 스키마 값)는 LLM이 쓴 그대로 두고 섹션과 `full_text`(섹션을 이어 붙인 글)만 바꾸므로, `content`를 읽는 과제 검증은 원래 내용을 판정한다. 상태(`FAILED` 포함)와 `result_stale`은 건드리지 않는다. 고친 글이 지금 글과 같으면 버전을 만들지 않는다. 카드 본문(`ResultCard.body`)은 2500자 이하라(LLM 출력 제약. 상한 전에 저장한 옛 카드는 검증 없이 읽는다) 수정 상한(`EditSectionRequest`)을 넘지 않는다. 섹션 `order`는 카드 순서대로 1..n으로 다시 매긴다.
+- 결과 이미지는 정책 `image_generation`을 켠 과제(지금은 브랜딩·마케팅)에서만 생성마다 한 장 만든다(`BaseHarness.illustrate`, 단계 `image`). 대표 섹션(첫 제안 섹션, 없으면 첫 섹션) 끝에 `ImageBlock`(파일 id·대체 글·설명·출처)을 붙이고, 바이트는 `AssetStore`에 세션 주인 것으로 둔다. 이미지는 보조라 제공자가 실패해도 결과는 살리고 경고(`image_unavailable`) 하나로 줄인다. 문구 수정은 글 블록만 바꾸고 이미지 블록은 지킨다. `GET /assets/{asset_id}`가 주인에게만 바이트를 낸다(남의 것·없는 것은 404).
 - 세션에는 주인(`owner_id`)이 있다. 지금은 브라우저가 만든 익명 ID를 `X-Client-Id` 헤더로 보내고(`frontend/src/lib/clientId.ts`, `api/client.ts`의 `withClientId`), 백엔드는 `app/api/owner.py`의 `current_owner`로 받는다. 세션 경로는 모두 owner를 받고, 남의 세션은 없는 세션과 같은 404다(잠금도 만들지 않는다). 헤더가 없거나 형식이 틀리면 422. 로그인을 붙일 때는 `current_owner` 하나만 바꾼다. 테스트는 `tests/conftest.py`의 `api_client(app, client_id=...)`를 쓴다. 내 세션 목록은 `GET /sessions`(`SessionSummary`, 최근에 바뀐 순서, 저장한 버전 포함)다.
 
 ## API 계약이 바뀔 때

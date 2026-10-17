@@ -176,3 +176,17 @@ class ValidationReport(ContractModel):
     @property
     def passed(self) -> bool:
         return not any(issue.severity == "error" for issue in self.issues)
+
+
+def image_target(sections: Sequence[ResultSection]) -> ResultSection | None:
+    """[순수] 이미지를 붙일 대표 섹션: 첫 제안(suggestion) 섹션, 없으면 첫 섹션. 섹션이 없으면 None."""
+    return next((s for s in sections if s.kind is CardType.SUGGESTION), sections[0] if sections else None)
+
+
+def with_image(result: GenerationResult, order: int, block: ImageBlock) -> GenerationResult:
+    """[순수] 그 섹션 끝에 이미지 블록을 붙인 새 결과(복사본). 완성본 글(full_text)은 그대로다."""
+    sections = [
+        s.model_copy(update={"blocks": [*(b.model_copy() for b in s.blocks), block]}) if s.order == order else s.model_copy(deep=True)
+        for s in result.sections
+    ]
+    return result.model_copy(deep=True, update={"sections": sections})
