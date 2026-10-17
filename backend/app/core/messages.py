@@ -32,3 +32,6 @@ HTTP_STATUS_MESSAGES: dict[int, str] = {
     429: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
 }
 HTTP_ERROR_FALLBACK_MESSAGE = "요청을 처리하지 못했습니다."
+
+EVIDENCE_NOT_FOUND_MESSAGE = "그 근거 자료를 찾을 수 없습니다."
+EVIDENCE_NO_RECORD_MESSAGE = "결과에 반영할 점검 문구가 없는 자료입니다."

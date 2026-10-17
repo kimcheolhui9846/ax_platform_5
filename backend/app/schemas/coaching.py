@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
-from app.core.results import ResultSection, ValidationReport, VersionReason
+from app.core.results import CardType, EvidenceRecord, ResultSection, ValidationReport, VersionReason
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
@@ -42,6 +42,7 @@ class TaskSummary(ContractModel):
     description: str
     heading: str
     deliverable: str
+    evidence_sources: int  # 결과를 검토할 근거 자료 수(0이면 검토 버튼이 없다)
 
 
 class ModeInfo(ContractModel):
@@ -153,6 +154,7 @@ class LabeledResult(ContractModel):
 
     sections: list[ResultSection]
     assumptions: list[LabeledAssumption]
+    evidence: list[EvidenceRecord]
     full_text: str
     content: dict[str, Any]
     generated_at: datetime
@@ -204,3 +206,24 @@ class SessionSummary(ContractModel):
     latest_version: int | None  # 결과가 없으면 None
     saved_versions: list[VersionSummary]  # 저장 표시한 버전(결과물 목록에 모인다)
     updated_at: datetime
+
+
+class EvidenceProposalView(ContractModel):
+    title: str
+    text: str
+    note: str
+    caution: str
+
+
+class EvidenceItem(ContractModel):
+    """근거 검토 화면의 자료 하나. 반영 여부는 결과의 evidence(source_id)로 안다."""
+
+    id: str
+    title: str
+    publisher: str
+    meta: str
+    summary: str
+    scope: str
+    url: str
+    applies_to: CardType
+    record: EvidenceProposalView | None  # 결과에 붙일 점검 문구(배경 자료면 None)

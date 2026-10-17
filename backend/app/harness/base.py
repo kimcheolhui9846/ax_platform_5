@@ -11,7 +11,7 @@ from typing import Any, ClassVar, TypeVar
 from pydantic import BaseModel
 
 from app.core.assets import AssetStore, InMemoryAssetStore
-from app.core.messages import IMAGE_FAILED_MESSAGE
+from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE
 from app.core.results import (
     GenerationResult,
     ImageBlock,
@@ -21,10 +21,12 @@ from app.core.results import (
     ValidationIssue,
     ValidationReport,
     VersionReason,
+    carry_evidence,
     image_target,
     section_text,
     sections_from_cards,
     utcnow,
+    with_evidence,
     with_image,
     with_section_text,
 )
@@ -45,6 +47,7 @@ from app.core.state import (
     TraceEntry,
 )
 from app.harness.errors import GenerationFailed, HarnessError
+from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
@@ -279,6 +282,7 @@ class BaseHarness:
     ) -> None:
         self.task_dir = task_dir
         self.policy = load_policy(task_dir / "policy.yaml")
+        self.evidence = load_evidence(task_dir / "evidence.yaml")  # 샘플 근거 자료(없으면 빈 목록)
         self.provider = provider
         self.images = images or MockImageProvider()  # 앱은 등록부가 넘긴다. 없으면 이 하네스만의 Mock·메모리
         self.assets = assets or InMemoryAssetStore()
@@ -572,6 +576,8 @@ class BaseHarness:
                 result.assumptions = merge_assumptions(
                     result.assumptions, state.assumptions, self.policy.labels
                 )
+                if state.result is not None:  # 반영해 둔 근거 기록은 다시 만든 초안으로 옮긴다
+                    result.evidence = carry_evidence(state.result.evidence, result.sections)
                 result, image_issues = self.illustrate(state, result)
                 report = self.validate(state, result)
                 report.issues.extend(image_issues)
@@ -627,6 +633,15 @@ class BaseHarness:
         current = next(s for s in state.result.sections if s.order == order)
         if cleaned == section_text(current):
             return True
+        self._add_derived_version(state, VersionReason.EDIT, result)
+        return True
+
+    def _add_derived_version(self, state: SessionState, reason: VersionReason, result: GenerationResult) -> None:
+        """[코드] 직전 버전의 기준(사실·가정·미정·보완 정보)을 이어받고 결과만 바꾼 새 버전(문구 수정·근거 반영).
+
+        LLM을 부르지 않는다. 코드 검증은 지금 세션의 바뀐 답이 아니라 그 기준으로 다시 돈다. 상태(FAILED 포함)와
+        result_stale은 건드리지 않는다.
+        """
         latest = state.versions[-1]
         basis = state.model_copy(
             update={
@@ -637,10 +652,9 @@ class BaseHarness:
             }
         )
         report = ValidationReport(issues=collect_issues([*COMMON_VALIDATORS, *self.validators], basis, result, self.policy))
-        state.versions.append(latest.derived(len(state.versions) + 1, VersionReason.EDIT, result, report))
+        state.versions.append(latest.derived(len(state.versions) + 1, reason, result, report))
         state.result = result
         state.validation = report
-        return True
 
     def set_supplements(self, state: SessionState, values: Mapping[str, str | None]) -> None:
         """미확인 정보를 저장한다(사용자 입력·검증 전). 다음 생성에 반영된다.
@@ -659,6 +673,29 @@ class BaseHarness:
             latest = state.versions[-1]
             state.result_stale = answers_changed(state, latest) or supplements_changed(merged, latest)
         _settle_status(state)
+
+    def find_evidence(self, state: SessionState) -> list[EvidenceSource]:
+        """[자료] 결과를 검토할 근거 자료. 지금은 과제 폴더 evidence.yaml(샘플)이고, 웹 검색을 붙이면 이 단계만 바꾼다."""
+        return list(self.evidence)
+
+    def apply_evidence(self, state: SessionState, source_id: str) -> bool:
+        """[코드] 자료의 점검 문구와 출처를 결과에 붙인 새 버전(evidence)을 만든다. LLM을 부르지 않는다.
+
+        직전 버전의 기준을 이어받는다(_add_derived_version). 이미 반영한 자료면 버전 없이 True. 결과가 없거나 그런
+        자료가 없으면 False(세션은 그대로). 점검 문구가 없는 자료(배경 자료)면 HarnessError.
+        """
+        if state.result is None or not state.versions:
+            return False
+        source = next((s for s in self.find_evidence(state) if s.id == source_id), None)
+        if source is None:
+            return False
+        if source.record is None:
+            raise HarnessError(EVIDENCE_NO_RECORD_MESSAGE)
+        if any(r.source_id == source_id for r in state.result.evidence):
+            return True
+        record = evidence_record(source, state.result.sections)
+        self._add_derived_version(state, VersionReason.EVIDENCE, with_evidence(state.result, record))
+        return True
 
     def illustrate(self, state: SessionState, result: GenerationResult) -> tuple[GenerationResult, list[ValidationIssue]]:
         """[이미지] policy.image_generation일 때만 대표 섹션(image_target) 끝에 참고 이미지 한 장을 붙인다.

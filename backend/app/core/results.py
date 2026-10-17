@@ -20,12 +20,13 @@ class CardType(StrEnum):
 
 
 class VersionReason(StrEnum):
-    """결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다."""
+    """결과 버전이 생긴 까닭."""
 
     FIRST = "first"  # 첫 초안
     REGENERATE = "regenerate"  # 다시 만든 초안
     EDIT = "edit"  # 문구 수정
     SUPPLEMENT = "supplement"  # 보완 정보 반영
+    EVIDENCE = "evidence"  # 근거 자료 반영
 
 
 class ResultCard(ContractModel):
@@ -81,6 +82,20 @@ class ImageBlock(ContractModel):
 Block = Annotated[TextBlock | ImageBlock, Field(discriminator="type")]
 
 
+class EvidenceRecord(ContractModel):
+    """결과에 붙인 근거 검토 기록(점검 문구와 출처). 그 종류의 첫 섹션 뒤에 보이고, 자리가 없으면 문서 끝이다."""
+
+    source_id: str
+    title: str  # 점검 항목 이름
+    text: str
+    note: str  # 출처 옆 한 줄(예: 제품 시험 전)
+    source_title: str
+    publisher: str
+    url: str
+    section_kind: CardType
+    section_order: int | None
+
+
 class ResultSection(ContractModel):
     """결과 문서의 섹션 하나(진단·제안·실행 과제). 내용은 블록 목록이다."""
 
@@ -88,6 +103,16 @@ class ResultSection(ContractModel):
     heading: str
     kind: CardType
     blocks: list[Block]
+
+
+def section_order_for(sections: Sequence["ResultSection"], kind: CardType) -> int | None:
+    """[순수] 그 종류의 첫 섹션 order. 없으면 None."""
+    return next((s.order for s in sections if s.kind is kind), None)
+
+
+def carry_evidence(records: Sequence[EvidenceRecord], sections: Sequence["ResultSection"]) -> list[EvidenceRecord]:
+    """[순수] 다시 만든 결과로 옮기는 근거 기록. 섹션이 바뀌었으니 종류로 자리를 다시 잡는다."""
+    return [r.model_copy(update={"section_order": section_order_for(sections, r.section_kind)}) for r in records]
 
 
 def sections_from_cards(cards: Sequence[ResultCard]) -> list[ResultSection]:
@@ -118,6 +143,7 @@ class GenerationResult(ContractModel):
     sections: list[ResultSection]
     assumptions: list[ResultAssumption] = Field(default_factory=list)
     full_text: str
+    evidence: list[EvidenceRecord] = Field(default_factory=list)  # 근거 검토 기록
     content: dict[str, Any]
     generated_at: datetime = Field(default_factory=utcnow)
 
@@ -158,6 +184,12 @@ def with_section_text(result: GenerationResult, order: int, text: str) -> Genera
         for s in result.sections
     ]
     return result.model_copy(deep=True, update={"sections": sections, "full_text": compose_full_text(sections)})
+
+
+def with_evidence(result: GenerationResult, record: EvidenceRecord) -> GenerationResult:
+    """[순수] 근거 기록을 덧붙인 새 결과(복사본). 섹션과 글은 그대로다."""
+    copied = result.model_copy(deep=True)
+    return copied.model_copy(update={"evidence": [*copied.evidence, record]})
 
 
 class ValidationIssue(ContractModel):
