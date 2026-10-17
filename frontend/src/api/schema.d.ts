@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description 내 세션 요약(최근에 바뀐 순서). 등록부에서 빠진 과제의 세션은 건너뛴다.
+         */
+        get: operations["list_sessions_api_v1_coaching_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -478,6 +498,36 @@ export interface components {
          * @enum {string}
          */
         SessionStatus: "drafting" | "clarifying" | "confirming" | "generating" | "completed" | "failed" | "revising";
+        /**
+         * SessionSummary
+         * @description 내 작업·결과물 목록의 세션 하나.
+         */
+        SessionSummary: {
+            /** Session Id */
+            session_id: string;
+            /** Task Type */
+            task_type: string;
+            /** Title */
+            title: string;
+            /** Raw Input */
+            raw_input: string;
+            mode: components["schemas"]["CoachingMode"];
+            /** Has Question */
+            has_question: boolean;
+            /** Has Result */
+            has_result: boolean;
+            /** Result Stale */
+            result_stale: boolean;
+            /** Latest Version */
+            latest_version: number | null;
+            /** Saved Versions */
+            saved_versions: components["schemas"]["VersionSummary"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** SessionView */
         SessionView: {
             /** Session Id */
@@ -778,6 +828,44 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_sessions_api_v1_coaching_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"][];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

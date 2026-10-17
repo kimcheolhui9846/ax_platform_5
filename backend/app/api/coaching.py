@@ -7,7 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
-from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary, to_version_view
+from app.api.views import (
+    to_result_view,
+    to_session_summary,
+    to_session_view,
+    to_task_form,
+    to_task_summary,
+    to_version_view,
+)
 from app.core.messages import (
     RESULT_NOT_READY_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
@@ -24,6 +31,7 @@ from app.schemas.coaching import (
     CreateSessionRequest,
     ResultView,
     ReviseAnswerRequest,
+    SessionSummary,
     SessionView,
     TaskForm,
     TaskSummary,
@@ -99,6 +107,16 @@ def create_session(
     state = harness.start(body.raw_input, body.mode, owner_id=owner)
     store.save(state)
     return to_session_view(state, harness)
+
+
+@router.get("/sessions", response_model=list[SessionSummary], responses=error_responses(422))
+def list_sessions(registry: Registry, store: Store, owner: Owner) -> list[SessionSummary]:
+    """내 세션 요약(최근에 바뀐 순서). 등록부에서 빠진 과제의 세션은 건너뛴다."""
+    return [
+        to_session_summary(state, registry.get(state.task_type).policy)
+        for state in store.list_by_owner(owner)
+        if state.task_type in registry
+    ]
 
 
 @router.get("/sessions/{session_id}", response_model=SessionView, responses=error_responses(404, 422))

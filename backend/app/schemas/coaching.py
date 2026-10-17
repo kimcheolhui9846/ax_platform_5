@@ -167,3 +167,19 @@ class VersionView(ContractModel):
     validation: ValidationReport | None
     summary: list[SummaryItem]
     unknowns: list[UnknownItem]
+
+
+class SessionSummary(ContractModel):
+    """내 작업·결과물 목록의 세션 하나."""
+
+    session_id: str
+    task_type: str
+    title: str  # 과제 이름
+    raw_input: str
+    mode: CoachingMode
+    has_question: bool  # 걸린 질문이 있다(이어서 답할 수 있다)
+    has_result: bool
+    result_stale: bool
+    latest_version: int | None  # 결과가 없으면 None
+    saved_versions: list[VersionSummary]  # 저장 표시한 버전(결과물 목록에 모인다)
+    updated_at: datetime

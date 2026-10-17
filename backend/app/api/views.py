@@ -22,6 +22,7 @@ from app.schemas.coaching import (
     ModeInfo,
     Progress,
     ResultView,
+    SessionSummary,
     SessionView,
     SummaryItem,
     TaskForm,
@@ -166,4 +167,21 @@ def to_version_view(state: SessionState, version: ResultVersion, policy: TaskPol
         validation=version.validation,
         summary=build_summary(policy.fields, version.facts, version.assumptions),
         unknowns=label_unknowns(version.unknowns, policy.labels),
+    )
+
+
+def to_session_summary(state: SessionState, policy: TaskPolicy) -> SessionSummary:
+    """[순수] 목록에 보일 세션 요약."""
+    return SessionSummary(
+        session_id=state.session_id,
+        task_type=state.task_type,
+        title=policy.title,
+        raw_input=state.raw_input,
+        mode=state.mode,
+        has_question=state.pending_question is not None,
+        has_result=state.result is not None,
+        result_stale=state.result_stale,
+        latest_version=state.versions[-1].version if state.versions else None,
+        saved_versions=[version_summary(v) for v in state.versions if v.saved],
+        updated_at=state.updated_at,
     )

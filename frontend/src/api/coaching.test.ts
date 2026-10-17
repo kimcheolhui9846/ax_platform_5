@@ -9,6 +9,9 @@ import {
   createSession,
   generateResult,
   getResult,
+  getVersion,
+  listSessions,
+  saveVersion,
   getSession,
   getTaskForm,
   listTasks,
@@ -16,7 +19,7 @@ import {
   showOriginalQuestion,
   submitAnswer,
 } from "./coaching";
-import type { ResultView, SessionView, TaskForm, TaskSummary } from "./types";
+import type { ResultView, SessionSummary, SessionView, TaskForm, TaskSummary, VersionView } from "./types";
 
 const BASE = "/api/v1/coaching";
 
@@ -86,6 +89,25 @@ describe("coaching API 래퍼", () => {
     expect(api.GET).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/result`, {
       params: { path: { session_id: "sess_1" } },
     });
+  });
+
+  it("내 세션 목록·버전 보기·저장", async () => {
+    await listSessions();
+    expect(api.GET).toHaveBeenCalledWith(`${BASE}/sessions`);
+
+    await getVersion("sess_1", 2);
+    expect(api.GET).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/versions/{version}`, {
+      params: { path: { session_id: "sess_1", version: 2 } },
+    });
+
+    await saveVersion("sess_1", 2);
+    expect(api.POST).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/versions/{version}/save`, {
+      params: { path: { session_id: "sess_1", version: 2 } },
+    });
+
+    expectTypeOf(listSessions).returns.resolves.toEqualTypeOf<ApiResult<SessionSummary[]>>();
+    expectTypeOf(getVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
+    expectTypeOf(saveVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
   });
 
   it("돌려주는 타입", () => {

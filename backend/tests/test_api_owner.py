@@ -39,8 +39,9 @@ def test_session_routes_need_a_valid_client_id(client_id):
 
     created = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"})
     read = client.get(f"{BASE}/sessions/sess_1")
+    listed = client.get(f"{BASE}/sessions")
 
-    for response in (created, read):
+    for response in (created, read, listed):
         assert response.status_code == 422
         assert response.json() == {"detail": CLIENT_ID_REQUIRED_MESSAGE}
 

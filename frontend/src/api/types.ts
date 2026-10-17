@@ -24,3 +24,4 @@ export type VersionView = Schemas["VersionView"];
 export type VersionReason = Schemas["VersionReason"];
 export type LabeledResult = Schemas["LabeledResult"];
 export type ValidationIssue = Schemas["ValidationIssue"];
+export type SessionSummary = Schemas["SessionSummary"];
