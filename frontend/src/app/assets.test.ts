@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { makeResult, makeSession, makeTask, makeVersionView } from "../testing/factories";
-import { assetsToLoad, notInFlight, imageIdsOf } from "./assets";
+import { assetWork, assetsToLoad, imageIdsOf, notInFlight } from "./assets";
+import { initialState, reducer } from "./state";
 import type { ScreenModel } from "./screenModel";
 
 const withImages = (ids: string[]) => {
@@ -43,5 +44,35 @@ describe("notInFlight", () => {
     expect(notInFlight(inFlight, ["a", "b"])).toEqual(["b"]);
     inFlight.delete("a");
     expect(notInFlight(inFlight, ["a", "b"])).toEqual(["a", "b"]);
+  });
+});
+
+describe("받는 중에 세션을 떠났다 돌아온 경우", () => {
+  it("요청은 다시 하고 내려받기는 다시 하지 않아, 늦게 온 응답이 받아들여진다", () => {
+    const inFlight = new Set<string>();
+    const model = (state: ReturnType<typeof initialState>): ScreenModel => ({
+      kind: "result",
+      task: makeTask(),
+      session: makeSession(),
+      result: withImages(["a"]),
+      images: state.assets,
+    });
+    let state = initialState({ name: "result", sessionId: "sess_1" });
+
+    let work = assetWork(assetsToLoad(model(state), state.assets), inFlight);
+    expect(work).toEqual({ request: ["a"], fetch: ["a"] });
+    work.request.forEach((assetId) => (state = reducer(state, { type: "assetRequested", assetId })));
+    work.fetch.forEach((id) => inFlight.add(id)); // 내려받기 시작
+
+    state = reducer(state, { type: "navigated", route: { name: "result", sessionId: "sess_2" } }); // 떠남: 이미지 비움
+    expect(state.assets).toEqual({});
+    state = reducer(state, { type: "navigated", route: { name: "result", sessionId: "sess_1" } }); // 돌아옴
+
+    work = assetWork(assetsToLoad(model(state), state.assets), inFlight);
+    expect(work).toEqual({ request: ["a"], fetch: [] }); // 받는 중이라 다시 내려받지는 않는다
+    work.request.forEach((assetId) => (state = reducer(state, { type: "assetRequested", assetId })));
+
+    state = reducer(state, { type: "assetLoaded", assetId: "a", url: "data:late" }); // 늦게 온 응답
+    expect(state.assets).toEqual({ a: "data:late" });
   });
 });

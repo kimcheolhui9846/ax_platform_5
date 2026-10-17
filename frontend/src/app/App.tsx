@@ -7,7 +7,7 @@ import { isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
-import { assetsToLoad, notInFlight } from "./assets";
+import { assetWork, assetsToLoad } from "./assets";
 import { createRunner, loadAsset, startLoad } from "./requests";
 import { screenModel } from "./screenModel";
 import { initialState, isBusy, reducer } from "./state";
@@ -66,9 +66,10 @@ export default function App() {
   // 목록은 렌더마다 새 배열이라 의존성으로 쓰면 effect가 매번 돈다. 같은 목록이면 같은 문자열이 되도록 id를 이어 붙여 의존성으로 둔다.
   const pendingAssets = assetsToLoad(model, state.assets).join(" ");
   useEffect(() => {
-    for (const assetId of notInFlight(inFlightAssets, pendingAssets.split(" ").filter(Boolean))) {
+    const work = assetWork(pendingAssets.split(" ").filter(Boolean), inFlightAssets);
+    for (const assetId of work.request) dispatch({ type: "assetRequested", assetId });
+    for (const assetId of work.fetch) {
       inFlightAssets.add(assetId);
-      dispatch({ type: "assetRequested", assetId });
       void loadAsset(assetId)
         .then((url) => dispatch({ type: "assetLoaded", assetId, url }))
         .finally(() => inFlightAssets.delete(assetId));
