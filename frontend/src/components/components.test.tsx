@@ -366,7 +366,8 @@ describe("근거 검토 화면", () => {
 describe("생성 중 화면", () => {
   it("본문은 진행 상태를 알리고 취소 버튼이 없다", () => {
     const html = renderToString(<GeneratingMain />);
-    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain("aria-busy");
+    expect(html).toMatch(/<h1[^>]*tabindex="-1"[^>]*>답변을 바탕으로/);
     expect(html).toContain("초안 생성 중");
     expect(html).toContain("답변을 바탕으로 초안을 정리하고 있어요");
     expect(html).toContain('role="status"');
@@ -406,6 +407,12 @@ describe("생성 실패 화면", () => {
     expect(retry(renderToString(<FailedMain {...props} canGenerate={false} />))).toBe(true);
     expect(retry(renderToString(<FailedMain {...props} busy />))).toBe(true);
     expect(retry(renderToString(<FailedMain {...props} />))).toBe(false);
+  });
+
+  it("만들 수 없어서 막혔을 때만 이유를 알린다", () => {
+    const reason = "지금은 다시 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.";
+    expect(renderToString(<FailedMain {...props} canGenerate={false} />)).toContain(reason);
+    expect(renderToString(<FailedMain {...props} />)).not.toContain(reason);
   });
 
   it("옆 패널은 유지된 답변과 흐름 요약을 그린다", () => {

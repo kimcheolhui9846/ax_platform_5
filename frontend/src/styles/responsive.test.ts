@@ -6,12 +6,14 @@ import { AppShell } from "../layout/AppShell";
 
 const sheets = import.meta.glob("./*.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
-const LAYOUT_MEDIA = /@media\s*\((?!\s*prefers-reduced-motion)/;
+const LAYOUT_MEDIA = /@media[^{]*\b(width|height|aspect-ratio|orientation)\b/;
 
 describe("반응형 배치", () => {
   it("배치용 @media는 거르고 움직임 줄이기 설정은 허용한다", () => {
     expect(LAYOUT_MEDIA.test("@media (max-width: 700px) { a { b: c } }")).toBe(true);
     expect(LAYOUT_MEDIA.test("@media (prefers-reduced-motion: reduce) { a { b: c } }")).toBe(false);
+    expect(LAYOUT_MEDIA.test("@media screen and (max-width: 700px) { a { b: c } }")).toBe(true);
+    expect(LAYOUT_MEDIA.test("@media (prefers-reduced-motion: reduce) and (max-width: 700px) { a { b: c } }")).toBe(true);
   });
 
   // 배치는 창 폭(@media)이 아니라 뼈대 폭(@container)으로 바뀌어야 미리보기의 390px 프레임이 스스로 모바일 배치가 된다.

@@ -9,6 +9,7 @@
 단계 행(ID에 점이 없는 행)의 진척률은 하위 작업 평균 수식이고, '요약' 시트도 수식이라 따로 고치지 않는다.
 """
 import argparse
+from datetime import date
 import re
 import sys
 from pathlib import Path
@@ -72,7 +73,21 @@ def cmd_list(ws, _args) -> None:
         print(" | ".join("" if x is None else str(x) for x in v))
 
 
+def check_inputs(args) -> None:
+    """날짜는 YYYY-MM-DD(빈 문자열은 지우기), 진행률은 0~1."""
+    for name in ("start", "end"):
+        value = getattr(args, name)
+        if value:
+            try:
+                date.fromisoformat(value)
+            except ValueError:
+                sys.exit(f"--{name}은 YYYY-MM-DD 형식이어야 합니다: {value}")
+    if args.pct is not None and not 0 <= args.pct <= 1:
+        sys.exit(f"--pct는 0~1 사이여야 합니다(100%는 1): {args.pct}")
+
+
 def cmd_set(ws, args) -> None:
+    check_inputs(args)
     r = find_row(ws, args.id)
     if args.status and args.status not in STATUSES:
         sys.exit(f"상태는 {', '.join(STATUSES)} 중 하나입니다.")
@@ -85,6 +100,7 @@ def cmd_set(ws, args) -> None:
 
 
 def cmd_add(ws, args) -> None:
+    check_inputs(args)
     after = find_row(ws, args.after)
     r = after + 1
     ws.insert_rows(r)

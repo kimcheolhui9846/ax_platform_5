@@ -17,6 +17,7 @@ import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence"
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
+import { PLAIN } from "./requests";
 import type { Runner } from "./requests";
 import type { Action, AppState } from "./state";
 import type { Handlers } from "./view";
@@ -52,10 +53,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
     void run({
       request,
       done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), notice: null }),
-      load: null,
-      generating: false,
-      failedRoute: null,
-      outdatesSessionOnFail: false,
+      ...PLAIN,
     });
 
   const answer = (body: AnswerBody) => {
@@ -77,7 +75,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         outdatesSession: true,
         notice,
       }),
-      load: null,
+      ...PLAIN,
       generating: true,
       failedRoute: { name: "failed", sessionId },
       outdatesSessionOnFail: true,
@@ -132,10 +130,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           next: next.next_question ? routeAfterSession(next) : null,
           notice: next.next_question ? null : NOTHING_LEFT_NOTICE,
         }),
-        load: null,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
+        ...PLAIN,
       });
     },
     resume: (summary) => go(resumeRoute(summary)),
@@ -148,10 +143,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       void run({
         request: () => saveVersionRequest(sessionId, number),
         done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId, version: number } }),
-        load: null,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
+        ...PLAIN,
       });
     },
     saveSupplements: (values) => {
@@ -160,10 +152,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       void run({
         request: () => saveSupplementsRequest(sessionId, values),
         done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
-        load: null,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
+        ...PLAIN,
       });
     },
     applySupplements: () => generateWith(SUPPLEMENTS_APPLIED_NOTICE),
@@ -184,10 +173,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           outdatesSession: false,
           notice: SECTION_EDITED_NOTICE,
         }),
-        load: null,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
+        ...PLAIN,
       });
     },
     reviewEvidence: () => {
@@ -207,10 +193,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           outdatesSession: false,
           notice: EVIDENCE_APPLIED_NOTICE,
         }),
-        load: null,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
+        ...PLAIN,
       });
     },
     openBeforeEvidence: () => {

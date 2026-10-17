@@ -26,12 +26,8 @@ export function confirmActions(session: Pick<SessionView, "has_result" | "result
   ];
 }
 
-/** [순수] 결과 화면의 다시 만들기. 결과가 낡았을 때만 주 버튼이다. */
-export function regenerateAction(stale: boolean): ResultAction {
-  return stale
-    ? { action: "generate", label: "바뀐 내용으로 다시 만들기", primary: true }
-    : { action: "generate", label: "초안 다시 만들기", primary: false };
-}
+/** 결과 화면 오른쪽의 다시 만들기. 낡은 결과의 다시 만들기는 본문 배너(`STALE_BANNER`)가 맡는다. */
+export const REGENERATE_ACTION: ResultAction = { action: "generate", label: "초안 다시 만들기", primary: false };
 
 /** [순수] 버튼 이름과 막힘. 결과 보기는 LLM을 부르지 않으므로 생성 가능 여부와 상관없다. */
 export function actionState(

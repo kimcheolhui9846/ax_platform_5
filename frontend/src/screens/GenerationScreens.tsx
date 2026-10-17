@@ -1,13 +1,17 @@
+import { useEffect, useRef } from "react";
 import type { FlowItem } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 
 /** 초안 생성 중. 서버가 끝까지 처리하는 요청이라 취소 버튼은 두지 않는다. */
 export function GeneratingMain() {
+  const heading = useRef<HTMLHeadingElement>(null);
+  // 누른 버튼이 사라지므로 화면이 바뀌면 제목으로 초점을 옮긴다
+  useEffect(() => heading.current?.focus(), []);
   return (
-    <section className="card generation-card stack" aria-busy="true">
+    <section className="card generation-card stack">
       <div className="spinner" aria-hidden="true" />
       <p className="small">초안 생성 중</p>
-      <h1>답변을 바탕으로 초안을 정리하고 있어요</h1>
+      <h1 ref={heading} tabIndex={-1}>답변을 바탕으로 초안을 정리하고 있어요</h1>
       <p className="muted" role="status">
         선택한 기준과 보완 정보를 확인하고 있어요. 잠시만 기다려 주세요.
       </p>
@@ -61,6 +65,7 @@ export function FailedMain({ hasResult, busy, canGenerate, onRetry, onConfirm, o
           </button>
         )}
       </div>
+      {!canGenerate && <p className="small muted">지금은 다시 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.</p>}
       <p className="small muted">입력 내용과 저장한 결과는 삭제되지 않았어요.</p>
     </section>
   );

@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -146,10 +147,43 @@ describe("renderScreen", () => {
     expect(side).not.toContain(STALE_NOTICE);
     expect(side).toMatch(/<button[^>]*disabled=""[^>]*>현재 버전 저장</);
     expect(side).toMatch(/<button[^>]*disabled=""[^>]*>문서 내려받기</);
+    // 다시 만들기는 본문 배너 하나뿐이다(오른쪽 패널에는 없다)
+    expect(side).not.toContain("다시 만들기");
+    expect(side).not.toContain("btn primary");
+    // 막은 두 버튼은 이유 문단을 가리킨다
+    const hintId = /<p id="([^"]+)"[^>]*>바뀐 기준으로/.exec(side ?? "")?.[1];
+    expect(hintId).toBeTruthy();
+    expect(side).toMatch(new RegExp(`<button[^>]*aria-describedby="${hintId}"[^>]*>현재 버전 저장<`));
+    expect(side).toMatch(new RegExp(`<button[^>]*aria-describedby="${hintId}"[^>]*>문서 내려받기<`));
     const fresh = draw({ kind: "result", task, session: makeSession({ next_question: null, has_result: true }), result: makeResult(), images: {} });
     expect(fresh.main).not.toContain("stale-banner");
     expect(fresh.side).not.toContain(STALE_SAVE_HINT);
+    expect(fresh.side).not.toContain("aria-describedby");
+    expect(fresh.side).toContain("초안 다시 만들기");
     expect(fresh.side).not.toMatch(/<button[^>]*disabled=""[^>]*>문서 내려받기</);
+  });
+
+  it("배너 버튼은 처리 중이거나 만들 수 없으면 막힌다", () => {
+    const banner = (html: string) => /<button[^>]*disabled=""[^>]*>바뀐 내용으로 다시 만들기</.test(html);
+    const model = (can: boolean): ScreenModel => ({
+      kind: "result",
+      task,
+      session: makeSession({ next_question: null, has_result: true, result_stale: true, can_generate: can }),
+      result: makeResult(),
+      images: {},
+    });
+    expect(banner(draw(model(true)).main)).toBe(false);
+    expect(banner(draw(model(true), true).main)).toBe(true);
+    expect(banner(draw(model(false)).main)).toBe(true);
+  });
+
+  it("배너·실패 화면의 버튼은 생성 핸들러에 이어진다", () => {
+    const on = { ...NOOP_HANDLERS, generate: () => {} };
+    const stale = makeSession({ next_question: null, has_result: true, result_stale: true });
+    const result = renderScreen({ kind: "result", task, session: stale, result: makeResult(), images: {} }, false, on);
+    expect((result.main as ReactElement<{ onRegenerate: unknown }>).props.onRegenerate).toBe(on.generate);
+    const failed = renderScreen({ kind: "failed", task, session: makeSession() }, false, on);
+    expect((failed.main as ReactElement<{ onRetry: unknown }>).props.onRetry).toBe(on.generate);
   });
 
   it("저장 완료는 결과물·다시 보기·내려받기", () => {

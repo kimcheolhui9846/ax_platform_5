@@ -1,8 +1,9 @@
+import { useId } from "react";
 import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { ResultDocument } from "../components/ResultDocument";
 import { SupplementPanel } from "../components/SupplementPanel";
-import { STALE_BANNER, STALE_SAVE_HINT, actionState, regenerateAction, saveButton } from "../lib/actions";
+import { STALE_BANNER, STALE_SAVE_HINT, REGENERATE_ACTION, actionState, saveButton } from "../lib/actions";
 import { documentContent } from "../lib/document";
 import type { Images } from "../lib/document";
 import type { SupplementProps } from "./EditScreen";
@@ -91,8 +92,10 @@ export function ResultSide({
   onContinue,
   onDownload,
 }: SideProps) {
-  const regenerate = regenerateAction(session.result_stale);
-  const regenerateState = actionState(regenerate, busy, session.can_generate);
+  const hintId = useId();
+  const stale = session.result_stale;
+  const regenerateState = actionState(REGENERATE_ACTION, busy, session.can_generate);
+  const hinted = stale ? hintId : undefined;
   const save = saveButton(version, session.result_stale, withSources);
   return (
     <section className="card side-card stack" aria-label="결과 다음 할 일">
@@ -110,15 +113,18 @@ export function ResultSide({
             {evidence.label}
           </button>
         )}
+        {!stale && (
+          <button type="button" className="btn full" disabled={regenerateState.disabled} onClick={onRegenerate}>
+            {regenerateState.label}
+          </button>
+        )}
         <button
           type="button"
-          className={regenerate.primary ? "btn primary full" : "btn full"}
-          disabled={regenerateState.disabled}
-          onClick={onRegenerate}
+          className={save.primary ? "btn primary full" : "btn full"}
+          disabled={busy || save.disabled}
+          aria-describedby={hinted}
+          onClick={onSave}
         >
-          {regenerateState.label}
-        </button>
-        <button type="button" className={save.primary ? "btn primary full" : "btn full"} disabled={busy || save.disabled} onClick={onSave}>
           {save.label}
         </button>
         {onEditText && (
@@ -139,11 +145,15 @@ export function ResultSide({
         <button type="button" className="btn full" disabled={busy} onClick={onContinue}>
           질문 이어 가기
         </button>
-        <button type="button" className="btn full" disabled={busy || session.result_stale} onClick={onDownload}>
+        <button type="button" className="btn full" disabled={busy || stale} aria-describedby={hinted} onClick={onDownload}>
           문서 내려받기
         </button>
       </div>
-      {session.result_stale && <p className="small muted">{STALE_SAVE_HINT}</p>}
+      {stale && (
+        <p id={hintId} className="small muted">
+          {STALE_SAVE_HINT}
+        </p>
+      )}
       <p className="small muted">AI 제안과 외부 사실은 따로 검토가 필요해요.</p>
     </section>
   );

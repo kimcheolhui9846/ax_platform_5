@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { STALE_NOTICE, actionState, confirmActions, regenerateAction, saveButton } from "./actions";
+import { STALE_NOTICE, actionState, confirmActions, REGENERATE_ACTION, saveButton } from "./actions";
 
 describe("결과 버튼", () => {
   it("최신 아님 문구는 답뿐 아니라 보완 정보가 바뀐 경우도 아우른다", () => {
@@ -25,13 +25,12 @@ describe("결과 버튼", () => {
     ]);
   });
 
-  it("결과 화면의 다시 만들기는 낡았을 때만 주 버튼이다", () => {
-    expect(regenerateAction(true)).toEqual({ action: "generate", label: "바뀐 내용으로 다시 만들기", primary: true });
-    expect(regenerateAction(false)).toEqual({ action: "generate", label: "초안 다시 만들기", primary: false });
+  it("결과 화면 오른쪽의 다시 만들기는 보조 버튼이다", () => {
+    expect(REGENERATE_ACTION).toEqual({ action: "generate", label: "초안 다시 만들기", primary: false });
   });
 
   it("처리 중이면 막고, 만들기는 생성할 수 없을 때도 막는다(보기는 LLM을 부르지 않는다)", () => {
-    const generate = regenerateAction(false);
+    const generate = REGENERATE_ACTION;
     const show = { action: "show_result" as const, label: "결과 보기", primary: true };
     expect(actionState(generate, true, true)).toEqual({ label: "초안을 만드는 중…", disabled: true });
     expect(actionState(generate, false, false)).toEqual({ label: "초안 다시 만들기", disabled: true });

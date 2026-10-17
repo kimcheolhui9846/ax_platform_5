@@ -38,6 +38,9 @@ export function createRunner(dispatch: (action: Action) => void): Runner {
   };
 }
 
+/** 화면을 그리는 요청도, 생성도 아닌 보통 요청의 기본값. 생성만 덮어쓴다. */
+export const PLAIN = { load: null, generating: false, failedRoute: null, outdatesSessionOnFail: false } as const;
+
 /** 화면에 모자란 데이터(needsLoad)를 부른다. */
 export function startLoad(run: Runner, load: Load): Promise<void> {
   const key = loadKey(load);
@@ -46,64 +49,50 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
       return run({
         request: listTasks,
         done: (tasks, seq) => ({ type: "tasksLoaded", seq, tasks }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "sessions":
       return run({
         request: listSessions,
         done: (sessions, seq) => ({ type: "sessionsLoaded", seq, sessions }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "form":
       return run({
         request: () => getTaskForm(load.task),
         done: (form, seq) => ({ type: "formLoaded", seq, form }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "session":
       return run({
         request: () => getSession(load.sessionId),
         done: (session, seq) => ({ type: "sessionLoaded", seq, session, next: null, notice: null }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "result":
       return run({
         request: () => getResult(load.sessionId),
         done: (result, seq) => ({ type: "resultLoaded", seq, result, next: null, outdatesSession: false, notice: null }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "evidence":
       return run({
         request: () => getEvidence(load.sessionId),
         done: (items, seq) => ({ type: "evidenceLoaded", seq, sessionId: load.sessionId, items }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
     case "version":
       return run({
         request: () => getVersion(load.sessionId, load.version),
         done: (version, seq) => ({ type: "versionLoaded", seq, version }),
+        ...PLAIN,
         load: key,
-        generating: false,
-        failedRoute: null,
-        outdatesSessionOnFail: false,
       });
   }
 }
