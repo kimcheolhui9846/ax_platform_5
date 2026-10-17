@@ -39,6 +39,7 @@
   --text-3xl-line: 54px;
   --text-2xs: 11px;
   --text-note: 13px;
+  --text-image-symbol: 28px;
   --text-brand-compact: 17px;
 
   /* 간격 */
@@ -80,7 +81,8 @@
   --request-max: 960px;
   --send-width: 160px;
   --summary-label-width: 88px;
-  --figure-placeholder-height: 160px;
+  --image-slot-min: 160px;
+  --image-slot-max: 280px;
   --mode-card-height: 320px;
   --current-mark: 3px;
   --list-action-width: 264px;

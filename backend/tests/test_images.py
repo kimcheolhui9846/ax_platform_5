@@ -18,9 +18,9 @@ def section(order: int, kind: CardType) -> ResultSection:
     return ResultSection(order=order, heading=f"h{order}", kind=kind, blocks=[TextBlock(text="t")])
 
 
-def test_image_target_prefers_the_first_suggestion():
-    assert image_target([section(1, CardType.DIAGNOSIS), section(2, CardType.SUGGESTION), section(3, CardType.SUGGESTION)]).order == 2
-    assert image_target([section(1, CardType.DIAGNOSIS), section(2, CardType.ACTION)]).order == 1
+def test_image_target_is_the_first_section():
+    assert image_target([section(2, CardType.SUGGESTION), section(1, CardType.DIAGNOSIS)]).order == 1
+    assert image_target([section(1, CardType.ACTION)]).order == 1
     assert image_target([]) is None
 
 

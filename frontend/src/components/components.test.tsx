@@ -317,17 +317,17 @@ describe("ResultDocument 이미지·근거 기록", () => {
     },
   };
 
-  it("불러온 이미지는 대체 글과 설명을 달아 그린다", () => {
+  it("이미지 상자는 왼쪽 이미지, 오른쪽 제목(대체 글)과 설명이다", () => {
     const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, { a: "data:image/svg+xml;base64,AA" })} />);
-    expect(html).toContain('<img src="data:image/svg+xml;base64,AA" alt="제작 방향 참고 이미지"');
-    expect(html).toContain("<figcaption");
-    expect(html).toContain("AI 참고 이미지");
+    expect(html).toContain('<figure class="document-image">');
+    expect(html).toContain('<div class="image-slot"><img src="data:image/svg+xml;base64,AA" alt="제작 방향 참고 이미지"/></div>');
+    expect(html).toContain("<figcaption><h3>제작 방향 참고 이미지</h3><p>AI 참고 이미지</p></figcaption>");
   });
 
-  it("아직 못 불러온 이미지는 대체 글 상자로 둔다", () => {
+  it("아직 못 불러온 이미지는 자리 상자에 대체 글을 둔다", () => {
     const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, {})} />);
     expect(html).not.toContain("<img");
-    expect(html).toContain('role="img" aria-label="제작 방향 참고 이미지"');
+    expect(html).toContain('<div class="image-slot" role="img" aria-label="제작 방향 참고 이미지"><span class="image-symbol" aria-hidden="true">▧</span>');
   });
 
   it("근거 기록은 섹션 뒤에 출처 링크(새 창)와 함께 둔다", () => {

@@ -39,11 +39,12 @@ describe("renderScreen", () => {
     expect(main).toContain("이 문장 넣기");
   });
 
-  it("모드는 보낸 요청과 세 모드(상한 문구), 요청이 없으면 요청으로 안내", () => {
+  it("모드는 보낸 요청과 세 모드(질문 수 없이), 요청이 없으면 요청으로 안내", () => {
     const { main } = draw({ kind: "mode", task, form, draft: "수제 향초" });
     expect(main).toContain("수제 향초");
     expect(main).toContain("스탠다드 코칭 시작");
-    expect(main).toContain("최대 10개");
+    expect(main).toContain("꼭 필요한 질문으로 방향을 잡고");
+    expect(main).not.toContain("최대 10개");
     expect(draw({ kind: "mode", task, form, draft: " " }).main).toContain("먼저 요청을 보내 주세요");
     expect(draw({ kind: "mode", task, form, draft: "x" }, true).main).toContain("코칭을 준비하는 중…");
   });
