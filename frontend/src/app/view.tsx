@@ -209,7 +209,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     case "result": {
       const editable = firstEditable(model.session.flow);
       return {
-        main: <ResultMain task={model.task} session={model.session} result={model.result} images={model.images} busy={busy} onConfirm={on.confirm} />,
+        main: <ResultMain task={model.task} session={model.session} result={model.result} images={model.images} busy={busy} onConfirm={on.confirm} onRegenerate={on.generate} />,
         side:
           model.result === null ? null : (
             <ResultSide

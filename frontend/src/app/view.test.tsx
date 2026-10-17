@@ -1,6 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { STALE_NOTICE, STALE_SAVE_HINT } from "../lib/actions";
 import { HOME } from "../lib/routes";
 import { NOOP_HANDLERS } from "../preview/handlers";
 import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
@@ -132,6 +133,23 @@ describe("renderScreen", () => {
     expect(side).toContain("문서 내려받기");
     const savedResult = makeResult({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
     expect(draw({ kind: "result", task, session, result: savedResult, images: {} }).side).toContain("저장한 버전이에요");
+  });
+
+  it("낡은 결과는 본문 위 배너, 저장·내려받기는 막고 이유를 보인다", () => {
+    const stale = makeSession({ next_question: null, has_result: true, result_stale: true });
+    const { main, side } = draw({ kind: "result", task, session: stale, result: makeResult(), images: {} });
+    expect(main).toContain('role="status"');
+    expect(main).toContain("결과가 최신이 아니에요");
+    expect(main).toContain("바뀐 내용으로 다시 만들기");
+    expect(main.indexOf("stale-banner")).toBeLessThan(main.indexOf("상품기획 초안"));
+    expect(side).toContain(STALE_SAVE_HINT);
+    expect(side).not.toContain(STALE_NOTICE);
+    expect(side).toMatch(/<button[^>]*disabled=""[^>]*>현재 버전 저장</);
+    expect(side).toMatch(/<button[^>]*disabled=""[^>]*>문서 내려받기</);
+    const fresh = draw({ kind: "result", task, session: makeSession({ next_question: null, has_result: true }), result: makeResult(), images: {} });
+    expect(fresh.main).not.toContain("stale-banner");
+    expect(fresh.side).not.toContain(STALE_SAVE_HINT);
+    expect(fresh.side).not.toMatch(/<button[^>]*disabled=""[^>]*>문서 내려받기</);
   });
 
   it("저장 완료는 결과물·다시 보기·내려받기", () => {
