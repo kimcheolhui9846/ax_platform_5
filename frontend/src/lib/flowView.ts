@@ -4,11 +4,27 @@ import type { FlowItem, FlowStatus, Question } from "../api/types";
 export type EditableFlowItem = FlowItem & { question: Question };
 
 export function isEditable(item: FlowItem): item is EditableFlowItem {
-  return item.question !== null && ASKED.has(item.status);
+  return item.question !== null && isAsked(item);
 }
 
 /** 이미 물어본 상태: 답했거나, 미정으로 뒀거나, '다른 예시 보기' 중에 멈췄다. */
 const ASKED: ReadonlySet<FlowStatus> = new Set<FlowStatus>(["answered", "skipped", "paused"]);
+
+export function isAsked(item: FlowItem): boolean {
+  return ASKED.has(item.status);
+}
+
+/** 답 고치기 화면의 안내 한 줄. 정한 답이 없는 상태(미정·멈춤)는 빈 '지금 답' 대신 상황을 알린다. */
+export function reviseNote(item: EditableFlowItem): string {
+  switch (item.status) {
+    case "skipped":
+      return "아직 미정으로 남겨 둔 질문이에요. 지금 답할 수 있으면 골라 주세요.";
+    case "paused":
+      return "다른 예시를 보던 중에 멈춘 질문이에요. 지금 답할 수 있으면 골라 주세요.";
+    default:
+      return `지금 답: ${item.answer ?? ""}`;
+  }
+}
 
 const STATUS_LABEL: Record<FlowStatus, string> = {
   answered: "완료",
@@ -66,5 +82,5 @@ export function questionPosition(flow: FlowItem[], cap: number): string {
 
 /** 지금 질문 앞에 이미 물어본 필드 수. 0이면 지금 질문이 첫 질문이다('원래 예시 보기'로 돌아와도). */
 export function answeredBefore(flow: FlowItem[]): number {
-  return flow.filter((item) => ASKED.has(item.status)).length;
+  return flow.filter(isAsked).length;
 }

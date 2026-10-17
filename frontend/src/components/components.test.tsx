@@ -84,6 +84,12 @@ describe("ReviseCard", () => {
     expect(html).toContain("고치지 않고 돌아가기");
   });
 
+  it("다른 예시를 보던 중에 멈춘 질문은 그렇다고 안내한다(빈 '지금 답'을 보이지 않는다)", () => {
+    const html = renderToString(<ReviseCard item={item({ status: "paused", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
+    expect(html).toContain("다른 예시를 보던 중에 멈춘 질문이에요");
+    expect(html).not.toContain("지금 답:");
+  });
+
   it("미정으로 둔 질문은 지금 답할 수 있다고 안내한다", () => {
     const html = renderToString(<ReviseCard item={item({ status: "skipped", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("아직 미정으로 남겨 둔 질문이에요");
@@ -135,6 +141,9 @@ describe("FlowSummary·CriteriaBox", () => {
     expect(html).toContain("부모");
     expect(html).toContain("아직 미정");
     expect(html).not.toContain("예정 항목");
+    const paused = renderToString(<FlowSummary flow={[makeFlowItem({ label: "사용 상황", status: "paused" })]} />);
+    expect(paused).toContain("사용 상황");
+    expect(paused).toContain("잠시 멈춤");
     expect(renderToString(<FlowSummary flow={[]} />)).toContain("아직 답한 질문이 없어요.");
   });
 

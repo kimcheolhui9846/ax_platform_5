@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ReviseBody } from "../api/types";
+import { reviseNote } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import { Composer } from "./Composer";
 import { OptionList } from "./OptionList";
@@ -16,15 +17,11 @@ type Props = {
 export function ReviseCard({ item, busy, onRevise, onCancel }: Props) {
   const [text, setText] = useState(item.answer ?? "");
   const { question } = item;
-  const note =
-    item.status === "skipped"
-      ? "아직 미정으로 남겨 둔 질문이에요. 지금 답할 수 있으면 골라 주세요."
-      : `지금 답: ${item.answer ?? ""}`;
   return (
     <section className="card question-card stack" aria-label="답변 고치기">
       <p className="small">{`◈ 답변 고치기 · ${item.label}`}</p>
       <h1>{question.text}</h1>
-      <p className="muted">{note}</p>
+      <p className="muted">{reviseNote(item)}</p>
       <OptionList question={question} busy={busy} onChoose={(ids) => onRevise({ answer_type: "option", option_ids: ids })} />
       <Composer
         label="직접 고쳐 쓰기"
