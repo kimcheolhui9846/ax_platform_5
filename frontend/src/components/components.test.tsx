@@ -168,6 +168,7 @@ describe("ResultDocument", () => {
         rows={[]}
         result={result.result}
         issues={[{ rule: "r", message: "근거 없는 숫자가 있어요.", severity: "warning" }]}
+        supplements={[]}
       />,
     );
     expect(html).toContain("상품기획 초안");

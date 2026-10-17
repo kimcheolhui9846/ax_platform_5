@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest";
+
+import type { SupplementItem } from "../api/types";
+import { ALL_FILLED_NOTE, appliedRows, supplementDraft, supplementStatus, supplementValues } from "./supplements";
+
+const item = (name: string, label: string, value: string | null): SupplementItem => ({ name, label, example: "", value });
+
+describe("supplementStatus", () => {
+  const empty = [item("material", "소재", null), item("size", "크기", null)];
+
+  it("아무것도 입력하지 않았으면 입력을 안내하고, 반영할 것이 없다", () => {
+    expect(supplementStatus(empty, empty, false)).toEqual({
+      line: "입력 0/2 · 보완할 정보를 입력해 주세요",
+      missing: "미확인: 소재 · 크기",
+      canApply: false,
+    });
+  });
+
+  it("입력이 초안에 반영되지 않았으면 반영할 수 있다", () => {
+    const current = [item("material", "소재", "면"), item("size", "크기", null)];
+    expect(supplementStatus(current, empty, true)).toEqual({ line: "입력 1/2 · 아직 초안에 미반영", missing: "미확인: 크기", canApply: true });
+  });
+
+  it("반영한 뒤에는 반영됨이고, 모두 채웠으면 검증 전임을 알린다", () => {
+    const filled = [item("material", "소재", "면"), item("size", "크기", "20cm")];
+    expect(supplementStatus(filled, filled, false)).toEqual({ line: "입력 2/2 · 초안에 반영됨", missing: ALL_FILLED_NOTE, canApply: false });
+  });
+});
+
+describe("대화상자 값", () => {
+  it("처음 값은 지금 입력(미확인은 빈 글), 저장할 값은 빈 글이 미확인(null)이다", () => {
+    expect(supplementDraft([item("material", "소재", "면"), item("size", "크기", null)])).toEqual({ material: "면", size: "" });
+    expect(supplementValues({ material: "  리넨 ", size: "  " })).toEqual({ material: "리넨", size: null });
+  });
+});
+
+describe("appliedRows", () => {
+  it("결과에 반영한 보완 정보. 하나도 없으면 칸을 두지 않는다", () => {
+    expect(appliedRows([item("material", "소재", null)])).toEqual([]);
+    expect(appliedRows([item("material", "소재", "면"), item("size", "크기", null)])).toEqual([
+      { label: "소재", value: "면" },
+      { label: "크기", value: "미확인" },
+    ]);
+  });
+});

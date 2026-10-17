@@ -17,6 +17,12 @@ describe("결과 문서", () => {
     ]);
   });
 
+  it("결과에 반영한 보완 정보를 함께 싣는다", () => {
+    const shown = makeResult({ supplements: [{ name: "material", label: "소재", example: "면 100%", value: "면" }] });
+    expect(documentContent(makeTask(), shown, false).supplements).toEqual([{ label: "소재", value: "면" }]);
+    expect(documentContent(makeTask(), makeResult(), false).supplements).toEqual([]);
+  });
+
   it("제목과 위 작은 줄(버전 · 결과물 이름, 낡았으면 최신 아님)", () => {
     expect(resultTitle("상품기획")).toBe("상품기획 초안");
     expect(resultKicker("상품 콘셉트 · 첫 제작 기획서", v2, false)).toBe("V2 · 다시 만든 초안 / 상품 콘셉트 · 첫 제작 기획서");

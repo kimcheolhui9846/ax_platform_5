@@ -52,6 +52,10 @@ export type Handlers = {
   resume: (summary: SessionSummary) => void;
   openVersion: (sessionId: string, version: number) => void;
   saveVersion: () => void;
+  saveSupplements: (values: Record<string, string | null>) => void;
+  applySupplements: () => void;
+  editSection: (order: number) => void;
+  submitEdit: (order: number, text: string) => void;
   download: (file: DocumentFile) => void;
 };
 

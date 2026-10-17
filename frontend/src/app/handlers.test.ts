@@ -8,13 +8,15 @@ vi.mock("../api/coaching", () => ({
   continueSession: vi.fn(),
   showOriginalQuestion: vi.fn(),
   saveVersion: vi.fn(),
+  saveSupplements: vi.fn(),
+  editResultSection: vi.fn(),
 }));
 
-import { continueSession, createSession, generateResult, reviseAnswer, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { HOME } from "../lib/routes";
 import type { DocumentFile } from "../lib/documentHtml";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
-import { DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
+import { DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
 import type { Action, AppState } from "./state";
@@ -149,6 +151,7 @@ describe("makeHandlers — 요청", () => {
       result: makeResult(),
       next: { name: "result", sessionId: "sess_1" },
       outdatesSession: true,
+      notice: null,
     });
   });
 
@@ -209,5 +212,60 @@ describe("makeHandlers — 요청", () => {
     on.download(file);
     expect(files).toEqual([file]);
     expect(actions).toEqual([{ type: "noticed", message: DOWNLOADED_NOTICE }]);
+  });
+});
+
+describe("makeHandlers — 보완·문구 수정", () => {
+  it("미확인 정보를 저장하면 지금 화면에 머물며 반영을 안내한다", async () => {
+    const { on, calls } = setup({ session });
+    on.saveSupplements({ material: "면", size: null });
+    await calls[0].request();
+    expect(saveSupplements).toHaveBeenCalledWith("sess_1", { material: "면", size: null });
+    const next = makeSession({ session_id: "sess_1" });
+    expect(calls[0].done(next, 7)).toEqual({ type: "sessionLoaded", seq: 7, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE });
+  });
+
+  it("초안에 반영은 생성이고, 결과 화면에서 반영했다고 알린다", async () => {
+    const { on, calls } = setup({ session });
+    on.applySupplements();
+    await calls[0].request();
+    expect(generateResult).toHaveBeenCalledWith("sess_1");
+    const result = makeResult();
+    expect(calls[0].done(result, 3)).toEqual({
+      type: "resultLoaded",
+      seq: 3,
+      result,
+      next: { name: "result", sessionId: "sess_1" },
+      outdatesSession: true,
+      notice: SUPPLEMENTS_APPLIED_NOTICE,
+    });
+    expect(calls[0].outdatesSessionOnFail).toBe(true);
+  });
+
+  it("문구 수정하기는 그 섹션의 수정 화면으로, 반영하면 결과로 돌아와 알린다", async () => {
+    const { on, calls, actions } = setup({ session });
+    on.editSection(1);
+    expect(actions).toEqual([{ type: "navigated", route: { name: "edit", sessionId: "sess_1", order: 1 } }]);
+    on.submitEdit(1, "고친 문구");
+    await calls[0].request();
+    expect(editResultSection).toHaveBeenCalledWith("sess_1", 1, "고친 문구");
+    const result = makeResult();
+    expect(calls[0].done(result, 4)).toEqual({
+      type: "resultLoaded",
+      seq: 4,
+      result,
+      next: { name: "result", sessionId: "sess_1" },
+      outdatesSession: false,
+      notice: SECTION_EDITED_NOTICE,
+    });
+  });
+
+  it("세션이 없으면 아무것도 하지 않는다", () => {
+    const { on, calls, actions } = setup();
+    on.saveSupplements({});
+    on.applySupplements();
+    on.editSection(1);
+    on.submitEdit(1, "x");
+    expect([calls, actions]).toEqual([[], []]);
   });
 });

@@ -100,7 +100,7 @@ describe("reducer", () => {
 
   it("결과를 만들거나 생성이 실패하면 세션을 다시 받게 한다", () => {
     const base: AppState = { ...initialState(confirm), session: makeSession() };
-    const made = reducer(waiting(base, 1), { type: "resultLoaded", seq: 1, result: makeResult(), next: result, outdatesSession: true });
+    const made = reducer(waiting(base, 1), { type: "resultLoaded", seq: 1, result: makeResult(), next: result, outdatesSession: true, notice: null });
     expect(made.sessionOutdated).toBe(true);
     expect(made.route).toEqual(result);
 
@@ -188,5 +188,21 @@ describe("reducer", () => {
     const state: AppState = { ...initialState({ name: "version", sessionId: "sess_1", version: 1 }), version };
     expect(reducer(state, { type: "navigated", route: { name: "version", sessionId: "sess_1", version: 2 } }).version).toBeNull();
     expect(reducer(state, { type: "navigated", route: result }).version).toBeNull();
+  });
+});
+
+describe("reducer — 알림이 있는 결과", () => {
+  it("알림이 있는 결과 응답은 알림을 띄운다", () => {
+    const route: Route = { name: "edit", sessionId: "sess_1", order: 1 };
+    const next = reducer(waiting(initialState(route), 1), {
+      type: "resultLoaded",
+      seq: 1,
+      result: makeResult({ session_id: "sess_1" }),
+      next: { name: "result", sessionId: "sess_1" },
+      outdatesSession: false,
+      notice: "문구를 반영했어요.",
+    });
+    expect(next.toast).toBe("문구를 반영했어요.");
+    expect(next.route).toEqual({ name: "result", sessionId: "sess_1" });
   });
 });

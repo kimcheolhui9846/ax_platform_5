@@ -3,6 +3,8 @@ import { criteriaRows } from "./criteria";
 import type { CriteriaRow } from "./criteria";
 import { cardLabel } from "./labels";
 import { versionLine } from "./sessions";
+import { appliedRows } from "./supplements";
+import type { AppliedRow } from "./supplements";
 
 export type DocumentSection = { key: string; number: string; heading: string; tag: string; body: string };
 
@@ -38,7 +40,7 @@ export function resultKicker(deliverable: string, version: Pick<VersionSummary, 
 }
 
 /** 문서로 보여 줄 결과. 지금 결과(ResultView)와 지난 버전(VersionView)이 같은 모양이다. */
-export type Shown = Pick<ResultView, "result" | "validation" | "version" | "summary" | "unknowns">;
+export type Shown = Pick<ResultView, "result" | "validation" | "version" | "summary" | "unknowns" | "supplements">;
 
 export type DocumentContent = {
   title: string;
@@ -46,6 +48,7 @@ export type DocumentContent = {
   rows: CriteriaRow[];
   result: LabeledResult;
   issues: ValidationIssue[];
+  supplements: AppliedRow[]; // 그 결과에 반영한 보완 정보(사용자 입력·검증 전)
 };
 
 /** [순수] 화면의 결과 문서와 내려받는 문서가 같이 쓰는 내용. 기준은 그 결과를 만든 버전의 것이다. */
@@ -60,5 +63,6 @@ export function documentContent(
     rows: criteriaRows(shown.summary, shown.unknowns),
     result: shown.result,
     issues: shown.validation?.issues ?? [],
+    supplements: appliedRows(shown.supplements),
   };
 }

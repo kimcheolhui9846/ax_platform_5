@@ -28,7 +28,7 @@ export type Action =
   | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
   | { type: "formLoaded"; seq: number; form: TaskForm }
   | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; notice: string | null }
-  | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean }
+  | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
   | { type: "draftChanged"; task: string; text: string }
@@ -145,6 +145,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         route: action.next ?? done.route,
         result: action.result,
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
+        toast: action.notice ?? done.toast,
       };
     case "versionLoaded":
       return { ...done, version: action.version };

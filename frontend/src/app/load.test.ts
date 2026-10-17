@@ -44,6 +44,13 @@ describe("needsLoad", () => {
     expect(needsLoad(at(result, { session: makeSession({ has_result: false }) }))).toBeNull();
   });
 
+  it("문구 수정 화면도 결과가 있어야 한다", () => {
+    const route: Route = { name: "edit", sessionId: "sess_1", order: 1 };
+    const withSession = at(route, { session: makeSession({ session_id: "sess_1", has_result: true }) });
+    expect(needsLoad(withSession)).toEqual({ kind: "result", sessionId: "sess_1" });
+    expect(needsLoad({ ...withSession, result: makeResult({ session_id: "sess_1" }) })).toBeNull();
+  });
+
   it("기다리는 요청이 있거나 같은 불러오기가 실패했으면 부르지 않는다", () => {
     const question: Route = { name: "question", sessionId: "sess_1" };
     expect(needsLoad(at(question, { inflight: { seq: 1, load: null } }))).toBeNull();
