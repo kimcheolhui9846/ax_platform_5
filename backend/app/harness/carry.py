@@ -3,7 +3,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from app.core.results import section_text
-from app.core.state import CarriedContext, CarriedItem, InfoItem, ResultVersion, SessionState
+from app.core.state import CarriedContext, CarriedItem, InfoItem, InfoSource, ResultVersion, SessionState
 from app.harness.policy import FieldPolicy, TaskPolicy
 
 SUMMARY_LIMIT = 160
@@ -17,9 +17,10 @@ def carry_values(
 ) -> list[CarriedItem]:
     """[순수] 새 과제 필드마다 가져올 값. 후보는 같은 이름, 그다음 carry_over에서 그 필드를 가리키는 이전 이름(적은 순서).
 
-    사실이 보완 정보보다 먼저다. 값이 없는 필드는 빠진다.
+    사실이 보완 정보보다 먼저다. 값이 없는 필드는 빠진다. 이전 과제의 정책 기본값(출처 default)은 가져오지 않는다.
     """
-    values = {**{n: i.value for n, i in supplements.items()}, **{n: i.value for n, i in facts.items()}}
+    chosen = {n: i.value for n, i in facts.items() if i.source is not InfoSource.DEFAULT}
+    values = {**{n: i.value for n, i in supplements.items()}, **chosen}
     items: list[CarriedItem] = []
     for f in fields:
         candidates = [f.name, *(src for src, dst in carry_over.items() if dst == f.name)]

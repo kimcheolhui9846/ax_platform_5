@@ -10,8 +10,8 @@ from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.api.views import (
     to_evidence_items,
-    to_session_context,
     to_result_view,
+    to_session_context,
     to_session_summary,
     to_session_view,
     to_task_form,
@@ -19,8 +19,8 @@ from app.api.views import (
     to_version_view,
 )
 from app.core.messages import (
-    PREVIOUS_SESSION_NOT_FOUND_MESSAGE,
     EVIDENCE_NOT_FOUND_MESSAGE,
+    PREVIOUS_SESSION_NOT_FOUND_MESSAGE,
     RESULT_NOT_READY_MESSAGE,
     SECTION_NOT_FOUND_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
@@ -32,6 +32,7 @@ from app.core.store import SessionStore
 from app.harness.base import BaseHarness, find_version
 from app.harness.carry import build_context
 from app.harness.errors import GenerationFailed, HarnessError, UnknownTaskError
+from app.harness.policy import TaskPolicy
 from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
@@ -72,16 +73,18 @@ def _load(
 
 
 def _carried(
-    registry: Registry, store: Store, owner: str, target: BaseHarness, session_id: str, version: int | None
+    registry: Registry, store: Store, owner: str, target: TaskPolicy, session_id: str, version: int | None
 ) -> CarriedContext:
-    """이어 갈 이전 작업의 그 버전(없으면 마지막)으로 가져올 기준을 만든다. 남의·없는 작업은 404."""
+    """이어 갈 이전 작업의 그 버전(없으면 마지막)으로 가져올 기준을 만든다. 남의·없는 작업, 결과·버전이 없으면 404."""
     source = store.get(session_id)
     if source is None or source.owner_id != owner or source.task_type not in registry:
         raise HTTPException(status_code=404, detail=PREVIOUS_SESSION_NOT_FOUND_MESSAGE)
-    found = source.versions[-1] if version is None and source.versions else find_version(source.versions, version or 0)
+    if not source.versions:
+        raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+    found = source.versions[-1] if version is None else find_version(source.versions, version)
     if found is None:
         raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return build_context(source, found, registry.get(source.task_type).policy.title, target.policy)
+    return build_context(source, found, registry.get(source.task_type).policy.title, target)
 
 
 @contextmanager
@@ -129,7 +132,7 @@ def preview_context(
 ) -> SessionContext:
     """다음 과제로 이어가기 미리보기: 이 과제에 가져올 이전 작업의 기준(세션을 만들 때와 같은 판단)."""
     harness = _harness(registry, task_type)
-    context = _carried(registry, store, owner, harness, session_id, version)
+    context = _carried(registry, store, owner, harness.policy, session_id, version)
     return to_session_context(context, harness.policy.labels)
 
 
@@ -144,7 +147,7 @@ def create_session(
 ) -> SessionView:
     harness = _harness(registry, task_type)
     context = (
-        _carried(registry, store, owner, harness, body.from_session_id, body.from_version)
+        _carried(registry, store, owner, harness.policy, body.from_session_id, body.from_version)
         if body.from_session_id is not None
         else None
     )

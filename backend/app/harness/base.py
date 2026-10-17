@@ -327,7 +327,8 @@ class BaseHarness:
     def apply_context(self, state: SessionState) -> None:
         """[코드] 이전 과제에서 가져온 값을 사실로 넣는다(출처 previous_task). 그 필드는 묻지 않는다.
 
-        진단 전에 넣으므로 처음 입력 필드(raw_input_field)는 진단이 새 요청 글로 덮는다.
+        진단 전에 넣으므로 처음 입력 필드(raw_input_field)도 가져온 값이 이긴다. 새 요청 글은 처음 입력
+        (state.raw_input)으로 프롬프트에 남는다.
         """
         if state.context is None:
             return
@@ -336,11 +337,7 @@ class BaseHarness:
 
     def diagnose(self, state: SessionState) -> None:
         """[LLM] 처음 입력에서 항목을 뽑는다. 뽑은 값은 확인 전이므로 가정으로만 둔다."""
-        target = self.policy.raw_input_field
-        if target and state.raw_input.strip():
-            state.facts[target] = InfoItem(
-                value=state.raw_input.strip(), source=InfoSource.USER_FREE_TEXT
-            )
+        self.fill_raw_input(state)
         diagnosis = self._call(state, "diagnose", Diagnosis)
         known = set(self.policy.labels)
         for item in diagnosis.extracted:
@@ -351,6 +348,15 @@ class BaseHarness:
                     confidence=0.5,
                     reason="처음 입력에서 추출",
                 )
+
+    def fill_raw_input(self, state: SessionState) -> None:
+        """[코드] 처음 입력 필드(raw_input_field)가 비어 있으면 요청 글을 사실로 넣는다(출처 user_free_text).
+
+        이미 값이 있으면(이전 과제에서 가져온 값) 덮지 않는다. 진단과 가져온 내용 빼기가 같이 쓴다.
+        """
+        target = self.policy.raw_input_field
+        if target and target not in state.facts and state.raw_input.strip():
+            state.facts[target] = InfoItem(value=state.raw_input.strip(), source=InfoSource.USER_FREE_TEXT)
 
     # ── 질문 ──────────────────────────────────────────────────
 
@@ -691,19 +697,27 @@ class BaseHarness:
     def clear_context(self, state: SessionState) -> None:
         """이전 과제에서 가져온 내용을 뺀다. 아직 출처가 previous_task인 사실만 지운다(그 뒤 사용자가 고친 값은 둔다).
 
-        기본값 필드는 정책 기본값으로 되돌린다. 결과가 있으면 최신 여부를 답·보완 정보가 마지막 버전과 다른지로 다시
-        정한다. 걸린 질문이 없으면 평소 규칙으로 다음 질문을 건다(빠진 항목을 다시 묻는다. 다른 예시 사다리면 LLM
-        호출이 날 수 있다). 다른 필드 질문이 걸려 있으면 그대로 둔다. 가져온 내용이 없으면 그대로다.
+        기본값 필드는 정책 기본값으로, 처음 입력 필드는 요청 글로 되돌린다(fill_raw_input). 결과가 있으면 최신 여부를
+        답·보완 정보가 마지막 버전과 다른지로 다시 정한다. 걸린 질문이 없으면 평소 규칙으로 다음 질문을 건다(빠진 항목을
+        다시 묻는다. 다른 예시 사다리면 LLM 호출이 날 수 있다). 다른 필드 질문이 걸려 있으면 그대로 둔다.
+        가져온 내용이 없으면 그대로고, 지울 값이 남아 있지 않으면(모두 사용자가 고쳤으면) 가져온 기준 표시만 뺀다.
         """
         if state.context is None:
             return
+        removed = [
+            item.field
+            for item in state.context.items
+            if (current := state.facts.get(item.field)) is not None and current.source is InfoSource.PREVIOUS_TASK
+        ]
+        if not removed:
+            state.context = None
+            return
         with _atomic(state):
-            for item in state.context.items:
-                current = state.facts.get(item.field)
-                if current is not None and current.source is InfoSource.PREVIOUS_TASK:
-                    del state.facts[item.field]
+            for name in removed:
+                del state.facts[name]
             state.context = None
             self.apply_defaults(state)
+            self.fill_raw_input(state)
             if state.versions:
                 latest = state.versions[-1]
                 state.result_stale = answers_changed(state, latest) or supplements_changed(state.supplements, latest)

@@ -1,6 +1,5 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
 import type { EvidenceItem, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
-import { sectionText } from "../lib/document";
 import type { EditableFlowItem } from "../lib/flowView";
 
 export const TASKS: TaskSummary[] = [
@@ -241,13 +240,17 @@ export const RESULT: ResultView = {
 };
 
 /** 상품기획 초안 V2에서 다음 과제로 가져온 기준. */
+/** 사업계획 V2에서 상품기획으로 이어 온 기준(백엔드 build_context가 만드는 모양: 대상 과제의 필드·라벨). */
 export const CONTEXT: SessionContext = {
-  session_id: "sess_preview",
-  task_type: PRODUCT.task_type,
+  session_id: "sess_preview_plan",
+  task_type: "business_plan",
   version: 2,
-  title: `${PRODUCT.title} 초안 V2`,
-  summary: sectionText(RESULT.result.sections[0]),
-  items: [{ field: "product_idea", label: "상품과 고객", value: "한글을 활용한 파우치" }],
+  title: "사업계획 초안 V2",
+  summary: "한글 디자인 소품을 온라인으로 파는 1인 사업. 첫 상품은 작은 소지품을 정리하는 파우치로 시작한다.",
+  items: [
+    { field: "product_idea", label: "상품 아이디어", value: "한글을 활용한 파우치" },
+    { field: "user", label: "사용자", value: "작은 소지품을 들고 다니는 직장인" },
+  ],
 };
 
 /** 미확인 정보 두 개를 입력했고 아직 초안에 반영하지 않았다. */

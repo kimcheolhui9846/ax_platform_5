@@ -109,7 +109,13 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
       const sessionId = session.session_id;
       void run({
         request: () => clearContextRequest(sessionId),
-        done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: CONTEXT_CLEARED_NOTICE }),
+        done: (next, seq) => ({
+          type: "sessionLoaded",
+          seq,
+          session: next,
+          next: next.next_question ? routeAfterSession(next) : null,
+          notice: CONTEXT_CLEARED_NOTICE,
+        }),
         ...PLAIN,
       });
     },

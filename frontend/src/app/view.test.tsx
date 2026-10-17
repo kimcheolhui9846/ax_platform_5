@@ -330,10 +330,16 @@ describe("이어가기 화면", () => {
     expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false }).main).not.toContain("불러오지 못했어요");
   });
 
+  it("미리보기를 불러오지 못하면 모드 버튼을 막고 '가져오지 않고 계속'으로만 간다", () => {
+    const modeButtons = (main: string) => [...main.matchAll(/<button[^>]*>([^<]*코칭 시작)<\/button>/g)].map((m) => m[0]);
+    const failed = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: true }).main);
+    expect(failed).toHaveLength(3);
+    for (const button of failed) expect(button).toContain('disabled=""');
+    const fine = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false }).main);
+    for (const button of fine) expect(button).not.toContain("disabled");
+  });
+
   it("제외 버튼은 요청·모드는 dropCarry, 확인은 clearContext로 이어진다", () => {
-    const on = { ...NOOP_HANDLERS, dropCarry: () => {}, clearContext: () => {} };
-    const request = renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: true }, false, on).main as ReactElement<{ onExcludeContext: () => void }>;
-    expect(request.props.onExcludeContext).toBeTypeOf("function");
     const calls: string[] = [];
     const spy = { ...NOOP_HANDLERS, dropCarry: (t: string) => calls.push(`drop:${t}`), clearContext: () => calls.push("clear") };
     (renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: false }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();

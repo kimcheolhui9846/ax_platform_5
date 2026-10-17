@@ -88,10 +88,39 @@ def test_start_puts_carried_values_in_as_previous_task_facts_and_does_not_ask_th
     assert state.pending_question is None or state.pending_question.field != asked_first
 
 
-def test_new_request_text_beats_the_carried_value_for_the_raw_input_field(harness):
+def test_carried_value_wins_for_the_raw_input_field_and_clearing_restores_the_request_text(harness):
     target = harness.policy.raw_input_field
     state = harness.start("새 요청 글", context=carried(harness, target, "이전 글"))
-    assert state.facts[target].value == "새 요청 글"
+    assert (state.facts[target].value, state.facts[target].source) == ("이전 글", InfoSource.PREVIOUS_TASK)
+    assert state.raw_input == "새 요청 글"  # 새 요청 글은 처음 입력으로 프롬프트에 남는다
+
+    harness.clear_context(state)
+
+    assert (state.facts[target].value, state.facts[target].source) == ("새 요청 글", InfoSource.USER_FREE_TEXT)
+
+
+def test_default_facts_of_the_previous_session_are_not_carried():
+    items = carry_values(
+        facts={"tone": info("중간", InfoSource.DEFAULT)},
+        supplements={},
+        fields=FIELDS,
+        carry_over={},
+    )
+    assert items == []
+
+
+def test_clear_context_with_nothing_left_to_remove_only_drops_the_context(harness):
+    first = harness.start("향초").pending_question.field
+    other = next(f.name for f in harness.policy.fields if f.kind != "default" and f.name not in (first, harness.policy.raw_input_field))
+    state = harness.start("향초", context=carried(harness, other, "가져온 값"))
+    state.facts[other] = info("사용자가 고친 값")
+    state.pending_question = None  # 걸린 질문이 없어도 다시 묻지 않는다
+    before = state.model_copy(deep=True)
+
+    harness.clear_context(state)
+
+    assert state.context is None
+    assert state.model_copy(update={"context": before.context}) == before
 
 
 def test_clear_context_removes_only_values_still_from_the_previous_task(harness):

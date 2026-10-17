@@ -24,5 +24,5 @@
 {% if state.context %}
 
 ## 이전 과제 결과 (가져온 기준)
-{{ state.context.title }} — {{ state.context.summary }}
+{{ state.context.title }}{% if state.context.summary %} — {{ state.context.summary }}{% endif %}
 {% endif %}

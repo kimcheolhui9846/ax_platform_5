@@ -441,7 +441,7 @@ describe("ContextBox", () => {
   });
 
   it("항목이 없으면 항목 줄이 없고, 처리 중이면 제외를 막는다", () => {
-    expect(html(makeContext({ items: [] }))).not.toContain("small muted\"></p>");
+    expect(html(makeContext({ items: [] })).match(/class="small muted"/g)).toHaveLength(1);
     expect(html(makeContext({ items: [], summary: "" }))).not.toContain("small muted");
     expect(html(makeContext(), true)).toContain('disabled=""');
   });

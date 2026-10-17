@@ -14,7 +14,8 @@ type Props = {
   onEditRequest: () => void;
 };
 
-/** 02 코칭 모드 선택. 모드를 고르는 순간 세션을 만든다(질문 상한은 모드마다 다르다). */
+/** 02 코칭 모드 선택. 모드를 고르는 순간 세션을 만든다(질문 상한은 모드마다 다르다).
+ * 이어 갈 이전 작업을 불러오지 못했으면(carryFailed) 모드 버튼을 막고 '가져오지 않고 계속'으로만 간다. */
 export function ModeScreen({ form, draft, context, carryFailed, onExcludeContext, busy, onPick, onEditRequest }: Props) {
   if (!draft.trim()) {
     return (
@@ -51,7 +52,7 @@ export function ModeScreen({ form, draft, context, carryFailed, onExcludeContext
               <button
                 type="button"
                 className={mode === RECOMMENDED_MODE ? "btn primary full" : "btn full"}
-                disabled={busy}
+                disabled={busy || carryFailed}
                 onClick={() => onPick(mode)}
               >
                 {busy ? "코칭을 준비하는 중…" : `${copy.name} 코칭 시작`}

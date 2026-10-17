@@ -368,7 +368,14 @@ describe("makeHandlers — 이어가기", () => {
     on.clearContext();
     await calls[0].request();
     expect(clearContext).toHaveBeenCalledWith("sess_1");
-    expect(calls[0].done(session, 4)).toEqual({ type: "sessionLoaded", seq: 4, session, next: null, notice: CONTEXT_CLEARED_NOTICE });
+    expect(calls[0].done(session, 4)).toEqual({ type: "sessionLoaded", seq: 4, session, next: { name: "question", sessionId: "sess_1" }, notice: CONTEXT_CLEARED_NOTICE });
     expect(CONTEXT_CLEARED_NOTICE).toBe("가져온 내용을 뺐어요.");
+  });
+
+  it("clearContext 응답에 걸린 질문이 없으면 지금 화면에 머문다", () => {
+    const { on, calls } = setup({ session });
+    on.clearContext();
+    const done = makeSession({ session_id: "sess_1", next_question: null });
+    expect(calls[0].done(done, 5)).toEqual({ type: "sessionLoaded", seq: 5, session: done, next: null, notice: CONTEXT_CLEARED_NOTICE });
   });
 });
