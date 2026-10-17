@@ -7,15 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
-from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary
+from app.api.views import to_result_view, to_session_view, to_task_form, to_task_summary, to_version_view
 from app.core.messages import (
     RESULT_NOT_READY_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
+    VERSION_NOT_FOUND_MESSAGE,
     unknown_task_message,
 )
 from app.core.state import Answer, SessionState, TraceEntry
 from app.core.store import SessionStore
-from app.harness.base import BaseHarness
+from app.harness.base import BaseHarness, find_version
 from app.harness.errors import GenerationFailed, HarnessError, UnknownTaskError
 from app.providers.base import ProviderError
 from app.schemas.coaching import (
@@ -26,6 +27,7 @@ from app.schemas.coaching import (
     SessionView,
     TaskForm,
     TaskSummary,
+    VersionView,
 )
 
 # 오류 본문은 app/api/errors.py가 모두 ErrorBody 모양으로 만든다. 경로마다 낼 수 있는 오류만 선언하고
@@ -141,7 +143,7 @@ def revise_answer(
 def generate(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> ResultView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.generate(state)
-    return to_result_view(state, harness.policy.labels)
+    return to_result_view(state, harness.policy)
 
 
 @router.post(
@@ -175,7 +177,36 @@ def get_result(session_id: str, registry: Registry, store: Store, owner: Owner) 
     state, harness = _load(registry, store, session_id, owner)
     if state.result is None:
         raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
-    return to_result_view(state, harness.policy.labels)
+    return to_result_view(state, harness.policy)
+
+
+@router.get(
+    "/sessions/{session_id}/versions/{version}",
+    response_model=VersionView,
+    responses=error_responses(404, 422),
+)
+def get_version(session_id: str, version: int, registry: Registry, store: Store, owner: Owner) -> VersionView:
+    state, harness = _load(registry, store, session_id, owner)
+    found = find_version(state.versions, version)
+    if found is None:
+        raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
+    return to_version_view(state, found, harness.policy)
+
+
+@router.post(
+    "/sessions/{session_id}/versions/{version}/save",
+    response_model=VersionView,
+    responses=error_responses(404, 422),
+)
+def save_version(
+    session_id: str, version: int, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> VersionView:
+    """그 버전에 저장 표시를 한다(결과물 목록에 모인다). 이미 저장했어도 그대로 성공한다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        saved = harness.save_version(state, version)
+        if saved is None:
+            raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
+    return to_version_view(state, saved, harness.policy)
 
 
 @router.get(

@@ -60,6 +60,8 @@ def test_other_clients_session_looks_missing_everywhere():
         ("POST", f"/sessions/{sid}/question/original", None),
         ("GET", f"/sessions/{sid}/result", None),
         ("GET", f"/sessions/{sid}/trace", None),
+        ("GET", f"/sessions/{sid}/versions/1", None),
+        ("POST", f"/sessions/{sid}/versions/1/save", None),
     ]
     for method, path, body in attempts:
         response = theirs.request(method, f"{BASE}{path}", json=body)

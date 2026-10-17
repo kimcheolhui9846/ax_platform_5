@@ -7,6 +7,7 @@ from app.core.state import (
     Assumption,
     CoachingMode,
     InfoItem,
+    ResultVersion,
     SessionState,
     SessionStatus,
     source_label,
@@ -26,6 +27,8 @@ from app.schemas.coaching import (
     TaskForm,
     TaskSummary,
     UnknownItem,
+    VersionSummary,
+    VersionView,
 )
 
 
@@ -130,13 +133,37 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
     )
 
 
-def to_result_view(state: SessionState, labels: Mapping[str, str]) -> ResultView:
-    if state.result is None:
+def version_summary(version: ResultVersion) -> VersionSummary:
+    return VersionSummary(
+        version=version.version, created_at=version.created_at, reason=version.reason, saved=version.saved
+    )
+
+
+def to_result_view(state: SessionState, policy: TaskPolicy) -> ResultView:
+    """[순수] 지금 결과. 기준(summary·unknowns)은 지금 세션이 아니라 이 결과를 만든 버전의 것이다."""
+    if state.result is None or not state.versions:
         raise ValueError("생성된 결과가 없는 세션입니다.")
+    latest = state.versions[-1]
     return ResultView(
         session_id=state.session_id,
         status=state.status,
-        result=label_result(state.result, labels),
+        result=label_result(state.result, policy.labels),
         validation=state.validation,
         stale=state.result_stale,
+        version=version_summary(latest),
+        summary=build_summary(policy.fields, latest.facts, latest.assumptions),
+        unknowns=label_unknowns(latest.unknowns, policy.labels),
+    )
+
+
+def to_version_view(state: SessionState, version: ResultVersion, policy: TaskPolicy) -> VersionView:
+    """[순수] 버전 하나 보기(그 버전의 결과와 기준)."""
+    return VersionView(
+        session_id=state.session_id,
+        version=version_summary(version),
+        latest=version.version == state.versions[-1].version,
+        result=label_result(version.result, policy.labels),
+        validation=version.validation,
+        summary=build_summary(policy.fields, version.facts, version.assumptions),
+        unknowns=label_unknowns(version.unknowns, policy.labels),
     )

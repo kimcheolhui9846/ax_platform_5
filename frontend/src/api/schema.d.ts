@@ -180,6 +180,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Version */
+        get: operations["get_version_api_v1_coaching_sessions__session_id__versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coaching/sessions/{session_id}/versions/{version}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Version
+         * @description 그 버전에 저장 표시를 한다(결과물 목록에 모인다). 이미 저장했어도 그대로 성공한다.
+         */
+        post: operations["save_version_api_v1_coaching_sessions__session_id__versions__version__save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/trace": {
         parameters: {
             query?: never;
@@ -418,6 +455,11 @@ export interface components {
             validation: components["schemas"]["ValidationReport"] | null;
             /** Stale */
             stale: boolean;
+            version: components["schemas"]["VersionSummary"];
+            /** Summary */
+            summary: components["schemas"]["SummaryItem"][];
+            /** Unknowns */
+            unknowns: components["schemas"]["UnknownItem"][];
         };
         /** ReviseAnswerRequest */
         ReviseAnswerRequest: {
@@ -568,6 +610,42 @@ export interface components {
             issues: components["schemas"]["ValidationIssue"][];
             /** Passed */
             readonly passed: boolean;
+        };
+        /**
+         * VersionReason
+         * @description 결과 버전이 생긴 까닭. 보완·문구 수정·근거 반영은 그 기능이 생길 때(묶음 3) 더한다.
+         * @enum {string}
+         */
+        VersionReason: "first" | "regenerate";
+        /** VersionSummary */
+        VersionSummary: {
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            reason: components["schemas"]["VersionReason"];
+            /** Saved */
+            saved: boolean;
+        };
+        /**
+         * VersionView
+         * @description 지난 버전(또는 지금 버전) 보기. 보기 전용이다.
+         */
+        VersionView: {
+            /** Session Id */
+            session_id: string;
+            version: components["schemas"]["VersionSummary"];
+            /** Latest */
+            latest: boolean;
+            result: components["schemas"]["LabeledResult"];
+            validation: components["schemas"]["ValidationReport"] | null;
+            /** Summary */
+            summary: components["schemas"]["SummaryItem"][];
+            /** Unknowns */
+            unknowns: components["schemas"]["UnknownItem"][];
         };
     };
     responses: never;
@@ -1066,6 +1144,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_version_api_v1_coaching_sessions__session_id__versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save_version_api_v1_coaching_sessions__session_id__versions__version__save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionView"];
                 };
             };
             /** @description 과제·세션·결과가 없음 */

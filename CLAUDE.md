@@ -87,6 +87,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 내부 사정은 노출하지 않는다. 제공자 원문 오류와 생성 실패 상세는 trace에, 500 예외는 로그에 한 번만 남는다. 422 검증 상세는 로그에 남고, `DEBUG=true`일 때만 422 본문에 `errors`(개발용 선택 필드)로도 실린다.
 - `SessionView.error`는 저장값이 아니라 상태에서 나온다(`FAILED`일 때만 생성 실패 문구). 실패 뒤 답하거나, 이전 답을 고치거나, 질문이 걸린 채 이어 가거나, '원래 예시 보기'를 누르면 함께 사라진다.
 - 흐름 패널의 질문 목록(`SessionView.flow`)은 `app/harness/flow.py`의 `plan_flow`(순수)가 만든다. 물어본 필드(처음 물은 순서, 완료·미정·멈춤) → 지금 질문 → 예정(정책 순서, `questions_left`만큼)이다. 멈춤(`paused`)은 '다른 예시 보기' 중에 결과를 먼저 만들어 걸린 질문이 내려간 필드다. 이미 상한에 셌으므로 예정 자리를 쓰지 않고, 이어 가면 다시 묻는다. 답한 항목에는 그 답을 정한 질문이 실려 있어 그 `question_id`로 답을 고친다.
+- 결과는 버전으로 쌓인다(`SessionState.versions`, `ResultVersion`). 생성이 성공할 때마다 `new_version`이 하나를 덧붙이고(첫 번째는 `first`, 그 뒤는 `regenerate`), 마지막 버전의 결과가 지금 결과(`state.result`)다. 버전은 그때의 사실·가정·미정을 복사해 두므로 결과 화면·버전 보기의 '반영한 기준'은 그 버전의 것이다(`ResultView.summary`). 실패한 생성은 버전을 남기지 않는다. `POST /sessions/{id}/versions/{n}/save`가 저장 표시를 하고, `GET …/versions/{n}`이 지난 버전을 보여 준다.
 - 세션에는 주인(`owner_id`)이 있다. 지금은 브라우저가 만든 익명 ID를 `X-Client-Id` 헤더로 보내고(`frontend/src/lib/clientId.ts`, `api/client.ts`의 `withClientId`), 백엔드는 `app/api/owner.py`의 `current_owner`로 받는다. 세션 경로는 모두 owner를 받고, 남의 세션은 없는 세션과 같은 404다(잠금도 만들지 않는다). 헤더가 없거나 형식이 틀리면 422. 로그인을 붙일 때는 `current_owner` 하나만 바꾼다. 테스트는 `tests/conftest.py`의 `api_client(app, client_id=...)`를 쓴다.
 
 ## API 계약이 바뀔 때

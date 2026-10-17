@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from app.core.contract import ContractModel
-from app.core.results import GenerationResult, ValidationReport, utcnow
+from app.core.results import GenerationResult, ValidationReport, VersionReason, utcnow
 
 
 class SessionStatus(StrEnum):
@@ -106,6 +106,23 @@ class AskedQuestion(BaseModel):
     superseded: bool = False
 
 
+class ResultVersion(BaseModel):
+    """결과가 바뀔 때마다 하나씩 쌓는 기록. 마지막 버전의 결과가 지금 결과(SessionState.result)다.
+
+    그때의 사실·가정·미정을 복사해 둔다. 나중에 이 버전을 열면 그 기준으로 보여 준다.
+    """
+
+    version: int
+    created_at: datetime
+    reason: VersionReason
+    result: GenerationResult
+    validation: ValidationReport | None = None
+    facts: dict[str, InfoItem] = Field(default_factory=dict)
+    assumptions: dict[str, Assumption] = Field(default_factory=dict)
+    unknowns: list[str] = Field(default_factory=list)
+    saved: bool = False  # 저장 표시(결과물 목록에 모인다)
+
+
 class TraceEntry(ContractModel):
     stage: str
     input: dict[str, Any] = Field(default_factory=dict)
@@ -149,6 +166,7 @@ class SessionState(BaseModel):
     result: GenerationResult | None = None
     result_stale: bool = False
     validation: ValidationReport | None = None
+    versions: list[ResultVersion] = Field(default_factory=list)  # 만든 결과의 기록(1부터, 마지막이 지금 결과)
     trace: list[TraceEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)

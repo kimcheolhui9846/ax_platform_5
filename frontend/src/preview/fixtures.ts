@@ -195,6 +195,9 @@ export const RESULT: ResultView = {
   session_id: "sess_preview",
   status: "completed",
   stale: false,
+  version: { version: 2, created_at: "2026-10-16T09:30:00Z", reason: "regenerate", saved: false },
+  summary: DONE_SUMMARY,
+  unknowns: [{ field: "customer_problem", label: "고객 문제" }],
   validation: {
     issues: [{ rule: "unverified_number", message: "가격은 AI 가정이에요. 비슷한 상품 가격을 확인해 주세요.", severity: "warning" }],
     passed: true,

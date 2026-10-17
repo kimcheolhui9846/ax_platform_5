@@ -18,6 +18,13 @@ class CardType(StrEnum):
     ACTION = "action"
 
 
+class VersionReason(StrEnum):
+    """결과 버전이 생긴 까닭. 보완·문구 수정·근거 반영은 그 기능이 생길 때(묶음 3) 더한다."""
+
+    FIRST = "first"  # 첫 초안
+    REGENERATE = "regenerate"  # 다시 만든 초안
+
+
 class ResultCard(ContractModel):
     card_type: CardType = Field(description="카드 유형: 진단·제안·실행 과제")
     title: str = Field(description="카드 제목")

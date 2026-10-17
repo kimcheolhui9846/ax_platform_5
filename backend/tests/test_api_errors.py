@@ -99,6 +99,8 @@ def test_each_route_declares_only_errors_it_can_return(client):
     assert _statuses(spec, "/sessions/{session_id}/answers/{question_id}", "patch") == {"200", "404", "422", "500", "502"}
     assert _statuses(spec, "/sessions/{session_id}/question/original", "post") == {"200", "404", "422", "500"}
     assert _statuses(spec, "/sessions/{session_id}/trace", "get") == {"200", "404", "422", "500"}
+    assert _statuses(spec, "/sessions/{session_id}/versions/{version}", "get") == {"200", "404", "422", "500"}
+    assert _statuses(spec, "/sessions/{session_id}/versions/{version}/save", "post") == {"200", "404", "422", "500"}
 
 
 def test_request_error_details_only_in_debug():

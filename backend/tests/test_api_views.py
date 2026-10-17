@@ -36,8 +36,9 @@ def test_build_summary_prefers_fact_over_assumption():
 
 
 def test_to_result_view_requires_result():
+    policy = TaskPolicy(task_type="t", title="t", heading="h", deliverable="d", fields=_fields())
     with pytest.raises(ValueError):
-        to_result_view(SessionState(task_type="x"), {})
+        to_result_view(SessionState(task_type="t"), policy)
 
 
 @pytest.mark.parametrize("status", list(SessionStatus))

@@ -96,6 +96,19 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
     session_id: "sess_1",
     status: "completed",
     stale: false,
+    version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: false },
+    summary: [
+      {
+        field: "product_idea",
+        label: "상품 아이디어",
+        value: "수제 향초",
+        source: "user_free_text",
+        source_label: "직접 입력",
+        confidence: 1,
+        is_assumption: false,
+      },
+    ],
+    unknowns: [],
     validation: { issues: [], passed: true },
     result: {
       cards: [{ card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "집들이 선물용 수제 향초." }],
