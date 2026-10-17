@@ -66,3 +66,8 @@ export function documentContent(
     supplements: appliedRows(shown.supplements),
   };
 }
+
+/** [순수] 첫 섹션(순서가 가장 앞선 섹션)의 번호. 결과 화면의 '소개 문구 수정하기'가 연다. 섹션이 없으면 null. */
+export function firstSectionOrder(sections: Pick<ResultSection, "order">[]): number | null {
+  return sections.length === 0 ? null : Math.min(...sections.map((s) => s.order));
+}

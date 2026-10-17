@@ -1,5 +1,6 @@
 import type {
   Question,
+  ResultSection,
   ResultView,
   SessionSummary,
   SessionView,
@@ -25,6 +26,7 @@ export type ScreenModel =
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
   | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null }
+  | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection }
   | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView }
   | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView };
 
@@ -70,10 +72,13 @@ function resolve(state: AppState): ScreenModel {
         const saved = route.name === "saved" && version.version.saved;
         return saved ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
       }
-      if (route.name === "result") {
+      if (route.name === "result" || route.name === "edit") {
         if (!session.has_result) return { kind: "result", task, session, result: null };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
-        return result === null ? LOADING : { kind: "result", task, session, result };
+        if (result === null) return LOADING;
+        // 없는 섹션 번호로 문구 수정 주소를 열었으면(직접 입력·지난 주소) 결과 화면으로 보여 준다
+        const section = route.name === "edit" ? result.result.sections.find((s) => s.order === route.order) : undefined;
+        return section ? { kind: "edit", task, session, result, section } : { kind: "result", task, session, result };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);

@@ -1,8 +1,10 @@
 import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { ResultDocument } from "../components/ResultDocument";
+import { SupplementPanel } from "../components/SupplementPanel";
 import { STALE_NOTICE, actionState, regenerateAction, saveButton } from "../lib/actions";
 import { documentContent } from "../lib/document";
+import type { SupplementProps } from "./EditScreen";
 
 type MainProps = {
   task: TaskSummary;
@@ -32,6 +34,8 @@ type SideProps = {
   session: SessionView;
   version: VersionSummary;
   busy: boolean;
+  supplements: SupplementProps;
+  onEditText: (() => void) | null;
   onRegenerate: () => void;
   onSave: () => void;
   onChangeAnswers: (() => void) | null;
@@ -40,7 +44,7 @@ type SideProps = {
 };
 
 /** 결과 화면 오른쪽: 흐름 요약과 다음 할 일(다시 만들기·저장·답변 바꾸기·이어 가기·내려받기). */
-export function ResultSide({ session, version, busy, onRegenerate, onSave, onChangeAnswers, onContinue, onDownload }: SideProps) {
+export function ResultSide({ session, version, busy, supplements, onEditText, onRegenerate, onSave, onChangeAnswers, onContinue, onDownload }: SideProps) {
   const regenerate = regenerateAction(session.result_stale);
   const regenerateState = actionState(regenerate, busy, session.can_generate);
   const save = saveButton(version, session.result_stale);
@@ -54,6 +58,7 @@ export function ResultSide({ session, version, busy, onRegenerate, onSave, onCha
         </p>
       )}
       <FlowSummary flow={session.flow} />
+      <SupplementPanel {...supplements} busy={busy} />
       <div className="stack8">
         <button
           type="button"
@@ -66,6 +71,11 @@ export function ResultSide({ session, version, busy, onRegenerate, onSave, onCha
         <button type="button" className={save.primary ? "btn primary full" : "btn full"} disabled={busy || save.done} onClick={onSave}>
           {save.label}
         </button>
+        {onEditText && (
+          <button type="button" className="btn full" disabled={busy} onClick={onEditText}>
+            소개 문구 수정하기
+          </button>
+        )}
         {onChangeAnswers && (
           <button type="button" className="btn full" disabled={busy} onClick={onChangeAnswers}>
             기준 답변 바꾸기

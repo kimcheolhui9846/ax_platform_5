@@ -2,6 +2,7 @@ import type { JSX } from "react";
 
 import type { ScreenModel } from "../app/screenModel";
 import { AppView } from "../app/view";
+import { SupplementForm } from "../components/SupplementForm";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import {
@@ -14,6 +15,7 @@ import {
   QUESTION,
   REQUEST,
   RESULT,
+  RESULT_SUPPLEMENTED,
   SAVED_VERSION,
   SESSIONS,
   SESSION_DONE,
@@ -23,6 +25,8 @@ import {
   SESSION_QUESTION,
   SESSION_READY,
   SESSION_STALE,
+  SESSION_SUPPLEMENT,
+  SESSION_SUPPLEMENTED,
   TASKS,
 } from "./fixtures";
 import { NOOP_HANDLERS } from "./handlers";
@@ -35,6 +39,22 @@ export const FRAME_SIZES = ["desktop", "mobile"] as const;
 
 function frame(id: string, title: string, route: Route, model: ScreenModel, busy = false): Frame {
   return { id, title, render: (mainId) => <AppView route={route} model={model} busy={busy} on={NOOP_HANDLERS} mainId={mainId} /> };
+}
+
+/** 대화상자를 연 화면. 갤러리에서는 대화상자를 열 수 없어서 같은 양식을 대화상자 표면(.dialog)에 담아 겹쳐 그린다. */
+function dialogFrame(id: string, title: string, route: Route, model: ScreenModel, dialog: (titleId: string) => JSX.Element): Frame {
+  return {
+    id,
+    title,
+    render: (mainId) => (
+      <div className="gallery-dialog-frame">
+        <AppView route={route} model={model} busy={false} on={NOOP_HANDLERS} mainId={mainId} />
+        <div className="dialog gallery-dialog" role="dialog" aria-labelledby={`${mainId}-dialog`}>
+          {dialog(`${mainId}-dialog`)}
+        </div>
+      </div>
+    ),
+  };
 }
 
 const SESSION_ID = SESSION_QUESTION.session_id;
@@ -69,6 +89,31 @@ export const FRAMES: Frame[] = [
   frame("confirm-failed", "답변 확인 · 생성 실패", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_FAILED }),
   frame("result", "결과 문서", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT }),
   frame("result-stale", "결과 · 최신 아님", result, { kind: "result", task: PRODUCT, session: SESSION_STALE, result: { ...RESULT, stale: true } }),
+  frame("result-supplement", "결과 · 미확인 정보 입력(미반영)", result, {
+    kind: "result",
+    task: PRODUCT,
+    session: SESSION_SUPPLEMENT,
+    result: RESULT,
+  }),
+  frame("result-supplemented", "결과 · 보완 정보 반영", result, {
+    kind: "result",
+    task: PRODUCT,
+    session: SESSION_SUPPLEMENTED,
+    result: RESULT_SUPPLEMENTED,
+  }),
+  dialogFrame(
+    "supplement-form",
+    "미확인 정보 입력",
+    result,
+    { kind: "result", task: PRODUCT, session: SESSION_SUPPLEMENT, result: RESULT },
+    (titleId) => <SupplementForm titleId={titleId} items={SESSION_SUPPLEMENT.supplements} busy={false} onSave={() => {}} onCancel={() => {}} />,
+  ),
+  frame(
+    "edit",
+    "소개 문구 수정",
+    { name: "edit", sessionId: SESSION_ID, order: 1 },
+    { kind: "edit", task: PRODUCT, session: SESSION_DONE, result: RESULT, section: RESULT.result.sections[0] },
+  ),
   frame(
     "saved",
     "저장 완료",

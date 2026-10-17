@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeResult, makeTask } from "../testing/factories";
-import { documentContent, documentSections, resultKicker, resultTitle } from "./document";
+import { documentContent, documentSections, firstSectionOrder, resultKicker, resultTitle } from "./document";
 
 const v2 = { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate" as const, saved: false };
 
@@ -41,5 +41,11 @@ describe("결과 문서", () => {
     expect(content.result).toBe(shown.result);
     expect(content.issues.map((i) => i.message)).toEqual(["확인해 주세요."]);
     expect(documentContent(makeTask(), { ...shown, validation: null }, false).issues).toEqual([]);
+  });
+
+  it("첫 섹션 번호(순서가 가장 앞선 섹션). 섹션이 없으면 null", () => {
+    const section = (order: number) => ({ order, heading: "h", kind: "diagnosis" as const, blocks: [] });
+    expect(firstSectionOrder([section(3), section(2)])).toBe(2);
+    expect(firstSectionOrder([])).toBeNull();
   });
 });

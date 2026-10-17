@@ -1,9 +1,12 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import type { SupplementItem } from "../api/types";
 import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
-import { makeFlowItem, makeQuestion, makeResult, makeSession } from "../testing/factories";
+import { documentContent } from "../lib/document";
+import { EditMain } from "../screens/EditScreen";
+import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
 import { CriteriaBox } from "./CriteriaBox";
 import { FlowPanel } from "./FlowPanel";
@@ -11,6 +14,8 @@ import { FlowSummary } from "./FlowSummary";
 import { QuestionCard } from "./QuestionCard";
 import { ResultDocument } from "./ResultDocument";
 import { ReviseCard } from "./ReviseCard";
+import { SupplementForm } from "./SupplementForm";
+import { SupplementPanel } from "./SupplementPanel";
 import { Toast } from "./Toast";
 
 const noop = () => {};
@@ -187,5 +192,74 @@ describe("Toast", () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain("저장했어요.");
     expect(html).not.toContain("hidden");
+  });
+});
+
+const items: SupplementItem[] = [
+  { name: "material", label: "소재", example: "면 100%", value: "면" },
+  { name: "size", label: "크기", example: "", value: null },
+];
+
+describe("SupplementPanel", () => {
+  const html = (changed: boolean, current = items) =>
+    renderToString(<SupplementPanel current={current} applied={[]} changed={changed} busy={false} onSave={noop} onApply={noop} />);
+
+  it("입력 상태와 미확인 항목을 보이고, 반영할 것이 있을 때만 초안에 반영을 누를 수 있다", () => {
+    expect(html(true)).toContain("입력 1/2 · 아직 초안에 미반영");
+    expect(html(true)).toContain("미확인: 크기");
+    expect(html(true)).toContain('<button type="button" class="btn">초안에 반영</button>');
+    expect(html(false)).toContain('<button type="button" class="btn" disabled="">초안에 반영</button>');
+  });
+
+  it("대화상자는 닫힌 채로 시작한다(양식을 그리지 않는다)", () => {
+    expect(html(true)).toContain("<dialog");
+    expect(html(true)).not.toContain("입력 내용 저장");
+  });
+
+  it("보완 항목이 없는 과제면 그리지 않는다", () => {
+    expect(html(false, [])).toBe("");
+  });
+});
+
+describe("SupplementForm", () => {
+  const html = renderToString(<SupplementForm titleId="t" items={items} busy={false} onSave={noop} onCancel={noop} />);
+
+  it("항목마다 지금 값(미확인은 빈 칸)과 예시 넣기·미확인으로", () => {
+    expect(html).toContain('<h2 id="t">미확인 정보를 채워 주세요</h2>');
+    expect(html).toContain('value="면"');
+    expect(html).toContain('placeholder="미확인"');
+    expect(html.match(/미확인으로/g)).toHaveLength(2);
+  });
+
+  it("예시가 없는 항목은 예시 넣기를 누를 수 없다", () => {
+    expect(html.match(/<button type="button" class="btn compact" disabled="">예시 넣기<\/button>/g)).toHaveLength(1);
+  });
+
+  it("검증 전임을 알리고 저장·취소가 있다", () => {
+    expect(html).toContain("예시값을 선택해도 사실 검증이 완료된 것은 아니에요.");
+    expect(html).toContain("입력 내용 저장");
+    expect(html).toContain('aria-label="정보 입력 닫기"');
+  });
+});
+
+describe("ResultDocument — 보완 정보", () => {
+  it("반영한 보완 정보는 검증 전으로 따로 보인다", () => {
+    const content = { ...documentContent(makeTask(), makeResult(), false), supplements: [{ label: "소재", value: "면" }] };
+    const html = renderToString(<ResultDocument {...content} />);
+    expect(html).toContain("보완 정보 · 사용자 입력 / 검증 전");
+    expect(html).toContain("<span>소재</span><span>면</span>");
+  });
+});
+
+describe("EditMain", () => {
+  const section = { order: 1, heading: "상품 콘셉트", kind: "diagnosis" as const, blocks: [{ type: "text" as const, text: "한글 파우치 소개" }] };
+
+  it("지금 문구를 보이고 입력창을 그 문구로 채운다", () => {
+    const html = renderToString(<EditMain section={section} busy={false} onSubmit={noop} onBack={noop} />);
+    expect(html).toContain("상품 콘셉트");
+    expect(html.match(/한글 파우치 소개/g)).toHaveLength(2); // 지금 문구와 입력창
+    expect(html).toMatch(/maxlength="2500"/i);
+    expect(html).toContain("문구 반영하기");
+    expect(html).toContain("← 결과로 돌아가기");
   });
 });

@@ -160,6 +160,25 @@ describe("renderScreen", () => {
   });
 });
 
+describe("renderScreen — 보완·문구 수정", () => {
+  const supplements = [{ name: "material", label: "소재", example: "", value: null }];
+
+  it("결과 오른쪽에 미확인 정보와 소개 문구 수정하기", () => {
+    const session = makeSession({ has_result: true, supplements });
+    const { side } = draw({ kind: "result", task, session, result: makeResult() });
+    expect(side).toContain("미확인 정보 채우기");
+    expect(side).toContain("소개 문구 수정하기");
+  });
+
+  it("문구 수정은 수정 카드와 흐름 요약·미확인 정보", () => {
+    const session = makeSession({ has_result: true, supplements });
+    const result = makeResult();
+    const { main, side } = draw({ kind: "edit", task, session, result, section: result.result.sections[0] });
+    expect(main).toContain("문구 반영하기");
+    expect(side).toContain("미확인 정보 채우기");
+  });
+});
+
 describe("AppView", () => {
   it("헤더 과제 이름·단계와 왼쪽 메뉴까지 그린다", () => {
     const session = makeSession();
