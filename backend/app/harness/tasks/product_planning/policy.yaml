@@ -87,6 +87,7 @@ supplement_fields:
   - { name: size, label: 크기, example: 가로 20 × 세로 12cm }
   - { name: production_cost, label: 제작 비용, example: "8,000원 / 개" }
   - { name: sale_price, label: 판매 가격, example: "18,000원 / 개" }
+carry_over: { business_idea: product_idea, product: product_idea, target_customer: user, core_customer: user }
 rules:
   - 고객 문제와 무관한 기능 확대를 제안하지 않는다
   - 제작 조건을 무시한 제안을 하지 않는다

@@ -80,6 +80,7 @@ supplement_fields:
   - { name: launch_date, label: 공개 일정, example: 일정 미정 }
   - { name: price, label: 가격, example: 가격 미정 }
   - { name: purchase_link, label: 구매 링크, example: 링크 준비 중 }
+carry_over: { product_and_customer: product, product_idea: product, business_idea: product, core_customer: target_customer, user: target_customer, tone_and_manner: tone_length }
 rules:
   - 확인되지 않은 효능을 쓰지 않는다
   - 과장 광고를 하지 않는다

@@ -109,6 +109,25 @@ class AskedQuestion(BaseModel):
     superseded: bool = False
 
 
+class CarriedItem(BaseModel):
+    """이전 과제에서 가져온 값 하나. from_name은 이전 과제의 필드·보완 항목 이름이다."""
+
+    field: str
+    value: str
+    from_name: str
+
+
+class CarriedContext(BaseModel):
+    """이전 과제 결과에서 가져온 기준(다음 과제로 이어가기). 세션을 만들 때 정해 둔다."""
+
+    session_id: str
+    task_type: str
+    version: int
+    title: str  # "상품기획 초안 V2"
+    summary: str  # 이전 결과 첫 섹션 요약
+    items: list[CarriedItem] = Field(default_factory=list)
+
+
 class ResultVersion(BaseModel):
     """결과가 바뀔 때마다 하나씩 쌓는 기록. 마지막 버전의 결과가 지금 결과(SessionState.result)다.
 
@@ -196,6 +215,7 @@ class SessionState(BaseModel):
     assumptions: dict[str, Assumption] = Field(default_factory=dict)
     unknowns: list[str] = Field(default_factory=list)
     supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 미확인 정보 보완(사용자 입력·검증 전). 질문 흐름과 준비도에는 들지 않는다
+    context: CarriedContext | None = None  # 이전 과제에서 가져온 기준(없으면 None)
     easier_levels: dict[str, int] = Field(default_factory=dict)  # 다른 예시 보기 사다리 현재 단계
     conflicts: list[Conflict] = Field(default_factory=list)
     asked_questions: list[AskedQuestion] = Field(default_factory=list)
