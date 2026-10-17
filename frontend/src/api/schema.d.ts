@@ -274,7 +274,7 @@ export interface components {
          * FlowStatus
          * @enum {string}
          */
-        FlowStatus: "answered" | "current" | "upcoming" | "skipped";
+        FlowStatus: "answered" | "current" | "upcoming" | "skipped" | "paused";
         /**
          * InfoSource
          * @enum {string}

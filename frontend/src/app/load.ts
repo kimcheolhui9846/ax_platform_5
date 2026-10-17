@@ -27,7 +27,7 @@ export function needsLoad(state: AppState): Load | null {
 }
 
 function missing(state: AppState): Load | null {
-  if (state.tasks.length === 0) return { kind: "tasks" };
+  if (state.tasks === null) return { kind: "tasks" };
   const task = taskOf(state.route);
   if (task !== null) return state.form?.task_type === task ? null : { kind: "form", task };
   const sessionId = sessionIdOf(state.route);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer } from "react";
 
 import { Toast } from "../components/Toast";
 import { readDraft, writeDraft } from "../lib/drafts";
-import { parseRoute, taskOf, toHash } from "../lib/routes";
+import { isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
@@ -21,7 +21,10 @@ export default function App() {
 
   // 주소 → 상태(뒤로 가기·직접 입력)
   useEffect(() => {
-    const onHashChange = () => dispatch({ type: "navigated", route: parseRoute(window.location.hash) });
+    const onHashChange = () => {
+      const hash = window.location.hash;
+      if (isRouteHash(hash)) dispatch({ type: "navigated", route: parseRoute(hash) });
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);

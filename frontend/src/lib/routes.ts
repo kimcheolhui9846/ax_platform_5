@@ -43,6 +43,11 @@ export function parseRoute(hash: string): Route {
   return HOME;
 }
 
+/** [순수] 화면 주소인지. 본문 바로가기 같은 문서 안 앵커(#main)는 화면 이동이 아니다. */
+export function isRouteHash(hash: string): boolean {
+  return hash === "" || hash === "#" || hash.startsWith("#/");
+}
+
 /** [순수] 주소를 해시로. */
 export function toHash(route: Route): string {
   const e = encodeURIComponent;

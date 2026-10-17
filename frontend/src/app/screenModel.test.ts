@@ -64,16 +64,23 @@ describe("screenModel", () => {
     expect(screenModel(at({ name: "revise", sessionId: "sess_1", questionId: "q_없음" }, { session })).kind).toBe("question");
   });
 
-  it("결과 주소는 그 세션의 결과(없으면 null)로 그린다", () => {
+  it("결과 주소는 그 세션의 결과로 그리고, 아직 만들지 않았으면 null이다", () => {
     const route: Route = { name: "result", sessionId: "sess_1" };
     const session = makeSession({ next_question: null, has_result: true });
     const result = makeResult();
     expect(screenModel(at(route, { session, result }))).toEqual({ kind: "result", task, session, result });
-    expect(screenModel(at(route, { session, result: makeResult({ session_id: "sess_2" }) }))).toEqual({
-      kind: "result",
-      task,
-      session,
-      result: null,
-    });
+    const never = makeSession({ next_question: null, has_result: false });
+    expect(screenModel(at(route, { session: never }))).toEqual({ kind: "result", task, session: never, result: null });
+  });
+
+  it("결과가 있는 세션의 결과를 아직 받지 못했으면 불러오는 중, 못 받았으면 열 수 없다", () => {
+    const route: Route = { name: "result", sessionId: "sess_1" };
+    const session = makeSession({ next_question: null, has_result: true });
+    expect(screenModel(at(route, { session, result: makeResult({ session_id: "sess_2" }) }))).toEqual({ kind: "loading" });
+    expect(screenModel(at(route, { session, stalled: "result:sess_1" }))).toEqual({ kind: "unavailable" });
+  });
+
+  it("받은 과제 목록이 비어 있어도 홈을 그린다", () => {
+    expect(screenModel({ ...initialState(HOME), tasks: [] })).toEqual({ kind: "home", tasks: [] });
   });
 });

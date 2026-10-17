@@ -28,7 +28,7 @@ function resolve(state: AppState): ScreenModel {
   const { route } = state;
   switch (route.name) {
     case "home":
-      return state.tasks.length === 0 ? LOADING : { kind: "home", tasks: state.tasks };
+      return state.tasks === null ? LOADING : { kind: "home", tasks: state.tasks };
     case "guide":
       return { kind: "guide" };
     case "request":
@@ -44,8 +44,9 @@ function resolve(state: AppState): ScreenModel {
       const task = findTask(state.tasks, session.task_type);
       if (task === null) return LOADING;
       if (route.name === "result") {
+        if (!session.has_result) return { kind: "result", task, session, result: null };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
-        return { kind: "result", task, session, result };
+        return result === null ? LOADING : { kind: "result", task, session, result };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);
@@ -59,6 +60,6 @@ function resolve(state: AppState): ScreenModel {
   }
 }
 
-function findTask(tasks: TaskSummary[], taskType: string): TaskSummary | null {
-  return tasks.find((t) => t.task_type === taskType) ?? null;
+function findTask(tasks: TaskSummary[] | null, taskType: string): TaskSummary | null {
+  return tasks?.find((t) => t.task_type === taskType) ?? null;
 }

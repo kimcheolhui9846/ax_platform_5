@@ -5,7 +5,7 @@ import { FlowPanel } from "../components/FlowPanel";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
-import { firstEditable, previousEditable, questionPosition } from "../lib/flowView";
+import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
 import { questionKicker } from "../lib/question";
 import type { ExampleAction } from "../lib/question";
@@ -93,7 +93,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <QuestionCard
             key={model.question.question_id}
             question={model.question}
-            kicker={questionKicker(model.question, model.session.progress.asked)}
+            kicker={questionKicker(model.question, answeredBefore(model.session.flow))}
             request={model.session.raw_input}
             busy={busy}
             onAnswer={on.answer}

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { makeFlowItem, makeQuestion } from "../testing/factories";
-import { firstEditable, flowNote, flowNumber, flowStatusLabel, isEditable, previousEditable, questionPosition } from "./flowView";
+import { answeredBefore, firstEditable, flowNote, flowNumber, flowStatusLabel, isEditable, previousEditable, questionPosition } from "./flowView";
 
 describe("isEditable", () => {
-  it("답한 항목과 미정 항목만 고칠 수 있다", () => {
+  it("답한·미정·멈춤 항목만 고칠 수 있다", () => {
     const question = makeQuestion();
+    expect(isEditable(makeFlowItem({ status: "paused", question }))).toBe(true);
     expect(isEditable(makeFlowItem({ status: "answered", answer: "부모", question }))).toBe(true);
     expect(isEditable(makeFlowItem({ status: "skipped", question }))).toBe(true);
     expect(isEditable(makeFlowItem({ status: "current", question }))).toBe(false);
@@ -47,5 +48,25 @@ describe("흐름 표시", () => {
     expect(questionPosition([answered, skipped, current, upcoming], 5)).toBe("질문 3/5");
     expect(questionPosition([answered, skipped], 5)).toBe("질문 2/5 · 마침");
     expect(questionPosition([], 3)).toBe("질문 0/3 · 마침");
+  });
+});
+
+describe("멈춘 필드와 질문 제목", () => {
+  const paused = makeFlowItem({ field: "usage", status: "paused", question: makeQuestion({ question_id: "q_usage" }) });
+
+  it("멈춤은 이어 가면 다시 묻는다고 알린다", () => {
+    expect(flowStatusLabel("paused")).toBe("잠시 멈춤");
+    expect(flowNote(paused)).toBe("이어 가면 다시 물어볼게요.");
+  });
+
+  it("지금 질문이 없어도 멈춘 필드나 예정이 있으면 마치지 않았다", () => {
+    expect(questionPosition([answered, paused, upcoming], 5)).toBe("질문 2/5");
+    expect(questionPosition([answered, upcoming], 5)).toBe("질문 1/5");
+    expect(questionPosition([answered], 5)).toBe("질문 1/5 · 마침");
+  });
+
+  it("지금 질문 앞에 답한(미정·멈춤 포함) 필드 수", () => {
+    expect(answeredBefore([current, upcoming])).toBe(0); // '원래 예시 보기'로 돌아온 첫 질문도 첫 질문이다
+    expect(answeredBefore([answered, skipped, paused, current])).toBe(3);
   });
 });

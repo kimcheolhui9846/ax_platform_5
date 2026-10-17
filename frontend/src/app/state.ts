@@ -7,7 +7,7 @@ export type Inflight = { seq: number; load: string | null };
 
 export type AppState = {
   route: Route;
-  tasks: TaskSummary[];
+  tasks: TaskSummary[] | null; // 아직 받지 않았으면 null
   form: TaskForm | null; // 지금 과제의 입력 양식(요청·모드 화면)
   session: SessionView | null;
   sessionOutdated: boolean; // 결과를 만들었거나 생성이 실패해 서버 세션이 바뀌었다. 다시 받아야 한다
@@ -36,7 +36,7 @@ type Settled = Exclude<Extract<Action, { seq: number }>, { type: "requested" }>;
 export function initialState(route: Route): AppState {
   return {
     route,
-    tasks: [],
+    tasks: null,
     form: null,
     session: null,
     sessionOutdated: false,
@@ -58,7 +58,8 @@ export function reducer(state: AppState, action: Action): AppState {
     case "navigated":
       return navigate(state, action.route);
     case "requested":
-      return { ...state, inflight: { seq: action.seq, load: action.load }, toast: null };
+      // 버튼 요청은 이전 알림을 지운다. 불러오기는 지우지 않는다(생성 실패 알림 뒤 곧바로 세션을 다시 받는다)
+      return { ...state, inflight: { seq: action.seq, load: action.load }, toast: action.load === null ? null : state.toast };
     case "draftChanged":
       return { ...state, drafts: { ...state.drafts, [action.task]: action.text } };
     case "noticed":

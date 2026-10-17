@@ -40,6 +40,11 @@ describe("반응형 배치", () => {
     expect(sheets["./layout.css"]).toMatch(/\.app-main:focus\s*\{[^}]*outline:\s*none/);
   });
 
+  // 입력창 자체는 테두리 없이 상자에 녹아 있으므로 초점은 상자(composer)가 보여 준다
+  it("입력 상자는 안에 초점이 있으면 초점 테두리를 그린다", () => {
+    expect(sheets["./screens.css"]).toMatch(/\.composer:focus-within\s*\{[^}]*outline:\s*var\(--focus-ring\)/);
+  });
+
   it("안내 상자의 버튼은 글자 폭만큼, 좁은 화면의 모드 아래 줄은 접힌다", () => {
     const css = sheets["./screens.css"] ?? "";
     expect(css).toMatch(/\.notice\s*>\s*\.btn\s*\{[^}]*align-self:\s*flex-start/);

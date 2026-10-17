@@ -17,6 +17,8 @@ describe("needsLoad", () => {
   it("과제 목록이 먼저다", () => {
     expect(needsLoad(initialState(HOME))).toEqual({ kind: "tasks" });
     expect(needsLoad(at(HOME))).toBeNull();
+    // 받은 목록이 비어 있어도 다시 부르지 않는다(무한 요청 방지)
+    expect(needsLoad({ ...initialState(HOME), tasks: [] })).toBeNull();
   });
 
   it("요청·모드 화면은 그 과제의 입력 양식이 있어야 한다", () => {

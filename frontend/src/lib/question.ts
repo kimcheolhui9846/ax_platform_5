@@ -2,11 +2,12 @@ import type { Question } from "../api/types";
 
 type Level = Pick<Question, "level" | "is_ai_proposal">;
 
-/** 질문 카드 위 작은 제목. 첫 기본 질문은 핵심 질문, 사다리 질문은 다른 예시·AI 후보로 구분한다. */
-export function questionKicker(question: Level, asked: number): string {
+/** 질문 카드 위 작은 제목. 첫 기본 질문은 핵심 질문, 사다리 질문은 다른 예시·AI 후보로 구분한다.
+ * answeredBefore는 지금 질문 앞에 이미 물어본 필드 수다(flowView의 answeredBefore). */
+export function questionKicker(question: Level, answeredBefore: number): string {
   if (question.is_ai_proposal) return "AI 후보 제안";
   if (question.level > 0) return "다른 예시";
-  return asked === 0 ? "핵심 질문" : "추가 질문";
+  return answeredBefore === 0 ? "핵심 질문" : "추가 질문";
 }
 
 /** 질문 아래 안내. */

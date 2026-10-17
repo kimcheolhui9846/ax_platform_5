@@ -20,10 +20,17 @@ describe("reducer", () => {
     expect(reducer(state, { type: "navigated", route: { name: "home" } })).toBe(state);
   });
 
-  it("요청을 시작하면 처리 중이고 이전 알림은 지운다", () => {
+  it("버튼 요청을 시작하면 처리 중이고 이전 알림은 지운다", () => {
     const state = waiting({ ...initialState(HOME), toast: "이전 알림" }, 1);
     expect(isBusy(state)).toBe(true);
     expect(state.toast).toBeNull();
+  });
+
+  // 생성 실패 알림 바로 뒤에 세션을 다시 불러오므로, 불러오기가 알림을 지우면 알림이 한순간에 사라진다
+  it("불러오기를 시작해도 알림은 지우지 않는다", () => {
+    const state = waiting({ ...initialState(HOME), toast: "결과를 만들지 못했습니다." }, 1, "session:sess_1");
+    expect(isBusy(state)).toBe(true);
+    expect(state.toast).toBe("결과를 만들지 못했습니다.");
   });
 
   it("기다리는 요청의 응답만 받는다", () => {

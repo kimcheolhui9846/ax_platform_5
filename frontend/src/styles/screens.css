@@ -20,6 +20,8 @@
   background: transparent; color: var(--color-ink); font-size: var(--text-md); line-height: var(--text-md-line);
 }
 .composer textarea::placeholder { color: var(--color-muted); }
+/* 입력창은 상자에 녹아 있어 자기 테두리가 없다. 초점은 상자가 보여 준다. */
+.composer:focus-within { outline: var(--focus-ring) solid var(--color-accent); outline-offset: 3px; }
 .composer .send { width: var(--send-width); }
 
 /* 코칭 모드 */

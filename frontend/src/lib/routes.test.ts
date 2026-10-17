@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HOME, contextOf, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
+import { HOME, contextOf, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
 import type { Route } from "./routes";
 
 const ROUTES: [Route, string][] = [
@@ -57,5 +57,12 @@ describe("taskOf·sessionIdOf", () => {
     expect(taskOf({ name: "question", sessionId: "s" })).toBeNull();
     expect(sessionIdOf({ name: "revise", sessionId: "s", questionId: "q" })).toBe("s");
     expect(sessionIdOf(HOME)).toBeNull();
+  });
+});
+
+describe("isRouteHash", () => {
+  it("화면 주소(#/…)와 빈 주소만 화면 이동이다. 문서 안 앵커(#main)는 아니다", () => {
+    for (const hash of ["", "#", "#/", "#/guide", "#/s/sess_1/question"]) expect(isRouteHash(hash)).toBe(true);
+    for (const hash of ["#main", "#question-desktop-main"]) expect(isRouteHash(hash)).toBe(false);
   });
 });
