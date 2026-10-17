@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from enum import StrEnum
 from collections.abc import Sequence
-from typing import Any, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -57,10 +57,28 @@ class TaskResult(BaseModel, Generic[ContentT]):
 
 
 class TextBlock(ContractModel):
-    """결과 섹션의 글 블록. 이미지 블록(묶음 3b)과 type으로 구분한다."""
+    """결과 섹션의 글 블록. 이미지 블록과 type으로 구분한다."""
 
     type: Literal["text"] = "text"
     text: str
+
+
+class ImageOrigin(StrEnum):
+    AI_GENERATED = "ai_generated"  # image 단계가 만든 이미지
+    USER_UPLOAD = "user_upload"  # 사용자가 올린 이미지(올리기는 아직 없다)
+
+
+class ImageBlock(ContractModel):
+    """결과 섹션의 이미지 블록. 파일은 AssetStore에 있고 여기에는 그 id만 둔다."""
+
+    type: Literal["image"] = "image"
+    asset_id: str
+    alt: str  # 화면 낭독기·이미지를 못 불러왔을 때의 대체 글
+    caption: str
+    origin: ImageOrigin
+
+
+Block = Annotated[TextBlock | ImageBlock, Field(discriminator="type")]
 
 
 class ResultSection(ContractModel):
@@ -69,7 +87,7 @@ class ResultSection(ContractModel):
     order: int
     heading: str
     kind: CardType
-    blocks: list[TextBlock]
+    blocks: list[Block]
 
 
 def sections_from_cards(cards: Sequence[ResultCard]) -> list[ResultSection]:
@@ -114,8 +132,21 @@ class GenerationResult(ContractModel):
         return data
 
 
+def _replace_text(blocks: Sequence[TextBlock | ImageBlock], text: str) -> list[TextBlock | ImageBlock]:
+    """[순수] 글 블록들을 새 글 하나로 바꾼다. 첫 글 블록 자리에 두고, 이미지 블록은 순서대로 지킨다(글이 없었으면 맨 앞)."""
+    replaced: list[TextBlock | ImageBlock] = []
+    placed = False
+    for block in blocks:
+        if block.type != "text":
+            replaced.append(block.model_copy())
+        elif not placed:
+            replaced.append(TextBlock(text=text))
+            placed = True
+    return replaced if placed else [TextBlock(text=text), *replaced]
+
+
 def with_section_text(result: GenerationResult, order: int, text: str) -> GenerationResult | None:
-    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다.
+    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 이미지 블록은 그대로 둔다. 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다.
 
     과제 스키마 값(content)은 LLM이 쓴 그대로 둔다. 바뀌는 것은 섹션과 full_text(섹션을 이어 붙인 글)뿐이라,
     content를 읽는 과제 검증은 고친 글이 아니라 원래 내용을 판정한다.
@@ -123,7 +154,7 @@ def with_section_text(result: GenerationResult, order: int, text: str) -> Genera
     if not any(s.order == order for s in result.sections):
         return None
     sections = [
-        s.model_copy(update={"blocks": [TextBlock(text=text)]}) if s.order == order else s.model_copy(deep=True)
+        s.model_copy(update={"blocks": _replace_text(s.blocks, text)}) if s.order == order else s.model_copy(deep=True)
         for s in result.sections
     ]
     return result.model_copy(deep=True, update={"sections": sections, "full_text": compose_full_text(sections)})

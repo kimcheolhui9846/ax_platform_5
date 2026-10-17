@@ -8,6 +8,7 @@ from app.core.store import StoreKind
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BACKEND_DIR / ".env"
 DEFAULT_DATABASE_PATH = BACKEND_DIR / "data" / "sessions.db"
+DEFAULT_ASSET_DIR = BACKEND_DIR / "data" / "assets"
 
 
 class Settings(BaseSettings):
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     debug: bool = False  # true면 trace 엔드포인트를 연다. 로컬 개발은 .env.example대로 켠다.
     store: StoreKind = "memory"  # sqlite면 DATABASE_PATH 파일에 세션을 남긴다(서버를 다시 켜도 남는다)
     database_path: Path = DEFAULT_DATABASE_PATH
+    asset_dir: Path = DEFAULT_ASSET_DIR  # sqlite 저장소일 때 결과 이미지를 두는 폴더
 
 
 settings = Settings()
