@@ -23,7 +23,9 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 설정은 `backend/.env`(실행 위치와 상관없이 이 파일)나 환경 변수에서 읽는다. `DEBUG` 기본값은 `false`이고, `.env.example`을 복사하면 로컬 개발용으로 `DEBUG=true`가 된다.
 
-배포: 세션별 잠금(`app/api/locks.py`)과 메모리 저장소(`InMemorySessionStore`)는 서버 프로세스 하나를 전제로 한다. 인스턴스(워커)는 하나만 띄우고, 공유 저장소가 생기면 둘 다 그쪽으로 바꾼다.
+저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. 계약은 `tests/test_store_contract.py`가 두 구현에 함께 돌린다.
+
+배포: 세션별 잠금(`app/api/locks.py`)은 서버 프로세스 하나를 전제로 한다. SQLite 파일도 한 프로세스가 쓴다. 인스턴스(워커)는 하나만 띄우고, 여러 프로세스가 필요해지면 잠금과 저장소를 공유 저장소(DB 잠금)로 함께 바꾼다.
 
 줄바꿈은 `.gitattributes`가 LF로 고정한다(`design/**`는 받은 바이트 그대로, PDF·이미지는 바이너리).
 
@@ -35,7 +37,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/harness/prompting.py` — 단계별 템플릿 변수 선언(`STAGE_CONTEXT`). 넘긴 키가 선언과 다르면 렌더링이 실패한다. 렌더 결과는 `Prompt(system, user)`.
 - `backend/app/harness/registry.py` — 과제 등록부(`TASK_TYPES`). 등록되지 않은 과제는 `build_harness`가 거부한다.
 - `backend/app/api/` — 얇은 라우터(`/api/v1/coaching/...`), 상태→응답 변환(`views.py`, 순수 함수), 예외 처리기(`errors.py`), 경로별 오류 응답 선언(`responses.py`), 세션별 잠금(`locks.py`), 요청한 사용자(`owner.py`).
-- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`, 계약은 `tests/test_store_contract.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
+- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, 계약은 `tests/test_store_contract.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
 - `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다. `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다.
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.

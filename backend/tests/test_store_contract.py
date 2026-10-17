@@ -1,17 +1,17 @@
-"""SessionStore 계약. 새 저장소(예: SQLite)는 STORES에 넣고 이 테스트를 그대로 통과해야 한다."""
+"""SessionStore 계약. 새 저장소는 store 픽스처에 넣고 이 테스트를 그대로 통과해야 한다."""
 from datetime import datetime, timezone
 
 import pytest
 
 from app.core.state import InfoItem, InfoSource, SessionState
-from app.core.store import InMemorySessionStore
-
-STORES = [InMemorySessionStore]
+from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 
-@pytest.fixture(params=STORES, ids=lambda cls: cls.__name__)
-def store(request):
-    return request.param()
+@pytest.fixture(params=["memory", "sqlite"])
+def store(request, tmp_path):
+    if request.param == "memory":
+        return InMemorySessionStore()
+    return SqliteSessionStore(tmp_path / "sessions.db")
 
 
 def test_missing_id_returns_none(store):
@@ -58,3 +58,28 @@ def test_save_overwrites_same_session(store):
     state.raw_input = "두 번째 저장"
     store.save(state)
     assert store.get(state.session_id).raw_input == "두 번째 저장"
+
+
+def test_list_by_owner_returns_only_that_owners_sessions_newest_first(store, clock):
+    first = SessionState(task_type="branding", owner_id="client-aaaa")
+    second = SessionState(task_type="product_planning", owner_id="client-aaaa")
+    other = SessionState(task_type="branding", owner_id="client-bbbb")
+    for state in (first, second, other):
+        store.save(state)
+    first.raw_input = "다시 저장"
+    store.save(first)
+
+    listed = store.list_by_owner("client-aaaa")
+
+    assert [s.session_id for s in listed] == [first.session_id, second.session_id]
+    assert listed[0].raw_input == "다시 저장"
+    assert store.list_by_owner("client-cccc") == []
+
+
+def test_list_by_owner_returns_copies(store):
+    state = SessionState(task_type="branding", owner_id="client-aaaa")
+    store.save(state)
+
+    store.list_by_owner("client-aaaa")[0].raw_input = "목록에서 바꾼 값"
+
+    assert store.get(state.session_id).raw_input == ""
