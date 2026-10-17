@@ -4,7 +4,7 @@ import { documentSections } from "../lib/document";
 import { CriteriaBox } from "./CriteriaBox";
 
 /** 결과 문서(텍스트). 섹션은 순서대로 번호를 매기고, AI 가정과 검토할 부분을 따로 둔다. */
-export function ResultDocument({ title, kicker, rows, result, issues }: DocumentContent) {
+export function ResultDocument({ title, kicker, rows, result, issues, supplements }: DocumentContent) {
   const { assumptions } = result;
   return (
     <article className="card document stack">
@@ -13,7 +13,7 @@ export function ResultDocument({ title, kicker, rows, result, issues }: Document
         <h1>{title}</h1>
       </div>
       <CriteriaBox rows={rows} />
-      {documentSections(result.cards).map((section) => (
+      {documentSections(result.sections).map((section) => (
         <section key={section.key} className="document-section">
           <h2 className="section-heading">
             <span className="section-number">{section.number}</span>
@@ -23,6 +23,17 @@ export function ResultDocument({ title, kicker, rows, result, issues }: Document
           <p>{section.body}</p>
         </section>
       ))}
+      {supplements.length > 0 && (
+        <section className="document-section applied-info stack8">
+          <p className="label">보완 정보 · 사용자 입력 / 검증 전</p>
+          {supplements.map((row) => (
+            <div key={row.label} className="summary-row">
+              <span>{row.label}</span>
+              <span>{row.value}</span>
+            </div>
+          ))}
+        </section>
+      )}
       {assumptions.length > 0 && (
         <section className="document-section">
           <h2 className="section-heading">AI가 가정한 내용</h2>

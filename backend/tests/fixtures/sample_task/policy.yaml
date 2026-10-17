@@ -40,5 +40,14 @@ fields:
     kind: default
     weight: 1
     default: 중간
+supplement_fields:
+  - name: material
+    label: 소재
+    example: 면 100%
+  - name: price
+    label: 판매 가격
+    example: 18,000원 / 개
+  - name: budget
+    label: 예산
 rules:
   - 근거 없는 숫자를 사실처럼 쓰지 않는다

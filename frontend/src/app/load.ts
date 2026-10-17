@@ -48,6 +48,7 @@ function missing(state: AppState): Load | null {
     const loaded = version !== null && version.session_id === sessionId && version.version.version === route.version;
     return loaded ? null : { kind: "version", sessionId, version: route.version };
   }
-  const wantsResult = route.name === "result" && session.has_result;
+  // 결과 화면과 문구 수정 화면은 결과까지 있어야 그린다
+  const wantsResult = (route.name === "result" || route.name === "edit") && session.has_result;
   return wantsResult && state.result?.session_id !== sessionId ? { kind: "result", sessionId } : null;
 }

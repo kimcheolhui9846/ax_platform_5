@@ -116,7 +116,7 @@ def test_full_flow(client):
     assert result.status_code == 200
     body = result.json()
     assert body["status"] == "completed"
-    assert body["result"]["cards"]
+    assert body["result"]["sections"]
     assert body["validation"]["passed"] is True
 
     assert client.get(f"{BASE}/sessions/{sid}/result").json()["result"] == body["result"]
@@ -234,7 +234,7 @@ def test_trace_hidden_without_debug():
 CONTRACT_SCHEMAS = (
     "TaskSummary", "TaskForm", "ModeInfo", "FieldSummary", "CreateSessionRequest",
     "AnswerRequest", "ReviseAnswerRequest", "Progress", "SummaryItem", "SessionView",
-    "ResultView", "Question", "QuestionOption", "LabeledResult", "ResultCard",
+    "ResultView", "Question", "QuestionOption", "LabeledResult", "ResultSection", "TextBlock",
     "LabeledAssumption", "UnknownItem", "ValidationReport", "ValidationIssue", "TraceEntry",
 )  # fmt: skip
 

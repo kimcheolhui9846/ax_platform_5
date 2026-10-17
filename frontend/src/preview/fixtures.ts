@@ -1,5 +1,5 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
 import type { EditableFlowItem } from "../lib/flowView";
 
 export const TASKS: TaskSummary[] = [
@@ -142,6 +142,18 @@ const DONE_SUMMARY: SummaryItem[] = [
   { field: "price_direction", label: "가격 방향", value: "1~3만원", source: "ai_assumption", source_label: "AI 가정", confidence: 0.5, is_assumption: true },
 ];
 
+const SUPPLEMENT_EMPTY: SupplementItem[] = [
+  { name: "target_customer", label: "고객", example: "일상 소지품을 정리하는 사용자", value: null },
+  { name: "material", label: "소재", example: "면 100%", value: null },
+  { name: "size", label: "크기", example: "가로 20 × 세로 12cm", value: null },
+  { name: "production_cost", label: "제작 비용", example: "8,000원 / 개", value: null },
+  { name: "sale_price", label: "판매 가격", example: "18,000원 / 개", value: null },
+];
+
+const SUPPLEMENT_FILLED: SupplementItem[] = SUPPLEMENT_EMPTY.map((item) =>
+  item.name === "material" || item.name === "sale_price" ? { ...item, value: item.example } : item,
+);
+
 const SESSION_BASE: SessionView = {
   session_id: "sess_preview",
   task_type: "product_planning",
@@ -152,6 +164,8 @@ const SESSION_BASE: SessionView = {
   progress: { asked: 1, cap: 5, readiness: 0.38 },
   summary: SUMMARY,
   unknowns: [],
+  supplements: SUPPLEMENT_EMPTY,
+  supplements_changed: false,
   flow: [ANSWERED_USER, current(QUESTION), ...UPCOMING],
   can_generate: true,
   has_result: false,
@@ -198,16 +212,17 @@ export const RESULT: ResultView = {
   version: { version: 2, created_at: "2026-10-16T09:30:00Z", reason: "regenerate", saved: false },
   summary: DONE_SUMMARY,
   unknowns: [{ field: "customer_problem", label: "고객 문제" }],
+  supplements: SUPPLEMENT_EMPTY,
   validation: {
     issues: [{ rule: "unverified_number", message: "가격은 AI 가정이에요. 비슷한 상품 가격을 확인해 주세요.", severity: "warning" }],
     passed: true,
   },
   result: {
-    cards: [
-      { card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "가방 안의 작은 물건을 정리하는 한글 파우치.\n한글 형태를 일상 소품으로 즐기게 한다." },
-      { card_type: "suggestion", order: 2, title: "핵심 기능", body: "작은 소지품이 섞이지 않게 칸을 나누고, 한글 자모를 겉면 패턴으로 쓴다." },
-      { card_type: "suggestion", order: 3, title: "첫 제작 방향", body: "수납과 사용 편의를 우선한다. 소재와 봉제 가능성을 먼저 확인한다." },
-      { card_type: "action", order: 4, title: "다음 실행", body: "잠재 고객 다섯 명에게 시제품 사진을 보여 주고 구매 이유와 우려를 듣는다." },
+    sections: [
+      { order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "가방 안의 작은 물건을 정리하는 한글 파우치.\n한글 형태를 일상 소품으로 즐기게 한다." }] },
+      { order: 2, heading: "핵심 기능", kind: "suggestion", blocks: [{ type: "text", text: "작은 소지품이 섞이지 않게 칸을 나누고, 한글 자모를 겉면 패턴으로 쓴다." }] },
+      { order: 3, heading: "첫 제작 방향", kind: "suggestion", blocks: [{ type: "text", text: "수납과 사용 편의를 우선한다. 소재와 봉제 가능성을 먼저 확인한다." }] },
+      { order: 4, heading: "다음 실행", kind: "action", blocks: [{ type: "text", text: "잠재 고객 다섯 명에게 시제품 사진을 보여 주고 구매 이유와 우려를 듣는다." }] },
     ],
     assumptions: [
       { field: "price_direction", label: "가격 방향", value: "1~3만원", reason: "비슷한 소형 파우치의 가격대", requires_confirmation: true },
@@ -218,6 +233,24 @@ export const RESULT: ResultView = {
   },
 };
 
+/** 미확인 정보 두 개를 입력했고 아직 초안에 반영하지 않았다. */
+export const SESSION_SUPPLEMENT: SessionView = {
+  ...READY,
+  status: "revising",
+  has_result: true,
+  result_stale: true,
+  supplements: SUPPLEMENT_FILLED,
+  supplements_changed: true,
+};
+
+/** 보완 정보를 반영한 새 버전(V3). */
+export const SESSION_SUPPLEMENTED: SessionView = { ...SESSION_SUPPLEMENT, status: "completed", result_stale: false, supplements_changed: false };
+export const RESULT_SUPPLEMENTED: ResultView = {
+  ...RESULT,
+  version: { version: 3, created_at: "2026-10-16T10:00:00Z", reason: "supplement", saved: false },
+  supplements: SUPPLEMENT_FILLED,
+};
+
 export const SAVED_VERSION: VersionView = {
   session_id: "sess_preview",
   version: { ...RESULT.version, saved: true },
@@ -226,16 +259,18 @@ export const SAVED_VERSION: VersionView = {
   validation: RESULT.validation,
   summary: RESULT.summary,
   unknowns: RESULT.unknowns,
+  supplements: RESULT.supplements,
 };
 
 export const OLD_VERSION: VersionView = {
   session_id: "sess_preview",
   version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true },
   latest: false,
-  result: { ...RESULT.result, cards: RESULT.result.cards.slice(0, 2) },
+  result: { ...RESULT.result, sections: RESULT.result.sections.slice(0, 2) },
   validation: null,
   summary: SUMMARY,
   unknowns: [{ field: "usage_context", label: "사용 상황" }],
+  supplements: SUPPLEMENT_EMPTY,
 };
 
 export const SESSIONS: SessionSummary[] = [

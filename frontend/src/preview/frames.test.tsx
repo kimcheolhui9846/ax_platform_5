@@ -6,7 +6,7 @@ import { FRAMES, FRAME_SIZES } from "./frames";
 import { Gallery } from "./Gallery";
 
 // 디자인 V2(design/2026-10-16-ux-v2)의 화면 가운데 지금까지 만든 것. 묶음마다 늘린다.
-const DESIGN_SCREENS = ["home", "request", "mode", "question", "confirm", "result", "guide", "work", "documents", "saved", "version"];
+const DESIGN_SCREENS = ["home", "request", "mode", "question", "confirm", "result", "guide", "work", "documents", "saved", "version", "edit"];
 
 describe("미리보기 프레임", () => {
   it("이름이 겹치지 않는다", () => {
@@ -14,7 +14,7 @@ describe("미리보기 프레임", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("묶음 2까지의 화면 상태를 모두 담는다", () => {
+  it("묶음 3a까지의 화면 상태를 모두 담는다", () => {
     expect(FRAMES.map((f) => f.id)).toEqual([
       "home",
       "home-new",
@@ -29,6 +29,10 @@ describe("미리보기 프레임", () => {
       "confirm-failed",
       "result",
       "result-stale",
+      "result-supplement",
+      "result-supplemented",
+      "supplement-form",
+      "edit",
       "saved",
       "version",
       "work",

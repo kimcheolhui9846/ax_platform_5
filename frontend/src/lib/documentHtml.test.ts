@@ -21,6 +21,14 @@ describe("내려받을 문서(HTML)", () => {
     expect(html).toContain('<span class="num">01</span> 상품 콘셉트');
   });
 
+  it("보완 정보는 사용자 입력 · 검증 전으로 싣고, 없으면 칸을 두지 않는다", () => {
+    const base = { ...documentContent(makeTask(), makeResult(), false), request: "향초" };
+    expect(documentHtml(base)).not.toContain("보완 정보");
+    const html = documentHtml({ ...base, supplements: [{ label: "소재", value: "<면>" }] });
+    expect(html).toContain("<h2>보완 정보 · 사용자 입력 / 검증 전</h2>");
+    expect(html).toContain("<tr><th>소재</th><td>&lt;면&gt;</td></tr>");
+  });
+
   it("AI 가정과 검토 항목은 있을 때만 넣는다", () => {
     const plain = documentHtml({ ...documentContent(makeTask(), makeResult(), false), request: "x" });
     expect(plain).not.toContain("AI가 가정한 내용");

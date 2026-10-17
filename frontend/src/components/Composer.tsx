@@ -8,12 +8,13 @@ type Props = {
   maxLength: number;
   submitLabel: string;
   busy: boolean;
+  canSubmit?: boolean; // 글 말고 보낼 수 있는 다른 조건(예: 지금 글과 다르다). 기본은 보낼 수 있다
   onChange: (text: string) => void;
   onSubmit: (text: string) => void;
 };
 
 /** 글 입력과 보내기. 값은 부모가 가진다. 보낼 때는 앞뒤 공백을 지운 글을 넘긴다. */
-export function Composer({ label, value, placeholder, rows, maxLength, submitLabel, busy, onChange, onSubmit }: Props) {
+export function Composer({ label, value, placeholder, rows, maxLength, submitLabel, busy, canSubmit = true, onChange, onSubmit }: Props) {
   const id = useId();
   const text = value.trim();
   return (
@@ -21,7 +22,7 @@ export function Composer({ label, value, placeholder, rows, maxLength, submitLab
       className="composer"
       onSubmit={(event) => {
         event.preventDefault();
-        if (text && !busy) onSubmit(text);
+        if (text && canSubmit && !busy) onSubmit(text);
       }}
     >
       <label htmlFor={id} className="small muted">
@@ -37,7 +38,7 @@ export function Composer({ label, value, placeholder, rows, maxLength, submitLab
       />
       <div className="row">
         <span className="muted grow">짧게 적어도 괜찮아요.</span>
-        <button type="submit" className="btn primary send" disabled={busy || !text}>
+        <button type="submit" className="btn primary send" disabled={busy || !text || !canSubmit}>
           {submitLabel}
         </button>
       </div>

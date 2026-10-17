@@ -97,6 +97,8 @@ def test_each_route_declares_only_errors_it_can_return(client):
     assert _statuses(spec, "/sessions/{session_id}/generate", "post") == {"200", "404", "422", "500", "502"}
     assert _statuses(spec, "/sessions/{session_id}/continue", "post") == {"200", "404", "422", "500", "502"}
     assert _statuses(spec, "/sessions/{session_id}/answers/{question_id}", "patch") == {"200", "404", "422", "500", "502"}
+    assert _statuses(spec, "/sessions/{session_id}/supplements", "put") == {"200", "404", "422", "500"}
+    assert _statuses(spec, "/sessions/{session_id}/result/sections/{order}", "patch") == {"200", "404", "422", "500"}
     assert _statuses(spec, "/sessions/{session_id}/question/original", "post") == {"200", "404", "422", "500"}
     assert _statuses(spec, "/sessions/{session_id}/trace", "get") == {"200", "404", "422", "500"}
     assert _statuses(spec, "/sessions/{session_id}/versions/{version}", "get") == {"200", "404", "422", "500"}

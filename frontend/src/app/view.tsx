@@ -1,10 +1,11 @@
 import type { JSX } from "react";
 
-import type { AnswerBody, CoachingMode, ReviseBody, SessionSummary, SessionView } from "../api/types";
+import type { AnswerBody, CoachingMode, ResultView, ReviseBody, SessionSummary, SessionView } from "../api/types";
 import { FlowPanel } from "../components/FlowPanel";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
+import { firstSectionOrder } from "../lib/document";
 import type { DocumentFile } from "../lib/documentHtml";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
@@ -16,6 +17,7 @@ import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
 import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
 import { DocumentsScreen } from "../screens/DocumentsScreen";
+import { EditMain, EditSide } from "../screens/EditScreen";
 import { GuideScreen } from "../screens/GuideScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ModeScreen } from "../screens/ModeScreen";
@@ -52,6 +54,10 @@ export type Handlers = {
   resume: (summary: SessionSummary) => void;
   openVersion: (sessionId: string, version: number) => void;
   saveVersion: () => void;
+  saveSupplements: (values: Record<string, string | null>) => void;
+  applySupplements: () => void;
+  editSection: (order: number) => void;
+  submitEdit: (order: number, text: string) => void;
   download: (file: DocumentFile) => void;
 };
 
@@ -174,6 +180,8 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
               session={model.session}
               version={model.result.version}
               busy={busy}
+              supplements={supplementProps(model.session, model.result, on)}
+              onEditText={editTextOf(model.result, on)}
               onRegenerate={on.generate}
               onSave={on.saveVersion}
               onChangeAnswers={editable ? () => on.edit(editable) : null}
@@ -181,6 +189,21 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
               onDownload={download}
             />
           ),
+      };
+    }
+    case "edit": {
+      const order = model.section.order;
+      return {
+        main: (
+          <EditMain
+            key={`${model.result.version.version}-${order}`}
+            section={model.section}
+            busy={busy}
+            onSubmit={(text) => on.submitEdit(order, text)}
+            onBack={on.showResult}
+          />
+        ),
+        side: <EditSide flow={model.session.flow} supplements={supplementProps(model.session, model.result, on)} busy={busy} />,
       };
     }
     case "saved":
@@ -225,6 +248,24 @@ function flowSide(session: SessionView, atConfirm: boolean, busy: boolean, on: H
       onPrevious={previous ? () => on.edit(previous) : null}
     />
   );
+}
+
+/** 보완 패널에 넘길 값: 지금 입력과 미반영 여부는 세션, 반영한 값은 지금 결과의 것이다. */
+function supplementProps(session: SessionView, result: ResultView, on: Handlers) {
+  return {
+    current: session.supplements,
+    applied: result.supplements,
+    changed: session.supplements_changed,
+    canGenerate: session.can_generate,
+    onSave: on.saveSupplements,
+    onApply: on.applySupplements,
+  };
+}
+
+/** 결과 화면의 '소개 문구 수정하기': 첫 섹션을 연다. 섹션이 없으면 버튼을 두지 않는다. */
+function editTextOf(result: ResultView, on: Handlers): (() => void) | null {
+  const order = firstSectionOrder(result.result.sections);
+  return order === null ? null : () => on.editSection(order);
 }
 
 /** 헤더의 과제 이름. 과제 밖 화면은 null이다. */

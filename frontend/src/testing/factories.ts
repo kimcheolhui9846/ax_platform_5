@@ -89,6 +89,8 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
       },
     ],
     unknowns: [],
+    supplements: [],
+    supplements_changed: false,
     flow: question
       ? [makeFlowItem({ field: question.field, text: question.text, status: "current", question })]
       : [],
@@ -118,9 +120,10 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
       },
     ],
     unknowns: [],
+    supplements: [],
     validation: { issues: [], passed: true },
     result: {
-      cards: [{ card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "집들이 선물용 수제 향초." }],
+      sections: [{ order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "집들이 선물용 수제 향초." }] }],
       assumptions: [],
       full_text: "상품 콘셉트",
       content: {},
@@ -157,6 +160,7 @@ export function makeVersionView(overrides: Partial<VersionView> = {}): VersionVi
     validation: result.validation,
     summary: result.summary,
     unknowns: [],
+    supplements: [],
     ...overrides,
   };
 }

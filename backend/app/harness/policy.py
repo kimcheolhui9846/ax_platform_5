@@ -27,6 +27,16 @@ class LadderStep(BaseModel):
     multi_select: bool = False
 
 
+class SupplementField(BaseModel):
+    """결과를 만든 뒤 사용자가 채우는 미확인 정보 항목(필드와 따로다. 질문하지 않는다)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    label: str
+    example: str = ""
+
+
 class FieldPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -69,6 +79,7 @@ class TaskPolicy(BaseModel):
     max_easier_level: int = Field(default=4, ge=1)  # 이 단계부터 AI 후보 제안
     llm_validation: bool = False  # 생성 후 LLM 검토 호출 (비용 때문에 기본 꺼짐)
     fields: list[FieldPolicy]
+    supplement_fields: list[SupplementField] = Field(default_factory=list)
     rules: list[str] = Field(default_factory=list)  # 금지·주의 규칙
 
     @model_validator(mode="after")
@@ -88,6 +99,13 @@ class TaskPolicy(BaseModel):
                 f"easier_questions는 max_easier_level({self.max_easier_level})보다 적어야 합니다. "
                 f"그 단계부터는 AI 후보 제안이 대신해 닿지 않습니다: {', '.join(unreachable)}"
             )
+        supplement_names = [s.name for s in self.supplement_fields]
+        repeated = sorted({n for n in supplement_names if supplement_names.count(n) > 1})
+        if repeated:
+            raise ValueError(f"보완 항목 이름이 중복됩니다: {', '.join(repeated)}")
+        clashes = sorted(set(supplement_names) & set(names))
+        if clashes:
+            raise ValueError(f"보완 항목 이름이 필드와 겹칩니다: {', '.join(clashes)}")
         return self
 
     def field(self, name: str) -> FieldPolicy:
@@ -99,6 +117,10 @@ class TaskPolicy(BaseModel):
     @property
     def labels(self) -> dict[str, str]:
         return {f.name: f.label for f in self.fields}
+
+    @property
+    def supplement_labels(self) -> dict[str, str]:
+        return {s.name: s.label for s in self.supplement_fields}
 
 
 def load_policy(path: Path) -> TaskPolicy:

@@ -4,6 +4,7 @@ type Schemas = components["schemas"];
 
 export type TaskSummary = Schemas["TaskSummary"];
 export type SessionView = Schemas["SessionView"];
+export type SupplementItem = Schemas["SupplementItem"];
 export type ResultView = Schemas["ResultView"];
 export type Question = Schemas["Question"];
 export type Progress = Schemas["Progress"];
@@ -18,7 +19,8 @@ export type ReviseBody = Schemas["ReviseAnswerRequest"];
 export type FlowItem = Schemas["FlowItem"];
 export type FlowStatus = Schemas["FlowStatus"];
 export type ModeInfo = Schemas["ModeInfo"];
-export type ResultCard = Schemas["ResultCard"];
+export type ResultSection = Schemas["ResultSection"];
+export type TextBlock = Schemas["TextBlock"];
 export type VersionSummary = Schemas["VersionSummary"];
 export type VersionView = Schemas["VersionView"];
 export type VersionReason = Schemas["VersionReason"];

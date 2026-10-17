@@ -1,7 +1,12 @@
 import type { SessionSummary, VersionReason, VersionSummary } from "../api/types";
 import type { Route } from "./routes";
 
-const REASON_LABEL: Record<VersionReason, string> = { first: "첫 초안", regenerate: "다시 만든 초안" };
+const REASON_LABEL: Record<VersionReason, string> = {
+  first: "첫 초안",
+  regenerate: "다시 만든 초안",
+  edit: "문구 수정",
+  supplement: "보완 정보 반영",
+};
 
 /** "V2 · 다시 만든 초안" */
 export function versionLine(version: Pick<VersionSummary, "version" | "reason">): string {

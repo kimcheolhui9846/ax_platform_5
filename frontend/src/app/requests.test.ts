@@ -103,7 +103,7 @@ describe("startLoad", () => {
     expect(tasks.done([makeTask()], 1)).toEqual({ type: "tasksLoaded", seq: 1, tasks: [makeTask()] });
     expect(form.done(makeForm(), 2)).toEqual({ type: "formLoaded", seq: 2, form: makeForm() });
     expect(session.done(makeSession(), 3)).toEqual({ type: "sessionLoaded", seq: 3, session: makeSession(), next: null, notice: null });
-    expect(result.done(makeResult(), 4)).toEqual({ type: "resultLoaded", seq: 4, result: makeResult(), next: null, outdatesSession: false });
+    expect(result.done(makeResult(), 4)).toEqual({ type: "resultLoaded", seq: 4, result: makeResult(), next: null, outdatesSession: false, notice: null });
   });
 
   it("내 세션 목록과 버전을 부른다", async () => {

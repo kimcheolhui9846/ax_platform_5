@@ -3,12 +3,12 @@
 내부 세션 상태(trace, 프롬프트, 정책 규칙)는 여기에 싣지 않는다.
 """
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
-from app.core.results import ResultCard, ValidationReport, VersionReason
+from app.core.results import ResultSection, ValidationReport, VersionReason
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
@@ -83,6 +83,10 @@ class ReviseAnswerRequest(BaseModel):
     option_ids: list[str] = Field(default_factory=list)
 
 
+class EditSectionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2500)  # 디자인의 문구 입력 상한
+
+
 class Progress(ContractModel):
     asked: int
     cap: int
@@ -104,6 +108,19 @@ class UnknownItem(ContractModel):
     label: str
 
 
+class SupplementItem(ContractModel):
+    name: str
+    label: str
+    example: str
+    value: str | None  # 아직 미확인이면 None
+
+
+class SupplementsRequest(BaseModel):
+    """{항목 이름: 값 | null}. null·빈 값이면 그 항목을 지운다."""
+
+    values: dict[str, Annotated[str, Field(max_length=250)] | None]
+
+
 class SessionView(ContractModel):
     session_id: str
     task_type: str
@@ -115,6 +132,8 @@ class SessionView(ContractModel):
     summary: list[SummaryItem]
     unknowns: list[UnknownItem]
     flow: list[FlowItem]  # 흐름 패널: 물어본 필드 → 지금 질문 → 예정
+    supplements: list[SupplementItem]
+    supplements_changed: bool  # 보완 정보가 마지막 결과에 반영되지 않았다
     can_generate: bool
     has_result: bool  # 이전에 만든 결과가 있어 GET /result로 다시 볼 수 있다
     result_stale: bool
@@ -132,7 +151,7 @@ class LabeledAssumption(ContractModel):
 class LabeledResult(ContractModel):
     """GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다."""
 
-    cards: list[ResultCard]
+    sections: list[ResultSection]
     assumptions: list[LabeledAssumption]
     full_text: str
     content: dict[str, Any]
@@ -155,6 +174,7 @@ class ResultView(ContractModel):
     version: VersionSummary  # 지금 결과의 버전
     summary: list[SummaryItem]  # 이 결과를 만든 기준(그 버전의 사실·가정)
     unknowns: list[UnknownItem]  # 그 버전에서 미정이던 필드
+    supplements: list[SupplementItem]  # 그 버전에 반영한 보완 정보
 
 
 class VersionView(ContractModel):
@@ -167,6 +187,7 @@ class VersionView(ContractModel):
     validation: ValidationReport | None
     summary: list[SummaryItem]
     unknowns: list[UnknownItem]
+    supplements: list[SupplementItem]  # 그 버전에 반영한 보완 정보
 
 
 class SessionSummary(ContractModel):

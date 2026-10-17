@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { Route } from "./routes";
 import { HEADER_STEPS, enabledNav, headerSteps, railActive, railItems, routePhase } from "./shell";
 
 describe("headerSteps", () => {
@@ -83,5 +84,13 @@ describe("railActive", () => {
     expect(railActive({ name: "request", task: "t" })).toBe("work");
     expect(railActive({ name: "confirm", sessionId: "s" })).toBe("work");
     expect(railActive({ name: "result", sessionId: "s" })).toBe("documents");
+  });
+});
+
+describe("문구 수정 화면", () => {
+  it("문구 수정은 결과 만들기 단계이고 결과물 메뉴다", () => {
+    const route: Route = { name: "edit", sessionId: "s", order: 1 };
+    expect(routePhase(route)).toBe(2);
+    expect(railActive(route)).toBe("documents");
   });
 });

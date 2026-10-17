@@ -26,5 +26,9 @@ export const NOOP_HANDLERS: Handlers = {
   resume: noop,
   openVersion: noop,
   saveVersion: noop,
+  saveSupplements: noop,
+  applySupplements: noop,
+  editSection: noop,
+  submitEdit: noop,
   download: noop,
 };

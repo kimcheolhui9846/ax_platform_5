@@ -123,4 +123,18 @@ describe("screenModel", () => {
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
   });
+
+  it("문구 수정 주소는 그 섹션이 있으면 수정 화면, 없으면 결과 화면이다", () => {
+    const route: Route = { name: "edit", sessionId: "sess_1", order: 1 };
+    const session = makeSession({ session_id: "sess_1", has_result: true });
+    const result = makeResult({ session_id: "sess_1" });
+    const base = { ...initialState(route), tasks: [makeTask()], session };
+    expect(screenModel(base).kind).toBe("loading");
+    const model = screenModel({ ...base, result });
+    expect(model).toEqual({ kind: "edit", task: makeTask(), session, result, section: result.result.sections[0] });
+    const missing = screenModel({ ...base, route: { ...route, order: 99 }, result });
+    expect(missing).toEqual({ kind: "result", task: makeTask(), session, result });
+    const noResult = makeSession({ session_id: "sess_1", has_result: false });
+    expect(screenModel({ ...base, session: noResult })).toEqual({ kind: "result", task: makeTask(), session: noResult, result: null });
+  });
 });

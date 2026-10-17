@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { actionState, confirmActions, regenerateAction, saveButton } from "./actions";
+import { STALE_NOTICE, actionState, confirmActions, regenerateAction, saveButton } from "./actions";
 
 describe("결과 버튼", () => {
+  it("최신 아님 문구는 답뿐 아니라 보완 정보가 바뀐 경우도 아우른다", () => {
+    expect(STALE_NOTICE).toBe("입력이 바뀌어 결과가 최신이 아니에요. 바뀐 내용을 반영하려면 초안을 다시 만들어 주세요.");
+    expect(confirmActions({ has_result: true, result_stale: true })[0].label).toBe("바뀐 내용으로 초안 다시 만들기");
+  });
+
   it("결과가 없으면 만들기 하나", () => {
     expect(confirmActions({ has_result: false, result_stale: false })).toEqual([
       { action: "generate", label: "맞아요 · 이 정보로 초안 만들기", primary: true },
@@ -21,7 +26,7 @@ describe("결과 버튼", () => {
   });
 
   it("결과 화면의 다시 만들기는 낡았을 때만 주 버튼이다", () => {
-    expect(regenerateAction(true)).toEqual({ action: "generate", label: "바뀐 답으로 다시 만들기", primary: true });
+    expect(regenerateAction(true)).toEqual({ action: "generate", label: "바뀐 내용으로 다시 만들기", primary: true });
     expect(regenerateAction(false)).toEqual({ action: "generate", label: "초안 다시 만들기", primary: false });
   });
 

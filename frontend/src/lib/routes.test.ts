@@ -25,7 +25,7 @@ describe("parseRoute·toHash", () => {
   });
 
   it("빈 주소와 모르는 주소는 홈이다", () => {
-    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/s/sess_1/edit", "#/product_planning/question", "#/a/b/c/d/e", "#/s/sess_1/v/0", "#/s/sess_1/saved", "#/s/sess_1/saved/x", "#/s/sess_1/v/x", "#/s/sess_1/v/2/x"]) {
+    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/product_planning/question", "#/a/b/c/d/e", "#/s/sess_1/v/0", "#/s/sess_1/saved", "#/s/sess_1/saved/x", "#/s/sess_1/v/x", "#/s/sess_1/v/2/x"]) {
       expect(parseRoute(hash)).toEqual(HOME);
     }
   });
@@ -82,5 +82,17 @@ describe("isListRoute", () => {
     expect(contextOf({ name: "work" })).toBe("work");
     expect(contextOf({ name: "documents" })).toBe("documents");
     expect(contextOf({ name: "saved", sessionId: "s", version: 1 })).toBe(contextOf({ name: "version", sessionId: "s", version: 1 }));
+  });
+});
+
+describe("문구 수정 주소", () => {
+  it("edit 주소", () => {
+    const route: Route = { name: "edit", sessionId: "sess_1", order: 2 };
+    expect(toHash(route)).toBe("#/s/sess_1/edit/2");
+    expect(parseRoute("#/s/sess_1/edit/2")).toEqual(route);
+    expect(parseRoute("#/s/sess_1/edit/0")).toEqual({ name: "edit", sessionId: "sess_1", order: 0 });
+    expect(parseRoute("#/s/sess_1/edit/x")).toEqual(HOME);
+    expect(parseRoute("#/s/sess_1/edit/-1")).toEqual(HOME);
+    expect(contextOf(route)).toBe("session:sess_1");
   });
 });

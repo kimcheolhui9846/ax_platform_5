@@ -2,8 +2,10 @@ import type { ApiResult } from "../api/client";
 import {
   continueSession,
   createSession,
+  editResultSection,
   generateResult,
   reviseAnswer,
+  saveSupplements as saveSupplementsRequest,
   saveVersion as saveVersionRequest,
   showOriginalQuestion,
   submitAnswer,
@@ -19,6 +21,9 @@ import type { Handlers } from "./view";
 
 export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
 export const DOWNLOADED_NOTICE = "문서를 내려받았어요.";
+export const SUPPLEMENTS_SAVED_NOTICE = "입력 내용을 저장했어요. ‘초안에 반영’을 눌러 적용해 주세요.";
+export const SUPPLEMENTS_APPLIED_NOTICE = "입력한 정보를 초안의 보완 기준에 반영했어요.";
+export const SECTION_EDITED_NOTICE = "문구를 반영했어요. 다른 기준과 검토 기록은 그대로예요.";
 
 /** [순수] 답이 바뀐 세션의 다음 화면. 걸린 질문이 있으면 질문, 없으면 답변 확인. */
 export function routeAfterSession(session: SessionView): Route {
@@ -54,6 +59,25 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
     if (session && question) moveOn(() => submitAnswer(session.session_id, question.question_id, body));
   };
 
+  /** 지금 정보로 결과를 만들고 결과 화면으로 간다. 성공이든 실패든 서버 세션이 바뀌었으니 다시 받는다. */
+  const generateWith = (notice: string | null) => {
+    if (!session) return;
+    const sessionId = session.session_id;
+    void run({
+      request: () => generateResult(sessionId),
+      done: (result, seq) => ({
+        type: "resultLoaded",
+        seq,
+        result,
+        next: { name: "result", sessionId },
+        outdatesSession: true,
+        notice,
+      }),
+      load: null,
+      outdatesSessionOnFail: true,
+    });
+  };
+
   return {
     navigate: (key) => go(key === "home" ? HOME : key === "work" ? { name: "work" } : { name: "documents" }),
     guide: () => go({ name: "guide" }),
@@ -84,22 +108,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
     backToQuestions: () => {
       if (session) go(routeAfterSession(session));
     },
-    generate: () => {
-      if (!session) return;
-      const sessionId = session.session_id;
-      void run({
-        request: () => generateResult(sessionId),
-        done: (result, seq) => ({
-          type: "resultLoaded",
-          seq,
-          result,
-          next: { name: "result", sessionId },
-          outdatesSession: true,
-        }),
-        load: null,
-        outdatesSessionOnFail: true,
-      });
-    },
+    generate: () => generateWith(null),
     showResult: () => {
       if (session) go({ name: "result", sessionId: session.session_id });
     },
@@ -131,6 +140,38 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       void run({
         request: () => saveVersionRequest(sessionId, number),
         done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId, version: number } }),
+        load: null,
+        outdatesSessionOnFail: false,
+      });
+    },
+    saveSupplements: (values) => {
+      if (!session) return;
+      const sessionId = session.session_id;
+      void run({
+        request: () => saveSupplementsRequest(sessionId, values),
+        done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
+        load: null,
+        outdatesSessionOnFail: false,
+      });
+    },
+    applySupplements: () => generateWith(SUPPLEMENTS_APPLIED_NOTICE),
+    editSection: (order) => {
+      if (session) go({ name: "edit", sessionId: session.session_id, order });
+    },
+    submitEdit: (order, text) => {
+      if (!session) return;
+      const sessionId = session.session_id;
+      void run({
+        request: () => editResultSection(sessionId, order, text),
+        // 문구 수정은 세션(답·보완 정보·최신 여부)을 바꾸지 않는다
+        done: (result, seq) => ({
+          type: "resultLoaded",
+          seq,
+          result,
+          next: { name: "result", sessionId },
+          outdatesSession: false,
+          notice: SECTION_EDITED_NOTICE,
+        }),
         load: null,
         outdatesSessionOnFail: false,
       });

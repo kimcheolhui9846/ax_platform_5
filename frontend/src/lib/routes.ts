@@ -13,6 +13,7 @@ export type Route =
   | { name: "revise"; sessionId: string; questionId: string }
   | { name: "confirm"; sessionId: string }
   | { name: "result"; sessionId: string }
+  | { name: "edit"; sessionId: string; order: number }
   | { name: "saved"; sessionId: string; version: number }
   | { name: "version"; sessionId: string; version: number };
 
@@ -20,6 +21,7 @@ export const HOME: Route = { name: "home" };
 
 const TASK_VIEWS = new Set(["request", "mode"]);
 const VERSION_NUMBER = /^[1-9]\d*$/;
+const SECTION_ORDER = /^\d+$/;
 
 function decode(segment: string): string {
   try {
@@ -73,6 +75,9 @@ export function parseRoute(hash: string): Route {
     if (third === "v") return { name: "version", sessionId: second, version: Number(fourth) };
     if (third === "saved") return { name: "saved", sessionId: second, version: Number(fourth) };
   }
+  if (first === "s" && parts.length === 4 && third === "edit" && SECTION_ORDER.test(fourth)) {
+    return { name: "edit", sessionId: second, order: Number(fourth) };
+  }
   return HOME;
 }
 
@@ -100,6 +105,8 @@ export function toHash(route: Route): string {
       return `#/s/${e(route.sessionId)}/v/${route.version}`;
     case "saved":
       return `#/s/${e(route.sessionId)}/saved/${route.version}`;
+    case "edit":
+      return `#/s/${e(route.sessionId)}/edit/${route.order}`;
     default:
       return `#/s/${e(route.sessionId)}/${route.name}`;
   }

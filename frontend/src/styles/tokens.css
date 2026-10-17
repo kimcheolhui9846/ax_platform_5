@@ -83,5 +83,7 @@
   --mode-card-height: 320px;
   --current-mark: 3px;
   --list-action-width: 264px;
+  --dialog-width: 720px;
+  --field-label-width: 120px;
   --saved-action-basis: 240px;
 }

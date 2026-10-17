@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn() } }));
+vi.mock("./client", () => ({ api: { GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), PUT: vi.fn() } }));
 
 import { api } from "./client";
 import type { ApiResult } from "./coaching";
 import {
   continueSession,
   createSession,
+  editResultSection,
   generateResult,
   getResult,
   getVersion,
@@ -16,6 +17,7 @@ import {
   getTaskForm,
   listTasks,
   reviseAnswer,
+  saveSupplements,
   showOriginalQuestion,
   submitAnswer,
 } from "./coaching";
@@ -108,6 +110,24 @@ describe("coaching API 래퍼", () => {
     expectTypeOf(listSessions).returns.resolves.toEqualTypeOf<ApiResult<SessionSummary[]>>();
     expectTypeOf(getVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
     expectTypeOf(saveVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
+  });
+
+  it("결과 문구 수정", async () => {
+    await editResultSection("sess_1", 1, "고친 문구");
+    expect(api.PATCH).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/result/sections/{order}`, {
+      params: { path: { session_id: "sess_1", order: 1 } },
+      body: { text: "고친 문구" },
+    });
+    expectTypeOf(editResultSection).returns.resolves.toEqualTypeOf<ApiResult<ResultView>>();
+  });
+
+  it("미확인 정보 저장", async () => {
+    await saveSupplements("sess_1", { material: "면", size: null });
+    expect(api.PUT).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/supplements`, {
+      params: { path: { session_id: "sess_1" } },
+      body: { values: { material: "면", size: null } },
+    });
+    expectTypeOf(saveSupplements).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
   });
 
   it("돌려주는 타입", () => {

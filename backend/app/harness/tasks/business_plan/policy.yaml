@@ -78,6 +78,11 @@ fields:
     options: [지인에게 먼저 팔아보기, SNS로 반응 보기, 플리마켓 참가]
     easier_questions:
       - question: 처음 10명의 고객을 어디서 만날 수 있을까요?
+supplement_fields:
+  - { name: production_cost, label: 제작 원가, example: "8,000원 / 개" }
+  - { name: sale_price, label: 판매 가격, example: "18,000원 / 개" }
+  - { name: budget, label: 예산, example: 50만 원 }
+  - { name: sales_channel, label: 판매 채널, example: 온라인 마켓 }
 rules:
   - 근거 없는 시장 규모를 사실처럼 제시하지 않는다
   - 임의의 매출 전망을 만들지 않는다

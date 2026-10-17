@@ -276,3 +276,13 @@ def test_policy_errors_show_plain_values(tmp_path):
         load_policy(write_policy(tmp_path, base_policy(question_caps={"standard": 5})))
     assert "question_caps에 모드가 빠졌습니다: precise, quick [" in str(caps.value)
     assert "CoachingMode" not in str(caps.value)
+
+
+def test_supplement_names_must_not_reuse_field_names(tmp_path):
+    with pytest.raises(ValidationError, match="보완 항목 이름이 필드와 겹칩니다: a"):
+        load_policy(write_policy(tmp_path, base_policy(supplement_fields=[{"name": "a", "label": "에이"}])))
+
+
+def test_supplement_names_must_be_unique(tmp_path):
+    with pytest.raises(ValidationError, match="보완 항목 이름이 중복됩니다: x"):
+        load_policy(write_policy(tmp_path, base_policy(supplement_fields=[{"name": "x", "label": "1"}, {"name": "x", "label": "2"}])))

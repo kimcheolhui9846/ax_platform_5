@@ -30,9 +30,15 @@ export function documentHtml(content: DocumentContent & { request: string }): st
   const rows = content.rows
     .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.note ? ` <span class="note">· ${e(row.note)}</span>` : ""}</td></tr>`)
     .join("");
-  const sections = documentSections(content.result.cards)
+  const sections = documentSections(content.result.sections)
     .map((s) => `<h2><span class="num">${s.number}</span> ${e(s.heading)} <span class="note">${e(s.tag)}</span></h2><p>${e(s.body)}</p>`)
     .join("");
+  const supplements =
+    content.supplements.length === 0
+      ? ""
+      : `<h2>보완 정보 · 사용자 입력 / 검증 전</h2><table>${content.supplements
+          .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}</td></tr>`)
+          .join("")}</table>`;
   return [
     "<!doctype html>",
     '<html lang="ko">',
@@ -49,6 +55,7 @@ export function documentHtml(content: DocumentContent & { request: string }): st
     "<h2>내 답변에서 반영한 기준</h2>",
     `<table>${rows}</table>`,
     sections,
+    supplements,
     list("AI가 가정한 내용", content.result.assumptions.map(formatAssumption)),
     list("검토가 필요한 부분", content.issues.map((issue) => issue.message)),
     '<p class="note">창작자 AX에서 만든 초안이에요. AI 제안과 외부 사실은 따로 검토가 필요해요.</p>',

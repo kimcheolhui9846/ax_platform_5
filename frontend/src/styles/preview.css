@@ -12,3 +12,8 @@
 /* 본문 바로가기는 키보드용이라 디자인 프레임에는 넣지 않는다. */
 .gallery .skip { display: none; }
 
+/* 대화상자를 연 화면: 프레임 위에 대화상자 표면을 겹쳐 그린다(실제 대화상자는 열 수 없어서) */
+/* 대화상자는 앱 뼈대 밖(겹친 형제)이라 프레임 자체를 같은 이름의 컨테이너로 둔다. 390px 프레임에서도 모바일 배치가 된다. */
+.gallery-dialog-frame { display: grid; container: app / inline-size; }
+.gallery-dialog-base { grid-area: 1 / 1; }
+.gallery-dialog { grid-area: 1 / 1; align-self: start; justify-self: center; margin-top: var(--space-12); max-height: none; overflow: visible; }

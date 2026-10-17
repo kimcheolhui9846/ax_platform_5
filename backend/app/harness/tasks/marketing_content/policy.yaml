@@ -74,6 +74,11 @@ fields:
     kind: default
     weight: 1
     default: 친근한 톤, 중간 길이
+supplement_fields:
+  - { name: product_spec, label: 상품 사양, example: 한글 형태를 활용한 소형 파우치 }
+  - { name: launch_date, label: 공개 일정, example: 일정 미정 }
+  - { name: price, label: 가격, example: 가격 미정 }
+  - { name: purchase_link, label: 구매 링크, example: 링크 준비 중 }
 rules:
   - 확인되지 않은 효능을 쓰지 않는다
   - 과장 광고를 하지 않는다

@@ -77,6 +77,14 @@ export function continueSession(sessionId: string): Promise<ApiResult<SessionVie
   });
 }
 
+/** 미확인 정보를 저장한다(사용자 입력·검증 전). null이면 그 항목을 지운다. */
+export function saveSupplements(sessionId: string, values: Record<string, string | null>): Promise<ApiResult<SessionView>> {
+  return api.PUT(`${BASE}/sessions/{session_id}/supplements`, {
+    params: { path: { session_id: sessionId } },
+    body: { values },
+  });
+}
+
 /** '원래 예시 보기'. 사다리 질문을 기본 질문으로 되돌린다(LLM 호출 없음). */
 export function showOriginalQuestion(sessionId: string): Promise<ApiResult<SessionView>> {
   return api.POST(`${BASE}/sessions/{session_id}/question/original`, {
@@ -100,6 +108,14 @@ export function getResult(sessionId: string): Promise<ApiResult<ResultView>> {
 export function getVersion(sessionId: string, version: number): Promise<ApiResult<VersionView>> {
   return api.GET(`${BASE}/sessions/{session_id}/versions/{version}`, {
     params: { path: { session_id: sessionId, version } },
+  });
+}
+
+/** 결과 섹션 하나의 문구를 고친 새 버전을 만든다(LLM 호출 없음). */
+export function editResultSection(sessionId: string, order: number, text: string): Promise<ApiResult<ResultView>> {
+  return api.PATCH(`${BASE}/sessions/{session_id}/result/sections/{order}`, {
+    params: { path: { session_id: sessionId, order } },
+    body: { text },
   });
 }
 

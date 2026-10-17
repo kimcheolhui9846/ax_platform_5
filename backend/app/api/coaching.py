@@ -17,6 +17,7 @@ from app.api.views import (
 )
 from app.core.messages import (
     RESULT_NOT_READY_MESSAGE,
+    SECTION_NOT_FOUND_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
     VERSION_NOT_FOUND_MESSAGE,
     unknown_task_message,
@@ -29,10 +30,12 @@ from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
+    EditSectionRequest,
     ResultView,
     ReviseAnswerRequest,
     SessionSummary,
     SessionView,
+    SupplementsRequest,
     TaskForm,
     TaskSummary,
     VersionView,
@@ -161,7 +164,7 @@ def revise_answer(
 def generate(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> ResultView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.generate(state)
-    return to_result_view(state, harness.policy.fields)
+    return to_result_view(state, harness.policy.fields, harness.policy.supplement_fields)
 
 
 @router.post(
@@ -173,6 +176,16 @@ def continue_session(
     """결과를 만든 뒤 질문을 이어 간다. 남은 질문이 없으면 세션은 그대로다."""
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
         harness.resume(state)
+    return to_session_view(state, harness)
+
+
+@router.put("/sessions/{session_id}/supplements", response_model=SessionView, responses=error_responses(404, 422))
+def save_supplements(
+    session_id: str, body: SupplementsRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> SessionView:
+    """미확인 정보를 저장한다(사용자 입력·검증 전). 초안에 반영은 다시 생성(generate)이다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        harness.set_supplements(state, body.values)
     return to_session_view(state, harness)
 
 
@@ -195,7 +208,7 @@ def get_result(session_id: str, registry: Registry, store: Store, owner: Owner) 
     state, harness = _load(registry, store, session_id, owner)
     if state.result is None:
         raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
-    return to_result_view(state, harness.policy.fields)
+    return to_result_view(state, harness.policy.fields, harness.policy.supplement_fields)
 
 
 @router.get(
@@ -208,7 +221,7 @@ def get_version(session_id: str, version: int, registry: Registry, store: Store,
     found = find_version(state.versions, version)
     if found is None:
         raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return to_version_view(state, found, harness.policy.fields)
+    return to_version_view(state, found, harness.policy.fields, harness.policy.supplement_fields)
 
 
 @router.post(
@@ -224,7 +237,24 @@ def save_version(
         saved = harness.save_version(state, version)
         if saved is None:
             raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return to_version_view(state, saved, harness.policy.fields)
+    return to_version_view(state, saved, harness.policy.fields, harness.policy.supplement_fields)
+
+
+@router.patch(
+    "/sessions/{session_id}/result/sections/{order}",
+    response_model=ResultView,
+    responses=error_responses(404, 422),
+)
+def edit_result_section(
+    session_id: str, order: int, body: EditSectionRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> ResultView:
+    """결과 섹션 하나의 문구를 고친 새 버전(edit). LLM을 부르지 않는다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        if state.result is None:
+            raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+        if not harness.edit_section(state, order, body.text):
+            raise HTTPException(status_code=404, detail=SECTION_NOT_FOUND_MESSAGE)
+    return to_result_view(state, harness.policy.fields, harness.policy.supplement_fields)
 
 
 @router.get(
