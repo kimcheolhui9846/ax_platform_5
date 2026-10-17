@@ -80,11 +80,11 @@ describe("renderScreen", () => {
 
   it("결과는 문서와 다음 할 일, 결과가 없으면 답변 확인으로 안내", () => {
     const session = makeSession({ next_question: null, has_result: true, flow: [answered] });
-    const { main, side } = draw({ kind: "result", task, session, result: makeResult() , images: {} });
+    const { main, side } = draw({ kind: "result", task, session, result: makeResult(), images: {} });
     expect(main).toContain("상품기획 초안");
     expect(side).toContain("질문 이어 가기");
     expect(side).toContain("기준 답변 바꾸기");
-    const empty = draw({ kind: "result", task, session, result: null , images: {} });
+    const empty = draw({ kind: "result", task, session, result: null, images: {} });
     expect(empty.main).toContain("아직 만든 결과가 없어요");
     expect(empty.side).toBeNull();
   });
@@ -125,17 +125,17 @@ describe("renderScreen", () => {
 
   it("결과 화면 오른쪽에 현재 버전 저장과 문서 내려받기", () => {
     const session = makeSession({ next_question: null, has_result: true });
-    const { main, side } = draw({ kind: "result", task, session, result: makeResult() , images: {} });
+    const { main, side } = draw({ kind: "result", task, session, result: makeResult(), images: {} });
     expect(main).toContain("V1 · 첫 초안 / 상품 콘셉트 · 첫 제작 기획서");
     expect(side).toContain("현재 버전 저장");
     expect(side).toContain("문서 내려받기");
     const savedResult = makeResult({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
-    expect(draw({ kind: "result", task, session, result: savedResult , images: {} }).side).toContain("저장한 버전이에요");
+    expect(draw({ kind: "result", task, session, result: savedResult, images: {} }).side).toContain("저장한 버전이에요");
   });
 
   it("저장 완료는 결과물·다시 보기·내려받기", () => {
     const session = makeSession({ next_question: null, has_result: true });
-    const { main, side } = draw({ kind: "saved", task, session, version: makeVersionView() , images: {} });
+    const { main, side } = draw({ kind: "saved", task, session, version: makeVersionView(), images: {} });
     expect(main).toContain("✓ 저장 완료");
     expect(main).toContain("상품기획 초안을 저장했어요.");
     expect(main).toContain("결과물 목록 보기");
@@ -147,14 +147,14 @@ describe("renderScreen", () => {
   it("버전 보기는 보기 전용 안내와 그 버전 문서", () => {
     const session = makeSession({ next_question: null, has_result: true });
     const old = makeVersionView({ latest: false });
-    const { main, side } = draw({ kind: "version", task, session, version: old , images: {} });
+    const { main, side } = draw({ kind: "version", task, session, version: old, images: {} });
     expect(main).toContain("보기 전용 · 지난 버전이에요");
     expect(main).toContain("현재 버전으로");
     expect(main).toContain("V1 · 첫 초안 / 상품 콘셉트 · 첫 제작 기획서 · 최신 아님");
     expect(side).toContain("문서 내려받기");
-    expect(draw({ kind: "version", task, session, version: makeVersionView() , images: {} }).main).toContain("지금 결과와 같은 버전이에요.");
+    expect(draw({ kind: "version", task, session, version: makeVersionView(), images: {} }).main).toContain("지금 결과와 같은 버전이에요.");
     const changed = makeSession({ next_question: null, has_result: true, result_stale: true });
-    expect(draw({ kind: "version", task, session: changed, version: makeVersionView() , images: {} }).main).toContain(
+    expect(draw({ kind: "version", task, session: changed, version: makeVersionView(), images: {} }).main).toContain(
       "지금 결과와 같은 버전이에요. 답이 바뀌어 최신은 아니에요.",
     );
   });
@@ -165,7 +165,7 @@ describe("renderScreen — 보완·문구 수정", () => {
 
   it("결과 오른쪽에 미확인 정보와 소개 문구 수정하기", () => {
     const session = makeSession({ has_result: true, supplements });
-    const { side } = draw({ kind: "result", task, session, result: makeResult() , images: {} });
+    const { side } = draw({ kind: "result", task, session, result: makeResult(), images: {} });
     expect(side).toContain("미확인 정보 채우기");
     expect(side).toContain("소개 문구 수정하기");
   });
@@ -173,7 +173,7 @@ describe("renderScreen — 보완·문구 수정", () => {
   it("문구 수정은 수정 카드와 흐름 요약·미확인 정보", () => {
     const session = makeSession({ has_result: true, supplements });
     const result = makeResult();
-    const { main, side } = draw({ kind: "edit", task, session, result, section: result.result.sections[0] , images: {} });
+    const { main, side } = draw({ kind: "edit", task, session, result, section: result.result.sections[0], images: {} });
     expect(main).toContain("문구 반영하기");
     expect(side).toContain("미확인 정보 채우기");
   });
@@ -208,5 +208,46 @@ describe("projectOf·pageTitle", () => {
     expect(projectOf({ kind: "request", task, form, draft: "" })).toBe("상품기획");
     expect(pageTitle({ kind: "guide" })).toBe("창작자 AX");
     expect(pageTitle({ kind: "request", task, form, draft: "" })).toBe("창작자 AX · 상품기획");
+  });
+});
+
+describe("renderScreen — 근거 검토", () => {
+  const evidenceRecord = {
+    source_id: "z",
+    title: "제작 점검 항목",
+    text: "여닫기를 점검합니다.",
+    note: "제품 시험 전",
+    source_title: "지퍼 사용상 주의",
+    publisher: "YKK KOREA",
+    url: "https://ykkkorea.com/a",
+    section_kind: "suggestion" as const,
+    section_order: 1,
+  };
+
+  it("자료가 있는 과제의 결과 화면에는 근거 검토 버튼이 있고, 없는 과제에는 없다", () => {
+    const session = makeSession({ has_result: true });
+    const withSources = draw({ kind: "result", task: makeTask({ evidence_sources: 2 }), session, result: makeResult(), images: {} });
+    expect(withSources.side).toContain("근거 자료 검토 · 2건");
+    const without = draw({ kind: "result", task: makeTask({ evidence_sources: 0 }), session, result: makeResult(), images: {} });
+    expect(without.side).not.toContain("근거 자료");
+  });
+
+  it("근거를 반영한 버전은 제목·다시 보기·반영 전 보기·출처 저장 버튼을 보인다", () => {
+    const base = makeResult();
+    const result = makeResult({
+      version: { version: 3, created_at: "2026-10-16T09:00:00Z", reason: "evidence", saved: false },
+      result: { ...base.result, evidence: [evidenceRecord] },
+    });
+    const { side } = draw({ kind: "result", task: makeTask({ evidence_sources: 2 }), session: makeSession({ has_result: true }), result, images: {} });
+    expect(side).toContain("검토 내용을 반영했어요");
+    expect(side).toContain("근거 자료 다시 보기");
+    expect(side).toContain("근거 반영 전 보기");
+    expect(side).toContain("출처와 함께 저장");
+  });
+
+  it("evidence 모델은 근거 검토 화면을 그린다", () => {
+    const { main, side } = draw({ kind: "evidence", task, session: makeSession({ has_result: true }), result: makeResult(), items: [] });
+    expect(main).toContain('aria-label="근거 검토"');
+    expect(side).toContain("결과에 반영할 내용");
   });
 });

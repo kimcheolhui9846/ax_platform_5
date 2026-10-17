@@ -1,5 +1,5 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { EvidenceItem, FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
 import type { EditableFlowItem } from "../lib/flowView";
 
 export const TASKS: TaskSummary[] = [
@@ -309,3 +309,81 @@ export const SESSIONS: SessionSummary[] = [
     updated_at: "2026-10-16T08:10:00Z",
   },
 ];
+
+// 결과 이미지 자리표시(백엔드 Mock과 같은 모양). 갤러리는 백엔드 없이 그리므로 data URL로 둔다
+const PREVIEW_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#f4f1ee"/><circle cx="250" cy="170" r="56" fill="#e3d6cf"/><rect x="330" y="120" width="120" height="100" rx="12" fill="#d6c3b8"/><rect x="190" y="250" width="260" height="14" rx="7" fill="#e3d6cf"/></svg>';
+export const PREVIEW_IMAGE_ID = "asset_preview";
+export const PREVIEW_IMAGES = { [PREVIEW_IMAGE_ID]: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(PREVIEW_SVG)}` };
+
+/** backend/app/harness/tasks/product_planning/evidence.yaml과 같은 두 자료. */
+export const EVIDENCE_ITEMS: EvidenceItem[] = [
+  {
+    id: "ykk_zipper_caution",
+    title: "제작 점검 · 지퍼 사용상 주의",
+    publisher: "YKK KOREA",
+    meta: "제조사 기술 안내 · 작성일 미표기 · 확인 2026.10.15",
+    summary: "가방을 가득 채운 상태에서 지퍼를 억지로 닫으면 손상될 수 있으며, 봉제 시 옷감 끼임에 주의하도록 안내합니다.",
+    scope: "적용: 지퍼 여밈을 선택할 때의 점검 참고. 이 상품의 품질시험 결과는 아닙니다.",
+    url: "https://ykkkorea.com/support/caution/caution",
+    applies_to: "suggestion",
+    record: {
+      title: "제작 점검 항목",
+      text: "지퍼 여밈을 선택할 경우, 내용물을 넣고 여닫기와 안감 끼임을 점검합니다.",
+      note: "제품 시험 전",
+      caution: "제작 점검 항목을 추가하는 단계이며, 제품 성능이 검증된 것은 아니에요.",
+    },
+  },
+  {
+    id: "kcdf_craft_trend_fair_2025",
+    title: "시장 배경 · 2025 공예트렌드페어 결과",
+    publisher: "한국공예·디자인문화진흥원",
+    meta: "보도자료 · 작성 2026.01.12 · 확인 2026.10.15",
+    summary: "공예 사업체 311개가 참여한 행사에서 전시·판매·구매자 상담이 진행된 사례를 소개합니다.",
+    scope: "적용: 공예 유통 경로를 살펴보는 배경 자료. 이 상품의 수요·매출 근거로 사용하지 않습니다.",
+    url: "https://www.kcdf.or.kr/brd/board/324/L/menu/293?bbIdx=8680&brdType=R",
+    applies_to: "diagnosis",
+    record: null,
+  },
+];
+
+/** 근거를 반영한 결과(V3): 첫 제안 섹션(핵심 기능, order 2) 뒤에 점검 기록. */
+export const RESULT_EVIDENCE: ResultView = {
+  ...RESULT,
+  version: { version: 3, created_at: "2026-10-16T10:10:00Z", reason: "evidence", saved: false },
+  result: {
+    ...RESULT.result,
+    evidence: [
+      {
+        source_id: "ykk_zipper_caution",
+        title: "제작 점검 항목",
+        text: "지퍼 여밈을 선택할 경우, 내용물을 넣고 여닫기와 안감 끼임을 점검합니다.",
+        note: "제품 시험 전",
+        source_title: "제작 점검 · 지퍼 사용상 주의",
+        publisher: "YKK KOREA",
+        url: "https://ykkkorea.com/support/caution/caution",
+        section_kind: "suggestion",
+        section_order: 2,
+      },
+    ],
+  },
+};
+
+/** 이미지 블록이 있는 결과(브랜딩처럼 이미지를 켠 과제의 모습). 둘째 섹션 끝에 이미지 한 장. */
+export const RESULT_IMAGE: ResultView = {
+  ...RESULT,
+  result: {
+    ...RESULT.result,
+    sections: RESULT.result.sections.map((s) =>
+      s.order === 2
+        ? {
+            ...s,
+            blocks: [
+              ...s.blocks,
+              { type: "image", asset_id: PREVIEW_IMAGE_ID, alt: "핵심 기능 참고 이미지", caption: "AI가 만든 참고 이미지예요. 실제 결과물과 다를 수 있어요.", origin: "ai_generated" },
+            ],
+          }
+        : s,
+    ),
+  },
+};

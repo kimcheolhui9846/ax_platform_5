@@ -1,11 +1,12 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { SupplementItem } from "../api/types";
+import type { EvidenceItem, SupplementItem } from "../api/types";
 import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
 import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
+import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
 import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
 import { CriteriaBox } from "./CriteriaBox";
@@ -290,5 +291,73 @@ describe("EditMain", () => {
   it("글이 지금 문구와 같으면 문구 반영하기를 누를 수 없다", () => {
     const html = renderToString(<EditMain section={section} busy={false} onSubmit={noop} onBack={noop} />);
     expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>문구 반영하기/);
+  });
+});
+
+describe("ResultDocument 이미지·근거 기록", () => {
+  const result = makeResult();
+  const shown = {
+    ...result,
+    result: {
+      ...result.result,
+      sections: [
+        {
+          order: 1,
+          heading: "제작 방향",
+          kind: "suggestion" as const,
+          blocks: [
+            { type: "text" as const, text: "방향" },
+            { type: "image" as const, asset_id: "a", alt: "제작 방향 참고 이미지", caption: "AI 참고 이미지", origin: "ai_generated" as const },
+          ],
+        },
+      ],
+      evidence: [
+        { source_id: "z", title: "제작 점검 항목", text: "여닫기를 점검합니다.", note: "제품 시험 전", source_title: "지퍼 사용상 주의", publisher: "YKK KOREA", url: "https://ykkkorea.com/a", section_kind: "suggestion" as const, section_order: 1 },
+      ],
+    },
+  };
+
+  it("불러온 이미지는 대체 글과 설명을 달아 그린다", () => {
+    const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, { a: "data:image/svg+xml;base64,AA" })} />);
+    expect(html).toContain('<img src="data:image/svg+xml;base64,AA" alt="제작 방향 참고 이미지"');
+    expect(html).toContain("<figcaption");
+    expect(html).toContain("AI 참고 이미지");
+  });
+
+  it("아직 못 불러온 이미지는 대체 글 상자로 둔다", () => {
+    const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, {})} />);
+    expect(html).not.toContain("<img");
+    expect(html).toContain('role="img" aria-label="제작 방향 참고 이미지"');
+  });
+
+  it("근거 기록은 섹션 뒤에 출처 링크(새 창)와 함께 둔다", () => {
+    const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, {})} />);
+    expect(html).toContain("근거 검토 반영 · 제작 점검 항목");
+    expect(html).toContain('href="https://ykkkorea.com/a" target="_blank" rel="noopener noreferrer"');
+    expect(html.indexOf("방향")).toBeLessThan(html.indexOf("근거 검토 반영"));
+  });
+});
+
+describe("근거 검토 화면", () => {
+  const items: EvidenceItem[] = [
+    { id: "zip", title: "제작 점검 · 지퍼", publisher: "YKK", meta: "제조사 안내", summary: "요약", scope: "적용 범위", url: "https://x.kr", applies_to: "suggestion", record: { title: "제작 점검 항목", text: "점검 문구", note: "제품 시험 전", caution: "검증된 것은 아니에요." } },
+    { id: "fair", title: "시장 배경", publisher: "진흥원", meta: "보도자료", summary: "요약2", scope: "범위2", url: "javascript:x", applies_to: "diagnosis", record: null },
+  ];
+
+  it("자료마다 원문 링크를 두고 안전하지 않은 주소는 링크로 그리지 않는다", () => {
+    const html = renderToString(<EvidenceMain items={items} />);
+    expect(html).toContain("제작 점검 · 지퍼");
+    expect(html).toContain('href="https://x.kr"');
+    expect(html).not.toContain("javascript:x");
+  });
+
+  it("점검 문구가 있는 자료만 반영 버튼이 있고, 반영한 자료는 막는다", () => {
+    const side = (applied: Set<string>) =>
+      renderToString(<EvidenceSide flow={[]} items={items} applied={applied} busy={false} onApply={noop} onBack={noop} />);
+    expect(side(new Set())).toContain("제작 점검 항목 반영");
+    expect(side(new Set())).toContain("반영하지 않고 돌아가기");
+    expect(side(new Set())).not.toContain("시장 배경 반영");
+    expect(side(new Set(["zip"]))).toContain("반영했어요</button>");
+    expect(side(new Set(["zip"]))).toContain("검토 기록 유지하고 돌아가기");
   });
 });

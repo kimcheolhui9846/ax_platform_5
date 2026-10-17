@@ -1,13 +1,14 @@
 import type { TaskSummary, VersionView } from "../api/types";
 import { ResultDocument } from "../components/ResultDocument";
 import { documentContent } from "../lib/document";
+import type { Images } from "../lib/document";
 import { formatDate } from "../lib/format";
 import { versionLine, versionNotice } from "../lib/sessions";
 
-type MainProps = { task: TaskSummary; version: VersionView; stale: boolean; onCurrent: () => void };
+type MainProps = { task: TaskSummary; version: VersionView; stale: boolean; images: Images; onCurrent: () => void };
 
 /** 버전 보기(보기 전용). 지난 버전이면 그렇다고 알리고 지금 버전으로 돌아가게 한다. stale은 versionIsStale로 정한다. */
-export function VersionMain({ task, version, stale, onCurrent }: MainProps) {
+export function VersionMain({ task, version, stale, images, onCurrent }: MainProps) {
   return (
     <div className="stack">
       <div className="notice version-notice">
@@ -18,7 +19,7 @@ export function VersionMain({ task, version, stale, onCurrent }: MainProps) {
           현재 버전으로
         </button>
       </div>
-      <ResultDocument {...documentContent(task, version, stale, {})} />
+      <ResultDocument {...documentContent(task, version, stale, images)} />
     </div>
   );
 }

@@ -1,10 +1,54 @@
+import { Fragment } from "react";
+
 import { assumptionKey, formatAssumption } from "../lib/assumption";
-import type { DocumentContent } from "../lib/document";
+import type { DocumentBlock, DocumentContent, DocumentRecord } from "../lib/document";
 import { documentSections } from "../lib/document";
 import { CriteriaBox } from "./CriteriaBox";
 
-/** 결과 문서(텍스트). 섹션은 순서대로 번호를 매기고, AI 가정과 검토할 부분을 따로 둔다. */
-export function ResultDocument({ title, kicker, rows, result, issues, supplements, images }: DocumentContent) {
+function Blocks({ blocks }: { blocks: DocumentBlock[] }) {
+  return (
+    <>
+      {blocks.map((block) =>
+        block.kind === "text" ? (
+          <p key={block.key}>{block.text}</p>
+        ) : (
+          <figure key={block.key} className="doc-figure">
+            {block.src !== null ? (
+              <img src={block.src} alt={block.alt} />
+            ) : (
+              <div className="doc-figure-missing" role="img" aria-label={block.alt}>
+                {block.alt}
+              </div>
+            )}
+            {block.caption && <figcaption className="small muted">{block.caption}</figcaption>}
+          </figure>
+        ),
+      )}
+    </>
+  );
+}
+
+function EvidenceRecordBox({ record }: { record: DocumentRecord }) {
+  return (
+    <section className="evidence-record stack8" aria-label={record.label}>
+      <p className="label">{record.label}</p>
+      <p>{record.text}</p>
+      <p className="small">
+        {record.url ? (
+          <a href={record.url} target="_blank" rel="noopener noreferrer">
+            {`${record.source} ↗`}
+          </a>
+        ) : (
+          record.source
+        )}
+        {record.note && ` · ${record.note}`}
+      </p>
+    </section>
+  );
+}
+
+/** 결과 문서. 섹션은 순서대로 번호를 매기고(글·이미지 블록), 근거 기록은 그 섹션 뒤에, AI 가정과 검토할 부분은 따로 둔다. */
+export function ResultDocument({ title, kicker, rows, result, issues, supplements, images, trailing }: DocumentContent) {
   const { assumptions } = result;
   return (
     <article className="card document stack">
@@ -14,22 +58,22 @@ export function ResultDocument({ title, kicker, rows, result, issues, supplement
       </div>
       <CriteriaBox rows={rows} />
       {documentSections(result.sections, result.evidence, images).map((section) => (
-        <section key={section.key} className="document-section">
-          <h2 className="section-heading">
-            <span className="section-number">{section.number}</span>
-            <span>{section.heading}</span>
-            <span className="section-tag">{section.tag}</span>
-          </h2>
-          {section.blocks.map((block) =>
-            block.kind === "text" ? (
-              <p key={block.key}>{block.text}</p>
-            ) : block.src ? (
-              <img key={block.key} src={block.src} alt={block.alt} />
-            ) : (
-              <p key={block.key} className="small muted">[이미지: {block.alt}]</p>
-            ),
-          )}
-        </section>
+        <Fragment key={section.key}>
+          <section className="document-section">
+            <h2 className="section-heading">
+              <span className="section-number">{section.number}</span>
+              <span>{section.heading}</span>
+              <span className="section-tag">{section.tag}</span>
+            </h2>
+            <Blocks blocks={section.blocks} />
+          </section>
+          {section.records.map((record) => (
+            <EvidenceRecordBox key={record.key} record={record} />
+          ))}
+        </Fragment>
+      ))}
+      {trailing.map((record) => (
+        <EvidenceRecordBox key={record.key} record={record} />
       ))}
       {supplements.length > 0 && (
         <section className="document-section applied-info stack8">

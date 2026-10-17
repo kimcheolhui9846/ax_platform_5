@@ -1,6 +1,6 @@
 import type { JSX } from "react";
 
-import type { AnswerBody, CoachingMode, ResultView, ReviseBody, SessionSummary, SessionView } from "../api/types";
+import type { AnswerBody, CoachingMode, ResultView, ReviseBody, SessionSummary, SessionView, TaskSummary } from "../api/types";
 import { FlowPanel } from "../components/FlowPanel";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
@@ -10,6 +10,7 @@ import type { DocumentFile } from "../lib/documentHtml";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
 import { questionKicker } from "../lib/question";
+import { appliedSourceIds, evidenceButton, resultHeading, versionBeforeEvidence } from "../lib/evidence";
 import type { ExampleAction } from "../lib/question";
 import type { Route } from "../lib/routes";
 import { versionIsStale } from "../lib/sessions";
@@ -18,6 +19,7 @@ import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
 import { DocumentsScreen } from "../screens/DocumentsScreen";
 import { EditMain, EditSide } from "../screens/EditScreen";
+import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
 import { GuideScreen } from "../screens/GuideScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ModeScreen } from "../screens/ModeScreen";
@@ -76,8 +78,19 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     case "loading":
       return { main: <LoadingScreen />, side: null };
     case "evidence":
-      // 화면은 다음 작업(Task 5)에서 그린다
-      return { main: <LoadingScreen />, side: null };
+      return {
+        main: <EvidenceMain items={model.items} />,
+        side: (
+          <EvidenceSide
+            flow={model.session.flow}
+            items={model.items}
+            applied={appliedSourceIds(model.result.result.evidence)}
+            busy={busy}
+            onApply={on.applyEvidence}
+            onBack={on.showResult}
+          />
+        ),
+      };
     case "unavailable":
       return { main: <UnavailableScreen onRetry={on.retry} onHome={on.goHome} />, side: null };
     case "home":
@@ -179,12 +192,16 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     case "result": {
       const editable = firstEditable(model.session.flow);
       return {
-        main: <ResultMain task={model.task} session={model.session} result={model.result} busy={busy} onConfirm={on.confirm} />,
+        main: <ResultMain task={model.task} session={model.session} result={model.result} images={model.images} busy={busy} onConfirm={on.confirm} />,
         side:
           model.result === null ? null : (
             <ResultSide
               session={model.session}
               version={model.result.version}
+              heading={resultHeading(model.result.version.reason)}
+              withSources={model.result.result.evidence.length > 0}
+              evidence={evidenceAction(model.task, model.result, on)}
+              onBeforeEvidence={versionBeforeEvidence(model.result.version) === null ? null : on.openBeforeEvidence}
               busy={busy}
               supplements={supplementProps(model.session, model.result, on)}
               onEditText={editTextOf(model.result, on)}
@@ -232,6 +249,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             task={model.task}
             version={model.version}
             stale={versionIsStale(model.version, model.session)}
+            images={model.images}
             onCurrent={on.showResult}
           />
         ),
@@ -266,6 +284,12 @@ function supplementProps(session: SessionView, result: ResultView, on: Handlers)
     onSave: on.saveSupplements,
     onApply: on.applySupplements,
   };
+}
+
+/** 결과 화면의 근거 버튼. 자료가 없는 과제면 없다. */
+function evidenceAction(task: TaskSummary, result: ResultView, on: Handlers) {
+  const button = evidenceButton(task.evidence_sources, result.result.evidence.length > 0);
+  return button === null ? null : { ...button, onReview: on.reviewEvidence };
 }
 
 /** 결과 화면의 '소개 문구 수정하기': 첫 섹션을 연다. 섹션이 없으면 버튼을 두지 않는다. */
