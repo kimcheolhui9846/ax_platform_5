@@ -63,6 +63,7 @@ describe("반응형 배치", () => {
     expect(css).toMatch(/\.notice\s*>\s*\.btn\s*\{[^}]*align-self:\s*flex-start/);
     const narrow = css.slice(css.indexOf("@container app (max-width: 719px)"));
     expect(narrow).toMatch(/\.mode-view\s*>\s*\.row\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(narrow).toMatch(/\.state-actions\s*\{[^}]*align-self:\s*stretch/);
   });
 
   it("뼈대가 스스로 폭 기준 컨테이너를 만든다", () => {
