@@ -3,6 +3,7 @@ import type {
   FlowItem,
   Question,
   ResultView,
+  SessionContext,
   SessionSummary,
   SessionView,
   TaskForm,
@@ -98,6 +99,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
     can_generate: true,
     has_result: false,
     result_stale: false,
+    context: null,
     error: null,
     ...overrides,
   };
@@ -163,6 +165,18 @@ export function makeVersionView(overrides: Partial<VersionView> = {}): VersionVi
     summary: result.summary,
     unknowns: [],
     supplements: [],
+    ...overrides,
+  };
+}
+
+export function makeContext(overrides: Partial<SessionContext> = {}): SessionContext {
+  return {
+    session_id: "sess_prev",
+    task_type: "business_plan",
+    version: 2,
+    title: "사업계획",
+    summary: "가져올 내용 요약",
+    items: [{ field: "product_idea", label: "상품 아이디어", value: "수제 향초" }],
     ...overrides,
   };
 }

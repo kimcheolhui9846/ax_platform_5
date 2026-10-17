@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import type { EvidenceItem } from "../api/types";
-import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
+import { makeContext, makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { initialState, isBusy, reducer } from "./state";
 import type { AppState } from "./state";
 
@@ -81,7 +81,7 @@ describe("reducer", () => {
   });
 
   it("응답이 다음 화면을 정한다", () => {
-    const mode: Route = { name: "mode", task: "product_planning" };
+    const mode: Route = { name: "mode", task: "product_planning", from: null };
     const done = reducer(waiting(initialState(mode), 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: question, notice: null });
     expect(done.route).toEqual(question);
   });
@@ -164,9 +164,9 @@ describe("reducer", () => {
   });
 
   it("같은 과제 안에서는 양식을 그대로 둔다", () => {
-    const state: AppState = { ...initialState({ name: "request", task: "product_planning" }), form: makeForm() };
-    expect(reducer(state, { type: "navigated", route: { name: "mode", task: "product_planning" } }).form).not.toBeNull();
-    expect(reducer(state, { type: "navigated", route: { name: "mode", task: "branding" } }).form).toBeNull();
+    const state: AppState = { ...initialState({ name: "request", task: "product_planning", from: null }), form: makeForm() };
+    expect(reducer(state, { type: "navigated", route: { name: "mode", task: "product_planning", from: null } }).form).not.toBeNull();
+    expect(reducer(state, { type: "navigated", route: { name: "mode", task: "branding", from: null } }).form).toBeNull();
   });
 
   it("과제 목록·양식을 받는다", () => {
@@ -286,5 +286,24 @@ describe("reducer — 근거·이미지", () => {
       notice: null,
     });
     expect(next.evidence).toEqual({ sessionId: "sess_1", items });
+  });
+});
+
+describe("이어가기 미리보기", () => {
+  const request: Route = { name: "request", task: "branding", from: { sessionId: "s1", version: 2 } };
+
+  it("기다리던 응답이 carry를 둔다", () => {
+    const context = makeContext();
+    const state = waiting(initialState(request), 1, "carry:branding:s1:2");
+    expect(reducer(state, { type: "carryLoaded", seq: 1, task: "branding", key: "branding:s1:2", context }).carry).toEqual({ task: "branding", key: "branding:s1:2", context });
+    expect(reducer(state, { type: "carryLoaded", seq: 9, task: "branding", key: "branding:s1:2", context }).carry).toBeNull();
+  });
+
+  it("같은 과제의 요청↔모드 이동은 두고, 과제가 바뀌면 비운다", () => {
+    const state: AppState = { ...initialState(request), carry: { task: "branding", key: "branding:s1:2", context: makeContext() } };
+    const mode = reducer(state, { type: "navigated", route: { name: "mode", task: "branding", from: request.from } });
+    expect(mode.carry).not.toBeNull();
+    expect(reducer(state, { type: "navigated", route: { name: "request", task: "marketing_content", from: null } }).carry).toBeNull();
+    expect(reducer(state, { type: "navigated", route: HOME }).carry).toBeNull();
   });
 });

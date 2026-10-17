@@ -1,6 +1,7 @@
 import { BACKEND_UNREACHABLE, toOutcome } from "../api/client";
 import type { ApiResult } from "../api/client";
-import { getAsset, getEvidence, getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
+import { getAsset, getEvidence, getResult, getSession, getTaskForm, getVersion, listSessions, listTasks, previewContext } from "../api/coaching";
+import { carryKey } from "../lib/carry";
 import { loadKey } from "./load";
 import type { Load } from "./load";
 import type { Route } from "../lib/routes";
@@ -63,6 +64,13 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
       return run({
         request: () => getTaskForm(load.task),
         done: (form, seq) => ({ type: "formLoaded", seq, form }),
+        ...PLAIN,
+        load: key,
+      });
+    case "carry":
+      return run({
+        request: () => previewContext(load.task, load.from.sessionId, load.from.version),
+        done: (context, seq) => ({ type: "carryLoaded", seq, task: load.task, key: carryKey(load.task, load.from), context }),
         ...PLAIN,
         load: key,
       });

@@ -1,4 +1,5 @@
 import type { SessionView, TaskSummary } from "../api/types";
+import { ContextBox } from "../components/ContextBox";
 import { CriteriaBox } from "../components/CriteriaBox";
 import { STALE_NOTICE, actionState, confirmActions } from "../lib/actions";
 import type { ResultAction } from "../lib/actions";
@@ -11,14 +12,16 @@ type Props = {
   onAct: (action: ResultAction["action"]) => void;
   onChangeAnswers: (() => void) | null;
   onBackToQuestion: (() => void) | null;
+  onClearContext: () => void;
 };
 
 /** 03 답변 의미 확인: 이해한 기준을 보여 주고 초안을 만든다(최신 결과가 있으면 보기가 먼저). */
-export function ConfirmScreen({ task, session, busy, onAct, onChangeAnswers, onBackToQuestion }: Props) {
+export function ConfirmScreen({ task, session, busy, onAct, onChangeAnswers, onBackToQuestion, onClearContext }: Props) {
   return (
     <section className="card confirm stack">
       <p className="small">03 / 답변 의미 확인</p>
       <h1>이렇게 이해했어요. 맞나요?</h1>
+      {session.context && <ContextBox context={session.context} busy={busy} onExclude={onClearContext} />}
       <CriteriaBox rows={criteriaRows(session.summary, session.unknowns)} />
       {session.error && (
         <p className="error" role="alert">

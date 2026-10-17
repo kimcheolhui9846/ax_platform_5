@@ -83,6 +83,7 @@ supplement_fields:
   - { name: sale_price, label: 판매 가격, example: "18,000원 / 개" }
   - { name: budget, label: 예산, example: 50만 원 }
   - { name: sales_channel, label: 판매 채널, example: 온라인 마켓 }
+carry_over: { product: business_idea, product_idea: business_idea, product_and_customer: business_idea, user: target_customer, core_customer: target_customer }
 rules:
   - 근거 없는 시장 규모를 사실처럼 제시하지 않는다
   - 임의의 매출 전망을 만들지 않는다

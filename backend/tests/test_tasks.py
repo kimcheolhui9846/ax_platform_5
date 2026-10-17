@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.results import GenerationResult, ResultCard, sections_from_cards
-from app.core.state import CoachingMode, SessionState
+from app.core.state import CarriedContext, CoachingMode, SessionState
 from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
 from app.harness.policy import FieldKind
@@ -37,12 +37,19 @@ def test_policy_is_complete(registry, task_type):
             assert field.easier_questions, f"{field.name}: 반드시 확인 필드에는 쉬운 질문이 하나 이상 필요"
 
 
+@pytest.mark.parametrize("summary", [None, "이전 요약", ""])
 @pytest.mark.parametrize("task_type", TASK_TYPES)
 @pytest.mark.parametrize("stage", STAGES)
-def test_every_stage_template_renders(registry, task_type, stage):
-    """단계마다 STAGE_CONTEXT에 선언된 키만 넘긴다. 다른 단계 변수를 쓰는 템플릿은 여기서 실패한다."""
+def test_every_stage_template_renders(registry, task_type, stage, summary):
+    """단계마다 STAGE_CONTEXT에 선언된 키만 넘긴다. 다른 단계 변수를 쓰는 템플릿은 여기서 실패한다.
+
+    summary가 None이 아니면 이전 과제에서 이어 온 세션이다(요약이 빈 경우도 깨끗하게 그려야 한다).
+    """
     harness = registry.get(task_type)
-    state = harness.start("테스트 입력")
+    context = None if summary is None else CarriedContext(
+        session_id="sess_prev", task_type="business_plan", version=1, title="사업계획 초안 V1", summary=summary, items=[]
+    )
+    state = harness.start("테스트 입력", context=context)
     values = {
         "state": state,
         "policy": harness.policy,
@@ -61,6 +68,8 @@ def test_every_stage_template_renders(registry, task_type, stage):
     assert harness.policy.title in prompt.system
     for part in (prompt.system, prompt.user):
         assert "\n\n\n" not in part
+        assert "— \n" not in part and not part.rstrip().endswith("—")
+    assert "사업계획 초안 V1" not in prompt.system
 
 
 @pytest.mark.parametrize("task_type", TASK_TYPES)

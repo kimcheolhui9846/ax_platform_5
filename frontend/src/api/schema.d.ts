@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/tasks/{task_type}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Context
+         * @description 다음 과제로 이어가기 미리보기: 이 과제에 가져올 이전 작업의 기준(세션을 만들 때와 같은 판단).
+         */
+        get: operations["preview_context_api_v1_coaching_tasks__task_type__context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/tasks/{task_type}/sessions": {
         parameters: {
             query?: never;
@@ -70,6 +90,26 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coaching/sessions/{session_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Context
+         * @description 이전 과제에서 가져온 내용을 뺀다. 가져온 내용이 없으면 그대로다. 뺀 필드는 다시 물을 수 있다.
+         */
+        delete: operations["clear_context_api_v1_coaching_sessions__session_id__context_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -386,12 +426,25 @@ export interface components {
          * @enum {string}
          */
         CoachingMode: "quick" | "standard" | "precise";
+        /** ContextItem */
+        ContextItem: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
         /** CreateSessionRequest */
         CreateSessionRequest: {
             /** Raw Input */
             raw_input: string;
             /** @default standard */
             mode: components["schemas"]["CoachingMode"];
+            /** From Session Id */
+            from_session_id?: string | null;
+            /** From Version */
+            from_version?: number | null;
         };
         /** EditSectionRequest */
         EditSectionRequest: {
@@ -675,6 +728,24 @@ export interface components {
             option_ids?: string[];
         };
         /**
+         * SessionContext
+         * @description 이전 과제에서 가져온 기준. 미리보기와 세션 응답이 같은 모양이다.
+         */
+        SessionContext: {
+            /** Session Id */
+            session_id: string;
+            /** Task Type */
+            task_type: string;
+            /** Version */
+            version: number;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Items */
+            items: components["schemas"]["ContextItem"][];
+        };
+        /**
          * SessionStatus
          * @enum {string}
          */
@@ -731,6 +802,7 @@ export interface components {
             supplements: components["schemas"]["SupplementItem"][];
             /** Supplements Changed */
             supplements_changed: boolean;
+            context: components["schemas"]["SessionContext"] | null;
             /** Can Generate */
             can_generate: boolean;
             /** Has Result */
@@ -998,6 +1070,58 @@ export interface operations {
             };
         };
     };
+    preview_context_api_v1_coaching_tasks__task_type__context_get: {
+        parameters: {
+            query: {
+                session_id: string;
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                task_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionContext"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     create_session_api_v1_coaching_tasks__task_type__sessions_post: {
         parameters: {
             query?: never;
@@ -1089,6 +1213,64 @@ export interface operations {
             };
             /** @description 예상하지 못한 서버 오류 */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    clear_context_api_v1_coaching_sessions__session_id__context_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

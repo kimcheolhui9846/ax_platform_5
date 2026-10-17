@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { HOME, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
+import { HOME, carryOf, carryScreenOf, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
 import type { Route } from "./routes";
 
 const ROUTES: [Route, string][] = [
   [{ name: "home" }, "#/"],
   [{ name: "guide" }, "#/guide"],
-  [{ name: "request", task: "product_planning" }, "#/product_planning/request"],
-  [{ name: "mode", task: "product_planning" }, "#/product_planning/mode"],
+  [{ name: "request", task: "product_planning", from: null }, "#/product_planning/request"],
+  [{ name: "mode", task: "product_planning", from: null }, "#/product_planning/mode"],
+  [{ name: "request", task: "branding", from: { sessionId: "sess_1", version: 2 } }, "#/branding/request/from/sess_1/2"],
+  [{ name: "mode", task: "branding", from: { sessionId: "sess_1", version: 2 } }, "#/branding/mode/from/sess_1/2"],
+  [{ name: "request", task: "branding", from: { sessionId: "a/b", version: 3 } }, "#/branding/request/from/a%2Fb/3"],
   [{ name: "question", sessionId: "sess_1" }, "#/s/sess_1/question"],
   [{ name: "revise", sessionId: "sess_1", questionId: "q_1" }, "#/s/sess_1/question/q_1"],
   [{ name: "confirm", sessionId: "sess_1" }, "#/s/sess_1/confirm"],
@@ -45,14 +48,14 @@ describe("parseRoute·toHash", () => {
 
 describe("contextOf", () => {
   it("요청·모드는 같은 과제 묶음, 세션 화면은 같은 세션 묶음이다", () => {
-    expect(contextOf({ name: "request", task: "a" })).toBe(contextOf({ name: "mode", task: "a" }));
+    expect(contextOf({ name: "request", task: "a", from: null })).toBe(contextOf({ name: "mode", task: "a", from: null }));
     expect(contextOf({ name: "question", sessionId: "s" })).toBe(contextOf({ name: "result", sessionId: "s" }));
     expect(contextOf({ name: "failed", sessionId: "sess_1" })).toBe("session:sess_1");
     expect(contextOf({ name: "revise", sessionId: "s", questionId: "q" })).toBe(contextOf({ name: "confirm", sessionId: "s" }));
   });
 
   it("다른 과제·세션·공용 화면은 다른 묶음이다", () => {
-    expect(contextOf({ name: "request", task: "a" })).not.toBe(contextOf({ name: "request", task: "b" }));
+    expect(contextOf({ name: "request", task: "a", from: null })).not.toBe(contextOf({ name: "request", task: "b", from: null }));
     expect(contextOf({ name: "question", sessionId: "s" })).not.toBe(contextOf({ name: "question", sessionId: "t" }));
     expect(contextOf(HOME)).not.toBe(contextOf({ name: "guide" }));
   });
@@ -60,7 +63,7 @@ describe("contextOf", () => {
 
 describe("taskOf·sessionIdOf", () => {
   it("과제 화면은 과제, 세션 화면은 세션 id를 가진다", () => {
-    expect(taskOf({ name: "mode", task: "branding" })).toBe("branding");
+    expect(taskOf({ name: "mode", task: "branding", from: null })).toBe("branding");
     expect(taskOf({ name: "question", sessionId: "s" })).toBeNull();
     expect(sessionIdOf({ name: "revise", sessionId: "s", questionId: "q" })).toBe("s");
     expect(sessionIdOf(HOME)).toBeNull();
@@ -104,5 +107,30 @@ describe("근거 검토 주소", () => {
   it("세션 묶음이다", () => {
     expect(contextOf({ name: "evidence", sessionId: "sess_1" })).toBe("session:sess_1");
     expect(sessionIdOf({ name: "evidence", sessionId: "sess_1" })).toBe("sess_1");
+  });
+});
+
+describe("이어가기 주소", () => {
+  const from = { sessionId: "sess_1", version: 2 };
+
+  it("요청·모드 주소가 출처를 싣는다", () => {
+    expect(parseRoute("#/branding/request/from/sess_1/2")).toEqual({ name: "request", task: "branding", from });
+    expect(parseRoute("#/branding/mode/from/sess_1/2")).toEqual({ name: "mode", task: "branding", from });
+    expect(toHash({ name: "request", task: "branding", from })).toBe("#/branding/request/from/sess_1/2");
+    expect(toHash({ name: "mode", task: "branding", from })).toBe("#/branding/mode/from/sess_1/2");
+    expect(parseRoute("#/branding/request")).toEqual({ name: "request", task: "branding", from: null });
+  });
+
+  it("버전이 숫자가 아니면 홈", () => {
+    expect(parseRoute("#/branding/request/from/sess_1/x")).toEqual(HOME);
+    expect(parseRoute("#/branding/request/from/sess_1/0")).toEqual(HOME);
+  });
+
+  it("출처와 상관없이 같은 과제 묶음이다", () => {
+    expect(contextOf({ name: "request", task: "branding", from })).toBe("task:branding");
+    expect(carryOf({ name: "mode", task: "branding", from })).toEqual(from);
+    expect(carryOf({ name: "home" })).toBeNull();
+    expect(carryScreenOf({ name: "mode", task: "branding", from })).toEqual({ screen: "mode", task: "branding", from });
+    expect(carryScreenOf({ name: "home" })).toBeNull();
   });
 });

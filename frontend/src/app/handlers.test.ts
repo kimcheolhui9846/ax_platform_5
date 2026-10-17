@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../api/coaching", () => ({
+  clearContext: vi.fn(),
   createSession: vi.fn(),
   submitAnswer: vi.fn(),
   reviseAnswer: vi.fn(),
@@ -13,12 +14,12 @@ vi.mock("../api/coaching", () => ({
   applyEvidence: vi.fn(),
 }));
 
-import { applyEvidence, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { applyEvidence, clearContext, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
-import { HOME } from "../lib/routes";
+import { HOME, carryScreenOf } from "../lib/routes";
 import type { DocumentFile } from "../lib/documentHtml";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
-import { DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
+import { CONTEXT_CLEARED_NOTICE, DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
 import type { Action, AppState } from "./state";
@@ -35,6 +36,7 @@ function setup(patch: Partial<AppState> = {}) {
   };
   const on = makeHandlers({
     state: { ...initialState(HOME), ...patch },
+    carryScreen: carryScreenOf(patch.route ?? HOME),
     run,
     dispatch: (action) => actions.push(action),
     saveDraft: (task, text) => saved.push([task, text]),
@@ -67,9 +69,9 @@ describe("makeHandlers — 이동", () => {
     on.navigate("home");
     on.retry();
     expect(actions).toEqual([
-      { type: "navigated", route: { name: "request", task: "branding" } },
-      { type: "navigated", route: { name: "mode", task: "branding" } },
-      { type: "navigated", route: { name: "request", task: "branding" } },
+      { type: "navigated", route: { name: "request", task: "branding", from: null } },
+      { type: "navigated", route: { name: "mode", task: "branding", from: null } },
+      { type: "navigated", route: { name: "request", task: "branding", from: null } },
       { type: "navigated", route: { name: "guide" } },
       { type: "navigated", route: HOME },
       { type: "navigated", route: HOME },
@@ -114,7 +116,7 @@ describe("makeHandlers — 요청", () => {
     const { on, calls } = setup({ drafts: { branding: "한글 파우치" } });
     on.pickMode("branding", "precise");
     await calls[0].request();
-    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise");
+    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise", null);
     expect(calls[0].done(session, 3)).toEqual({
       type: "sessionLoaded",
       seq: 3,
@@ -327,5 +329,53 @@ describe("makeHandlers — 근거 검토", () => {
     on.openBeforeEvidence();
     expect(calls).toEqual([]);
     expect(actions).toEqual([]);
+  });
+});
+
+describe("makeHandlers — 이어가기", () => {
+  const from = { sessionId: "s1", version: 2 };
+
+  it("startNext는 출처를 실은 요청 화면으로 간다", () => {
+    const { on, actions } = setup();
+    on.startNext("branding", from);
+    expect(actions).toEqual([{ type: "navigated", route: { name: "request", task: "branding", from } }]);
+  });
+
+  it("dropCarry는 지금 주소를 출처 없이 연다", () => {
+    const mode = setup({ route: { name: "mode", task: "branding", from } });
+    mode.on.dropCarry("branding");
+    expect(mode.actions).toEqual([{ type: "navigated", route: { name: "mode", task: "branding", from: null } }]);
+    const other = setup({ route: { name: "request", task: "branding", from } });
+    other.on.dropCarry("marketing_content");
+    expect(other.actions).toEqual([]);
+  });
+
+  it("요청↔모드 이동과 모드 선택이 출처를 잇는다", async () => {
+    const { on, actions, calls } = setup({ route: { name: "request", task: "branding", from }, drafts: { branding: "글" } });
+    on.submitRequest("branding");
+    on.editRequest("branding");
+    expect(actions).toEqual([
+      { type: "navigated", route: { name: "mode", task: "branding", from } },
+      { type: "navigated", route: { name: "request", task: "branding", from } },
+    ]);
+    on.pickMode("branding", "quick");
+    await calls[0].request();
+    expect(createSession).toHaveBeenCalledWith("branding", "글", "quick", from);
+  });
+
+  it("clearContext는 가져온 내용을 빼고 세션을 갱신한다", async () => {
+    const { on, calls } = setup({ session });
+    on.clearContext();
+    await calls[0].request();
+    expect(clearContext).toHaveBeenCalledWith("sess_1");
+    expect(calls[0].done(session, 4)).toEqual({ type: "sessionLoaded", seq: 4, session, next: { name: "question", sessionId: "sess_1" }, notice: CONTEXT_CLEARED_NOTICE });
+    expect(CONTEXT_CLEARED_NOTICE).toBe("가져온 내용을 뺐어요.");
+  });
+
+  it("clearContext 응답에 걸린 질문이 없으면 지금 화면에 머문다", () => {
+    const { on, calls } = setup({ session });
+    on.clearContext();
+    const done = makeSession({ session_id: "sess_1", next_question: null });
+    expect(calls[0].done(done, 5)).toEqual({ type: "sessionLoaded", seq: 5, session: done, next: null, notice: CONTEXT_CLEARED_NOTICE });
   });
 });

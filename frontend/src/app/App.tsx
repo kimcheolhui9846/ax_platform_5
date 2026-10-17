@@ -3,7 +3,7 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { Toast } from "../components/Toast";
 import { saveFile } from "../lib/download";
 import { readDraft, writeDraft } from "../lib/drafts";
-import { isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
+import { carryScreenOf, isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
@@ -83,6 +83,7 @@ export default function App() {
 
   const on = makeHandlers({
     state,
+    carryScreen: carryScreenOf(state.route),
     run,
     dispatch,
     saveDraft: (key, text) => writeDraft(storage, key, text),

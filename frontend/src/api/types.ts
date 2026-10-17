@@ -31,3 +31,5 @@ export type ImageBlock = Schemas["ImageBlock"];
 export type Block = ResultSection["blocks"][number];
 export type EvidenceRecord = Schemas["EvidenceRecord"];
 export type EvidenceItem = Schemas["EvidenceItem"];
+export type SessionContext = Schemas["SessionContext"];
+export type ContextItem = Schemas["ContextItem"];

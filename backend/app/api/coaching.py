@@ -1,8 +1,9 @@
 """코칭 API. 설계서 10.1 엔드포인트 + 이전 답변 수정 + 세션 조회 + 디버그 trace."""
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
@@ -10,6 +11,7 @@ from app.api.responses import error_responses
 from app.api.views import (
     to_evidence_items,
     to_result_view,
+    to_session_context,
     to_session_summary,
     to_session_view,
     to_task_form,
@@ -18,16 +20,19 @@ from app.api.views import (
 )
 from app.core.messages import (
     EVIDENCE_NOT_FOUND_MESSAGE,
+    PREVIOUS_SESSION_NOT_FOUND_MESSAGE,
     RESULT_NOT_READY_MESSAGE,
     SECTION_NOT_FOUND_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
     VERSION_NOT_FOUND_MESSAGE,
     unknown_task_message,
 )
-from app.core.state import Answer, SessionState, TraceEntry
+from app.core.state import Answer, CarriedContext, SessionState, TraceEntry
 from app.core.store import SessionStore
 from app.harness.base import BaseHarness, find_version
+from app.harness.carry import build_context
 from app.harness.errors import GenerationFailed, HarnessError, UnknownTaskError
+from app.harness.policy import TaskPolicy
 from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
@@ -36,6 +41,7 @@ from app.schemas.coaching import (
     EvidenceItem,
     ResultView,
     ReviseAnswerRequest,
+    SessionContext,
     SessionSummary,
     SessionView,
     SupplementsRequest,
@@ -64,6 +70,21 @@ def _load(
     if state is None or state.owner_id != owner:
         raise HTTPException(status_code=404, detail=SESSION_NOT_FOUND_MESSAGE)
     return state, _harness(registry, state.task_type)
+
+
+def _carried(
+    registry: Registry, store: Store, owner: str, target: TaskPolicy, session_id: str, version: int | None
+) -> CarriedContext:
+    """이어 갈 이전 작업의 그 버전(없으면 마지막)으로 가져올 기준을 만든다. 남의·없는 작업, 결과·버전이 없으면 404."""
+    source = store.get(session_id)
+    if source is None or source.owner_id != owner or source.task_type not in registry:
+        raise HTTPException(status_code=404, detail=PREVIOUS_SESSION_NOT_FOUND_MESSAGE)
+    if not source.versions:
+        raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+    found = source.versions[-1] if version is None else find_version(source.versions, version)
+    if found is None:
+        raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
+    return build_context(source, found, registry.get(source.task_type).policy.title, target)
 
 
 @contextmanager
@@ -100,6 +121,21 @@ def get_task_form(task_type: str, registry: Registry) -> TaskForm:
     return to_task_form(_harness(registry, task_type).policy)
 
 
+@router.get("/tasks/{task_type}/context", response_model=SessionContext, responses=error_responses(404, 422))
+def preview_context(
+    task_type: str,
+    session_id: str,
+    registry: Registry,
+    store: Store,
+    owner: Owner,
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> SessionContext:
+    """다음 과제로 이어가기 미리보기: 이 과제에 가져올 이전 작업의 기준(세션을 만들 때와 같은 판단)."""
+    harness = _harness(registry, task_type)
+    context = _carried(registry, store, owner, harness.policy, session_id, version)
+    return to_session_context(context, harness.policy.labels)
+
+
 @router.post(
     "/tasks/{task_type}/sessions",
     response_model=SessionView,
@@ -110,7 +146,12 @@ def create_session(
     task_type: str, body: CreateSessionRequest, registry: Registry, store: Store, owner: Owner
 ) -> SessionView:
     harness = _harness(registry, task_type)
-    state = harness.start(body.raw_input, body.mode, owner_id=owner)
+    context = (
+        _carried(registry, store, owner, harness.policy, body.from_session_id, body.from_version)
+        if body.from_session_id is not None
+        else None
+    )
+    state = harness.start(body.raw_input, body.mode, owner_id=owner, context=context)
     store.save(state)
     return to_session_view(state, harness)
 
@@ -123,6 +164,14 @@ def list_sessions(registry: Registry, store: Store, owner: Owner) -> list[Sessio
         for state in store.list_by_owner(owner)
         if state.task_type in registry
     ]
+
+
+@router.delete("/sessions/{session_id}/context", response_model=SessionView, responses=error_responses(404, 422, 502))
+def clear_context(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> SessionView:
+    """이전 과제에서 가져온 내용을 뺀다. 가져온 내용이 없으면 그대로다. 뺀 필드는 다시 물을 수 있다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        harness.clear_context(state)
+    return to_session_view(state, harness)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionView, responses=error_responses(404, 422))

@@ -3,6 +3,7 @@ import type {
   Question,
   ResultSection,
   ResultView,
+  SessionContext,
   SessionSummary,
   SessionView,
   TaskForm,
@@ -10,6 +11,7 @@ import type {
   VersionView,
 } from "../api/types";
 import type { Images } from "../lib/document";
+import { carryKey, nextTask } from "../lib/carry";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import type { AppState } from "./state";
@@ -22,8 +24,8 @@ export type ScreenModel =
   | { kind: "guide" }
   | { kind: "work"; sessions: SessionSummary[] }
   | { kind: "documents"; sessions: SessionSummary[] }
-  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string }
-  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string }
+  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean }
+  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "generating"; task: TaskSummary; session: SessionView }
@@ -32,7 +34,7 @@ export type ScreenModel =
   | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null; images: Images }
   | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection; images: Images }
   | { kind: "evidence"; task: TaskSummary; session: SessionView; result: ResultView; items: EvidenceItem[] }
-  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView; images: Images }
+  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView; images: Images; next: TaskSummary | null }
   | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView; images: Images };
 
 const LOADING: ScreenModel = { kind: "loading" };
@@ -61,7 +63,14 @@ function resolve(state: AppState): ScreenModel {
     case "mode": {
       const task = findTask(state.tasks, route.task);
       if (task === null || state.form === null || state.form.task_type !== route.task) return LOADING;
-      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "" };
+      // 이어 가는 화면은 가져올 내용 미리보기가 올 때까지 기다린다. 못 받았으면 가져오지 않고 계속할 수 있게 연다
+      const from = route.from;
+      const key = from !== null ? carryKey(route.task, from) : null;
+      const loaded = key !== null && state.carry?.key === key;
+      const carryFailed = key !== null && !loaded && state.stalled === `carry:${key}`;
+      if (key !== null && !loaded && !carryFailed) return LOADING;
+      const context = loaded ? (state.carry?.context ?? null) : null;
+      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "", context, carryFailed };
       return route.name === "request" ? { kind: "request", ...data } : { kind: "mode", ...data };
     }
     default: {
@@ -78,7 +87,7 @@ function resolve(state: AppState): ScreenModel {
         if (!loaded) return LOADING;
         // 저장하지 않은 번호로 저장 완료 주소를 열었으면(직접 입력·북마크) 버전 보기로 보여 준다
         const saved = route.name === "saved" && version.version.saved;
-        return saved ? { kind: "saved", task, session, version, images: state.assets }
+        return saved ? { kind: "saved", task, session, version, images: state.assets, next: nextTask(state.tasks ?? [], task.task_type) }
           : { kind: "version", task, session, version, images: state.assets };
       }
       if (route.name === "result" || route.name === "edit" || route.name === "evidence") {

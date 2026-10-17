@@ -69,6 +69,25 @@ class TaskForm(ContractModel):
 class CreateSessionRequest(BaseModel):
     raw_input: str = Field(min_length=1, max_length=2000)
     mode: CoachingMode = CoachingMode.STANDARD
+    from_session_id: str | None = None  # 이어 갈 이전 작업(다음 과제로 이어가기)
+    from_version: int | None = Field(default=None, ge=1)  # 없으면 이전 작업의 마지막 버전
+
+
+class ContextItem(ContractModel):
+    field: str
+    label: str
+    value: str
+
+
+class SessionContext(ContractModel):
+    """이전 과제에서 가져온 기준. 미리보기와 세션 응답이 같은 모양이다."""
+
+    session_id: str
+    task_type: str
+    version: int
+    title: str
+    summary: str
+    items: list[ContextItem]
 
 
 class AnswerRequest(BaseModel):
@@ -135,6 +154,7 @@ class SessionView(ContractModel):
     flow: list[FlowItem]  # 흐름 패널: 물어본 필드 → 지금 질문 → 예정
     supplements: list[SupplementItem]
     supplements_changed: bool  # 보완 정보가 마지막 결과에 반영되지 않았다
+    context: SessionContext | None  # 이전 과제에서 가져온 기준
     can_generate: bool
     has_result: bool  # 이전에 만든 결과가 있어 GET /result로 다시 볼 수 있다
     result_stale: bool

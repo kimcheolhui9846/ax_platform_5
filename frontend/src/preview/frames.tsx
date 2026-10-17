@@ -3,10 +3,12 @@ import type { JSX } from "react";
 import type { ScreenModel } from "../app/screenModel";
 import { AppView } from "../app/view";
 import { SupplementForm } from "../components/SupplementForm";
+import { nextTask } from "../lib/carry";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import {
   ANSWERED_USER,
+  CONTEXT,
   EVIDENCE_ITEMS,
   FORM,
   LADDER_QUESTION,
@@ -64,8 +66,8 @@ function dialogFrame(id: string, title: string, route: Route, model: ScreenModel
 }
 
 const SESSION_ID = SESSION_QUESTION.session_id;
-const request: Route = { name: "request", task: PRODUCT.task_type };
-const mode: Route = { name: "mode", task: PRODUCT.task_type };
+const request: Route = { name: "request", task: PRODUCT.task_type, from: null };
+const mode: Route = { name: "mode", task: PRODUCT.task_type, from: null };
 const question: Route = { name: "question", sessionId: SESSION_ID };
 const confirm: Route = { name: "confirm", sessionId: SESSION_ID };
 const failed: Route = { name: "failed", sessionId: SESSION_ID };
@@ -75,8 +77,14 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 export const FRAMES: Frame[] = [
   frame("home", "홈 · 이어하기", HOME, { kind: "home", tasks: TASKS, sessions: SESSIONS }),
   frame("home-new", "홈 · 처음 방문", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
-  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST }),
-  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST }),
+  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false }),
+  frame(
+    "request-context",
+    "01 내 요청 · 이전 작업에서 이어가기",
+    { name: "request", task: PRODUCT.task_type, from: { sessionId: CONTEXT.session_id, version: CONTEXT.version } },
+    { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: CONTEXT, carryFailed: false },
+  ),
+  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false }),
   frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
   frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION }),
   frame("question-proposal", "질문 · AI 후보 제안", question, {
@@ -92,6 +100,11 @@ export const FRAMES: Frame[] = [
     { kind: "revise", task: PRODUCT, session: SESSION_QUESTION, item: ANSWERED_USER },
   ),
   frame("confirm", "03 답변 의미 확인", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }),
+  frame("confirm-context", "03 답변 의미 확인 · 가져온 기준", confirm, {
+    kind: "confirm",
+    task: PRODUCT,
+    session: { ...SESSION_READY, context: CONTEXT },
+  }),
   frame("generating", "초안 생성 중", confirm, { kind: "generating", task: PRODUCT, session: SESSION_READY }, true),
   frame("failed", "초안 생성 실패", failed, { kind: "failed", task: PRODUCT, session: SESSION_FAILED }),
   frame("failed-with-result", "생성 실패 · 이전 결과 있음", failed, {
@@ -146,7 +159,7 @@ export const FRAMES: Frame[] = [
     "saved",
     "저장 완료",
     { name: "saved", sessionId: SESSION_ID, version: SAVED_VERSION.version.version },
-    { kind: "saved", task: PRODUCT, session: SESSION_DONE, version: SAVED_VERSION, images: {} },
+    { kind: "saved", task: PRODUCT, session: SESSION_DONE, version: SAVED_VERSION, images: {}, next: nextTask(TASKS, PRODUCT.task_type) },
   ),
   frame(
     "version",

@@ -2,6 +2,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import previewCss from "../styles/preview.css?raw";
+import { CONTEXT } from "./fixtures";
 import { FRAMES, FRAME_SIZES } from "./frames";
 import { Gallery } from "./Gallery";
 
@@ -19,12 +20,14 @@ describe("미리보기 프레임", () => {
       "home",
       "home-new",
       "request",
+      "request-context",
       "mode",
       "question",
       "question-ladder",
       "question-proposal",
       "revise",
       "confirm",
+      "confirm-context",
       "generating",
       "failed",
       "failed-with-result",
@@ -80,5 +83,16 @@ describe("미리보기 프레임", () => {
     const mains = [...html.matchAll(/<main id="([^"]+)"/g)].map((m) => m[1]);
     expect(mains).toHaveLength(FRAMES.length * FRAME_SIZES.length);
     for (const id of mains) expect(html).toContain(`href="#${id}"`);
+  });
+});
+
+describe("이어가기 샘플", () => {
+  it("백엔드가 만들 수 있는 모양이다: 사업계획 V2에서 상품기획 필드로", () => {
+    expect(CONTEXT.task_type).toBe("business_plan");
+    expect(CONTEXT.title).toBe(`사업계획 초안 V${CONTEXT.version}`);
+    expect(CONTEXT.items.map((i) => [i.field, i.label])).toEqual([
+      ["product_idea", "상품 아이디어"],
+      ["user", "사용자"],
+    ]);
   });
 });
