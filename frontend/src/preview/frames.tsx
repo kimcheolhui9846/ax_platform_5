@@ -1,15 +1,28 @@
 import type { JSX } from "react";
 
-import { IdeaForm } from "../components/IdeaForm";
-import { QuestionCard } from "../components/QuestionCard";
-import { ResultPanel } from "../components/ResultPanel";
-import { SummaryList } from "../components/SummaryList";
-import { TaskPicker } from "../components/TaskPicker";
-import { AppShell } from "../layout/AppShell";
-import type { HeaderProps } from "../layout/Header";
-import { enabledNav, railItems } from "../lib/shell";
-import type { Phase } from "../lib/shell";
-import { RESULT, SESSION_CLARIFYING, SESSION_LADDER, SESSION_READY, TASKS } from "./fixtures";
+import type { ScreenModel } from "../app/screenModel";
+import { AppView } from "../app/view";
+import { HOME } from "../lib/routes";
+import type { Route } from "../lib/routes";
+import {
+  ANSWERED_USER,
+  FORM,
+  LADDER_QUESTION,
+  PRODUCT,
+  PROPOSAL_QUESTION,
+  QUESTION,
+  REQUEST,
+  RESULT,
+  SESSION_DONE,
+  SESSION_FAILED,
+  SESSION_LADDER,
+  SESSION_PROPOSAL,
+  SESSION_QUESTION,
+  SESSION_READY,
+  SESSION_STALE,
+  TASKS,
+} from "./fixtures";
+import { NOOP_HANDLERS } from "./handlers";
 
 /** render는 프레임마다 다른 본문 id를 받는다(한 페이지에 프레임이 여럿이라 id가 겹치지 않게). */
 export type Frame = { id: string; title: string; render: (mainId: string) => JSX.Element };
@@ -17,64 +30,41 @@ export type Frame = { id: string; title: string; render: (mainId: string) => JSX
 /** 프레임 크기 이름. 폭은 tokens.css의 --preview-desktop·--preview-mobile이 정한다. */
 export const FRAME_SIZES = ["desktop", "mobile"] as const;
 
-const noop = () => {};
-
-function shell(mainId: string, project: string | null, phase: Phase | null, body: JSX.Element, side: JSX.Element | null = null) {
-  const header: HeaderProps = { project, phase, onPickTask: noop };
-  return (
-    <AppShell
-      rail={{ items: railItems(phase === null ? "home" : null, enabledNav(false)), onNavigate: noop }}
-      header={header}
-      side={side}
-      mainId={mainId}
-    >
-      {body}
-    </AppShell>
-  );
+function frame(id: string, title: string, route: Route, model: ScreenModel, busy = false): Frame {
+  return { id, title, render: (mainId) => <AppView route={route} model={model} busy={busy} on={NOOP_HANDLERS} mainId={mainId} /> };
 }
+
+const SESSION_ID = SESSION_QUESTION.session_id;
+const request: Route = { name: "request", task: PRODUCT.task_type };
+const mode: Route = { name: "mode", task: PRODUCT.task_type };
+const question: Route = { name: "question", sessionId: SESSION_ID };
+const confirm: Route = { name: "confirm", sessionId: SESSION_ID };
+const result: Route = { name: "result", sessionId: SESSION_ID };
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
 export const FRAMES: Frame[] = [
-  { id: "home", title: "홈 · 과제 선택", render: (mainId) => shell(mainId, null, null, <TaskPicker tasks={TASKS} onPick={noop} />) },
-  {
-    id: "idea",
-    title: "요청 입력",
-    render: (mainId) =>
-      shell(
-        mainId,
-        "상품기획",
-        0,
-        <IdeaForm title="상품기획" value="한글을 활용한 파우치를 만들고 싶어요" busy={false} onChange={noop} onSubmit={noop} />,
-      ),
-  },
-  {
-    id: "question",
-    title: "질문 · 기본",
-    render: (mainId) =>
-      shell(
-        mainId,
-        "상품기획",
-        1,
-        <QuestionCard question={SESSION_CLARIFYING.next_question!} busy={false} onAnswer={noop} />,
-        <SummaryList items={SESSION_CLARIFYING.summary} />,
-      ),
-  },
-  {
-    id: "question-ladder",
-    title: "질문 · 다른 예시(쉬운 질문)",
-    render: (mainId) =>
-      shell(
-        mainId,
-        "상품기획",
-        1,
-        <QuestionCard question={SESSION_LADDER.next_question!} busy={false} onAnswer={noop} />,
-        <SummaryList items={SESSION_LADDER.summary} />,
-      ),
-  },
-  {
-    id: "ready",
-    title: "답변 확인 · 결과 만들기 전",
-    render: (mainId) => shell(mainId, "상품기획", 1, <p className="card">필요한 정보가 모였어요. 결과를 만들어 볼까요?</p>, <SummaryList items={SESSION_READY.summary} />),
-  },
-  { id: "result", title: "결과 문서", render: (mainId) => shell(mainId, "상품기획", 2, <ResultPanel view={RESULT} busy={false} onBack={noop} />) },
+  frame("home", "홈 · 과제 선택", HOME, { kind: "home", tasks: TASKS }),
+  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST }),
+  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST }),
+  frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
+  frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION }),
+  frame("question-proposal", "질문 · AI 후보 제안", question, {
+    kind: "question",
+    task: PRODUCT,
+    session: SESSION_PROPOSAL,
+    question: PROPOSAL_QUESTION,
+  }),
+  frame(
+    "revise",
+    "답변 고치기",
+    { name: "revise", sessionId: SESSION_ID, questionId: ANSWERED_USER.question.question_id },
+    { kind: "revise", task: PRODUCT, session: SESSION_QUESTION, item: ANSWERED_USER },
+  ),
+  frame("confirm", "03 답변 의미 확인", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }),
+  frame("confirm-generating", "답변 확인 · 초안 만드는 중", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }, true),
+  frame("confirm-failed", "답변 확인 · 생성 실패", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_FAILED }),
+  frame("result", "결과 문서", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT }),
+  frame("result-stale", "결과 · 최신 아님", result, { kind: "result", task: PRODUCT, session: SESSION_STALE, result: { ...RESULT, stale: true } }),
+  frame("guide", "흐름 안내", { name: "guide" }, { kind: "guide" }),
+  frame("unavailable", "불러오지 못함", question, { kind: "unavailable" }),
 ];

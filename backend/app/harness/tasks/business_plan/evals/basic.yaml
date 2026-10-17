@@ -2,7 +2,7 @@ name: 향초 온라인 판매 기본 흐름
 raw_input: 직접 만든 향초를 온라인으로 팔고 싶어요
 answers:
   customer_problem:
-    - answer_type: dont_know
+    - answer_type: easier
     - value: 선물용 향초를 고르기가 어렵다
   target_customer:
     - answer_type: option

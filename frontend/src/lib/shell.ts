@@ -1,8 +1,7 @@
-import type { screenOf } from "./screen";
+import type { Route } from "./routes";
 
 export type NavKey = "home" | "work" | "documents";
 export type Phase = 0 | 1 | 2;
-export type ScreenKind = ReturnType<typeof screenOf>["kind"];
 export type RailItem = { key: NavKey; label: string; active: boolean; disabled: boolean };
 
 export const HEADER_STEPS = ["내 요청", "함께 구체화", "결과 만들기"] as const;
@@ -14,14 +13,6 @@ const NAV_ORDER: readonly NavKey[] = ["home", "work", "documents"];
 export function headerSteps(phase: Phase | null): { label: string; current: boolean }[] {
   if (phase === null) return [];
   return HEADER_STEPS.map((label, i) => ({ label, current: i === phase }));
-}
-
-/** 화면 종류가 헤더의 몇 번째 단계인지. 과제를 고르기 전에는 과제 밖이다. */
-export function phaseOf(kind: ScreenKind): Phase | null {
-  if (kind === "pick_task") return null;
-  if (kind === "idea") return 0;
-  if (kind === "result") return 2;
-  return 1;
 }
 
 const BUILT_NAV: ReadonlySet<NavKey> = new Set<NavKey>(["home"]);
@@ -40,4 +31,34 @@ export function railItems(active: NavKey | null, enabled: ReadonlySet<NavKey>): 
     active: key === active,
     disabled: !enabled.has(key),
   }));
+}
+
+/** 주소가 헤더의 몇 번째 단계인지. 홈·안내는 과제 밖이다. */
+export function routePhase(route: Route): Phase | null {
+  switch (route.name) {
+    case "request":
+      return 0;
+    case "mode":
+    case "question":
+    case "revise":
+    case "confirm":
+      return 1;
+    case "result":
+      return 2;
+    default:
+      return null;
+  }
+}
+
+/** 왼쪽 메뉴에서 켜 둘 항목. 진행 중인 과제는 내 작업, 결과는 결과물이다. */
+export function railActive(route: Route): NavKey {
+  switch (route.name) {
+    case "home":
+    case "guide":
+      return "home";
+    case "result":
+      return "documents";
+    default:
+      return "work";
+  }
 }

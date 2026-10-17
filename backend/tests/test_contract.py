@@ -5,7 +5,7 @@
 """
 from typing import Any
 
-from fastapi.testclient import TestClient
+from tests.conftest import api_client
 
 from app.main import create_app
 from app.providers.mock import MockProvider
@@ -45,7 +45,7 @@ def response_schemas(spec: dict) -> set[str]:
 
 
 def test_every_response_schema_requires_all_properties():
-    spec = TestClient(create_app(provider=MockProvider(), debug=True)).get("/openapi.json").json()
+    spec = api_client(create_app(provider=MockProvider(), debug=True)).get("/openapi.json").json()
     schemas = spec["components"]["schemas"]
     reachable = response_schemas(spec)
     assert {"SessionView", "ResultView", "ErrorBody", "TraceEntry"} <= reachable

@@ -1,6 +1,8 @@
 task_type: branding
 title: 브랜딩
-description: 차별화된 정체성과 표현 체계를 세웁니다.
+description: 브랜드의 성격과 말투, 표현 방향을 정리해요.
+heading: 내 브랜드만의 인상을 만들고 싶어요
+deliverable: 브랜드 콘셉트 · 표현 가이드
 input_placeholder: 예) 30대 1인 가구를 위한 수제 향초
 input_examples:
   - 30대 1인 가구를 위한 수제 향초

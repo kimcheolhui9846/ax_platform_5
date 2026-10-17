@@ -35,6 +35,23 @@ describe("반응형 배치", () => {
     expect(rules.find((r) => r.selector === ".gallery")?.body).toMatch(/width:\s*max-content/);
   });
 
+  // 화면이 바뀔 때 앱이 본문(main)으로 초점을 옮긴다. 본문 전체에 초점 테두리가 그려지면 안 된다(버튼·입력창은 그대로).
+  it("본문은 초점을 받아도 테두리를 그리지 않는다", () => {
+    expect(sheets["./layout.css"]).toMatch(/\.app-main:focus\s*\{[^}]*outline:\s*none/);
+  });
+
+  // 입력창 자체는 테두리 없이 상자에 녹아 있으므로 초점은 상자(composer)가 보여 준다
+  it("입력 상자는 안에 초점이 있으면 초점 테두리를 그린다", () => {
+    expect(sheets["./screens.css"]).toMatch(/\.composer:focus-within\s*\{[^}]*outline:\s*var\(--focus-ring\)/);
+  });
+
+  it("안내 상자의 버튼은 글자 폭만큼, 좁은 화면의 모드 아래 줄은 접힌다", () => {
+    const css = sheets["./screens.css"] ?? "";
+    expect(css).toMatch(/\.notice\s*>\s*\.btn\s*\{[^}]*align-self:\s*flex-start/);
+    const narrow = css.slice(css.indexOf("@container app (max-width: 719px)"));
+    expect(narrow).toMatch(/\.mode-view\s*>\s*\.row\s*\{[^}]*flex-wrap:\s*wrap/);
+  });
+
   it("뼈대가 스스로 폭 기준 컨테이너를 만든다", () => {
     const html = renderToString(
       createElement(AppShell, {

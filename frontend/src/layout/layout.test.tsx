@@ -53,3 +53,19 @@ describe("AppShell", () => {
     expect(html).not.toContain('<span class="header-step');
   });
 });
+
+describe("Rail", () => {
+  it("흐름 안내 버튼은 요청 중에 막는다", () => {
+    const html = (guideDisabled: boolean) =>
+      renderToString(
+        <AppShell
+          rail={{ items: railItems("home", new Set(["home"])), onNavigate: noop, onGuide: noop, guideDisabled }}
+          header={{ project: null, phase: null, onPickTask: noop }}
+        >
+          <p>홈</p>
+        </AppShell>,
+      );
+    expect(html(true)).toContain('<button type="button" class="rail-help" disabled="">흐름 안내</button>');
+    expect(html(false)).toContain('<button type="button" class="rail-help">흐름 안내</button>');
+  });
+});

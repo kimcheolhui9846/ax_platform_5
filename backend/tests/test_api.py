@@ -1,5 +1,5 @@
 import pytest
-from fastapi.testclient import TestClient
+from tests.conftest import api_client
 
 from app.core.messages import (
     GENERATION_FAILED_MESSAGE,
@@ -16,7 +16,7 @@ BASE = "/api/v1/coaching"
 
 @pytest.fixture
 def client():
-    return TestClient(create_app(provider=MockProvider(), debug=True))
+    return api_client(create_app(provider=MockProvider(), debug=True))
 
 
 def create_session(client, task_type="product_planning", raw_input="수제 향초"):
@@ -34,6 +34,9 @@ def test_list_tasks(client):
         "branding",
         "marketing_content",
     ]
+    product = next(t for t in response.json() if t["task_type"] == "product_planning")
+    assert product["heading"] == "만들고 싶은 상품을 구체화하고 싶어요"
+    assert product["deliverable"] == "상품 콘셉트 · 첫 제작 기획서"
 
 
 def test_task_form(client):
@@ -66,6 +69,17 @@ def test_create_session_returns_first_question(client):
     assert "trace" not in view
 
 
+def test_session_view_has_request_and_flow(client):
+    view = create_session(client, raw_input="수제 향초")
+
+    assert view["raw_input"] == "수제 향초"
+    first, *rest = view["flow"]
+    assert (first["field"], first["label"], first["status"]) == ("user", "사용자", "current")
+    assert first["question"]["question_id"] == view["next_question"]["question_id"]
+    assert len(rest) == 4  # 스탠다드 상한 5 = 지금 질문 1 + 예정 4
+    assert all(i["status"] == "upcoming" and i["question"] is None and i["answer"] is None for i in rest)
+
+
 def test_full_flow(client):
     view = create_session(client)
     sid = view["session_id"]
@@ -80,7 +94,7 @@ def test_full_flow(client):
 
     q = view["next_question"]
     view = client.post(
-        f"{BASE}/sessions/{sid}/answers", json={"question_id": q["question_id"], "answer_type": "dont_know"}
+        f"{BASE}/sessions/{sid}/answers", json={"question_id": q["question_id"], "answer_type": "easier"}
     ).json()
     assert view["next_question"]["field"] == "usage_context"
     assert view["next_question"]["level"] == 1
@@ -110,6 +124,26 @@ def test_full_flow(client):
     assert [t["stage"] for t in trace][0] == "diagnose"
 
 
+def test_original_question_endpoint(client):
+    view = create_session(client)
+    sid = view["session_id"]
+    first = view["next_question"]
+    view = client.post(
+        f"{BASE}/sessions/{sid}/answers", json={"question_id": first["question_id"], "answer_type": "easier"}
+    ).json()
+    assert view["next_question"]["level"] == 1
+
+    back = client.post(f"{BASE}/sessions/{sid}/question/original")
+    assert back.status_code == 200
+    question = back.json()["next_question"]
+    assert (question["field"], question["level"]) == (first["field"], 0)
+
+    again = client.post(f"{BASE}/sessions/{sid}/question/original")
+    assert again.status_code == 422
+    assert again.json() == {"detail": "기본 질문으로 돌아갈 사다리 질문이 없습니다."}
+    assert client.post(f"{BASE}/sessions/sess_없음/question/original").status_code == 404
+
+
 def test_harness_errors_are_422(client):
     sid = create_session(client)["session_id"]
     response = client.post(
@@ -130,7 +164,7 @@ class UserDiagnosisProvider(MockProvider):
 
 
 def test_labels_reach_assumptions_and_unknowns():
-    client = TestClient(create_app(provider=UserDiagnosisProvider(), debug=True))
+    client = api_client(create_app(provider=UserDiagnosisProvider(), debug=True))
     view = create_session(client)
     sid = view["session_id"]
     q = view["next_question"]
@@ -161,7 +195,7 @@ def test_result_before_generate_is_404(client):
 
 
 def test_generate_failure_is_502_and_session_preserved():
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
     sid = create_session(client)["session_id"]
 
     response = client.post(f"{BASE}/sessions/{sid}/generate")
@@ -176,7 +210,7 @@ def test_generate_failure_is_502_and_session_preserved():
 
 def test_answering_kept_question_after_failed_generate_clears_error():
     """error는 저장값이 아니라 상태에서 나온다. FAILED를 벗어나면 함께 사라진다."""
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"generate"}), debug=True))
     view = create_session(client)
     sid = view["session_id"]
     assert client.post(f"{BASE}/sessions/{sid}/generate").status_code == 502
@@ -192,7 +226,7 @@ def test_answering_kept_question_after_failed_generate_clears_error():
 
 
 def test_trace_hidden_without_debug():
-    client = TestClient(create_app(provider=MockProvider(), debug=False))
+    client = api_client(create_app(provider=MockProvider(), debug=False))
     sid = create_session(client)["session_id"]
     assert client.get(f"{BASE}/sessions/{sid}/trace").status_code == 404
 
@@ -242,14 +276,14 @@ def test_request_format_errors_are_korean_422(client):
 
 
 def test_answer_provider_failure_is_502_and_session_unchanged_with_trace():
-    client = TestClient(create_app(provider=MockProvider(fail_stages={"easier_question"}), debug=True))
+    client = api_client(create_app(provider=MockProvider(fail_stages={"easier_question"}), debug=True))
     sid = create_session(client)["session_id"]
     view = client.get(f"{BASE}/sessions/{sid}").json()
     for _ in range(6):
         before = view
         response = client.post(
             f"{BASE}/sessions/{sid}/answers",
-            json={"question_id": view["next_question"]["question_id"], "answer_type": "dont_know"},
+            json={"question_id": view["next_question"]["question_id"], "answer_type": "easier"},
         )
         if response.status_code == 502:
             break
@@ -279,7 +313,7 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
 
 def test_failed_regenerate_serves_previous_result_unchanged():
     provider = MockProvider()
-    client = TestClient(create_app(provider=provider, debug=True))
+    client = api_client(create_app(provider=provider, debug=True))
     sid = create_session(client)["session_id"]
     first = client.post(f"{BASE}/sessions/{sid}/generate").json()
     assert first["stale"] is False
@@ -353,7 +387,7 @@ def test_continue_unknown_session_is_404(client):
 
 def _failed_session_with_pending_question():
     provider = MockProvider()
-    client = TestClient(create_app(provider=provider, debug=True))
+    client = api_client(create_app(provider=provider, debug=True))
     view = create_session(client)
     sid = view["session_id"]
     first_qid = view["next_question"]["question_id"]

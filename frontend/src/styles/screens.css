@@ -1,0 +1,92 @@
+/* 화면별 배치. 디자인 V2(design/2026-10-16-ux-v2)의 화면 클래스를 토큰으로 옮겼다. 좁은 화면은 뼈대 폭(@container app) 기준이다. */
+
+.screen-title { font-size: var(--text-3xl); line-height: var(--text-3xl-line); }
+
+/* 홈 */
+.home { gap: var(--space-6); }
+.taskgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); }
+.task { gap: var(--space-3); }
+.task .btn { margin-top: auto; }
+
+/* 요청·입력창 */
+.request { max-width: var(--request-max); gap: var(--space-6); }
+.notice > .btn { align-self: flex-start; }
+.composer {
+  display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4);
+  background: var(--color-surface); border: var(--line-width) solid var(--color-line); border-radius: var(--radius-lg);
+}
+.composer textarea {
+  width: 100%; min-height: var(--space-8); padding: 0; border: 0; outline: none; resize: vertical;
+  background: transparent; color: var(--color-ink); font-size: var(--text-md); line-height: var(--text-md-line);
+}
+.composer textarea::placeholder { color: var(--color-muted); }
+/* 입력창은 상자에 녹아 있어 자기 테두리가 없다. 초점은 상자가 보여 준다. */
+.composer:focus-within { outline: var(--focus-ring) solid var(--color-accent); outline-offset: 3px; }
+.composer .send { width: var(--send-width); }
+
+/* 코칭 모드 */
+.mode-view { gap: var(--space-6); }
+.mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-6); }
+.mode-card { min-height: var(--mode-card-height); gap: var(--space-4); }
+.mode-card h2 { font-size: var(--text-2xl); line-height: var(--text-2xl-line); }
+.mode-card .btn { margin-top: auto; }
+
+/* 질문 */
+.question-card { padding: var(--space-8); gap: var(--space-4); }
+.options { display: flex; flex-direction: column; gap: var(--space-2); }
+.choice { justify-content: flex-start; text-align: left; }
+.choice[aria-pressed="true"] { background: var(--color-tint); border-color: var(--color-accent); }
+.badge { margin-left: var(--space-2); font-size: var(--text-2xs); color: var(--color-muted); }
+.help-row { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.help-row .btn { flex: 1 1 0; min-width: 0; }
+
+/* 오른쪽 패널 */
+.side-card { gap: var(--space-4); }
+.side-card h2 { font-size: var(--text-lg); line-height: var(--text-lg-line); }
+.flow-item {
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) 0;
+  border-bottom: var(--line-width) solid var(--color-line);
+}
+.flow-item:last-of-type { border-bottom: 0; }
+.flow-item.is-current { border-left: var(--current-mark) solid var(--color-accent); padding-left: var(--space-3); }
+.flow-compact { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-soft); }
+.flow-compact h3 { font-size: var(--text-sm); }
+.summary-row {
+  display: grid; grid-template-columns: var(--summary-label-width) minmax(0, 1fr); gap: var(--space-3);
+  font-size: var(--text-xs); line-height: var(--text-xs-line);
+}
+
+/* 답변 확인·결과 문서 */
+.confirm { padding: var(--space-8); gap: var(--space-6); }
+.document { padding: var(--space-6) var(--space-8); gap: var(--space-4); }
+.document-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.document-section p, .document-section li { white-space: pre-line; line-height: var(--text-md-line); }
+.document-section ul { margin: 0; padding-left: var(--space-5); }
+.section-heading {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2);
+  font-size: var(--text-lg); line-height: var(--text-lg-line); font-weight: var(--font-bold);
+}
+.section-number { font-size: var(--text-note); font-weight: var(--font-medium); color: var(--color-accent); }
+.section-tag { font-size: var(--text-note); font-weight: var(--font-medium); color: var(--color-muted); }
+.review-needed { color: var(--color-error); }
+
+/* 흐름 안내 */
+.guide { gap: var(--space-6); }
+.guide > .btn { align-self: flex-start; }
+
+@container app (max-width: 1099px) {
+  .mode-grid { grid-template-columns: minmax(0, 1fr); }
+  .mode-card { min-height: 0; }
+}
+
+@container app (max-width: 719px) {
+  .mode-view > .row { flex-wrap: wrap; }
+  .mode-view > .row .grow { flex-basis: 100%; }
+  .taskgrid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .screen-title { font-size: var(--text-2xl); line-height: var(--text-2xl-line); }
+  .question-card, .confirm, .document { padding: var(--space-5); }
+  .help-row { flex-direction: column; }
+  .help-row .btn { flex: none; width: 100%; }
+  .composer .row { flex-wrap: wrap; }
+  .composer .send { width: 100%; }
+}

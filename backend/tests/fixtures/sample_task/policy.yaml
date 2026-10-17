@@ -1,6 +1,8 @@
 task_type: sample_task
 title: 샘플 과제
 description: 하네스 공통 로직 테스트용 과제
+heading: 샘플을 만들고 싶어요
+deliverable: 샘플 결과
 raw_input_field: idea
 readiness_threshold: 0.8
 question_caps: { quick: 2, standard: 3, precise: 5 }

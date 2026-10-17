@@ -171,7 +171,7 @@ def test_llm_validation_failure_becomes_warning():
 
 def test_sample_scenario_runs(harness):
     scenarios = load_scenarios(SAMPLE_TASK_DIR)
-    assert [s.name for s in scenarios] == ["모르겠어요 한 번 후 직접 입력"]
+    assert [s.name for s in scenarios] == ["다른 예시 한 번 후 직접 입력"]
 
     state = run_scenario(harness, scenarios[0])
     assert state.status is scenarios[0].expect_status

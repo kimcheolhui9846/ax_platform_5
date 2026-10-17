@@ -143,6 +143,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/question/original": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show Original Question
+         * @description '원래 예시 보기'. 사다리 질문을 기본 질문으로 되돌린다(LLM 호출 없음).
+         */
+        post: operations["show_original_question_api_v1_coaching_sessions__session_id__question_original_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/result": {
         parameters: {
             query?: never;
@@ -169,7 +189,7 @@ export interface paths {
         };
         /**
          * Get Trace
-         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 없는 경로와 같은 404다.
+         * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 owner 검사 전에 없는 경로와 같은 404다.
          */
         get: operations["get_trace_api_v1_coaching_sessions__session_id__trace_get"];
         put?: never;
@@ -198,7 +218,7 @@ export interface components {
          * AnswerType
          * @enum {string}
          */
-        AnswerType: "option" | "free_text" | "dont_know" | "skip";
+        AnswerType: "option" | "free_text" | "easier" | "skip";
         /**
          * CardType
          * @enum {string}
@@ -237,6 +257,24 @@ export interface components {
             label: string;
             kind: components["schemas"]["FieldKind"];
         };
+        /** FlowItem */
+        FlowItem: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Text */
+            text: string;
+            status: components["schemas"]["FlowStatus"];
+            /** Answer */
+            answer: string | null;
+            question: components["schemas"]["Question"] | null;
+        };
+        /**
+         * FlowStatus
+         * @enum {string}
+         */
+        FlowStatus: "answered" | "current" | "upcoming" | "skipped" | "paused";
         /**
          * InfoSource
          * @enum {string}
@@ -406,12 +444,16 @@ export interface components {
             task_type: string;
             mode: components["schemas"]["CoachingMode"];
             status: components["schemas"]["SessionStatus"];
+            /** Raw Input */
+            raw_input: string;
             next_question: components["schemas"]["Question"] | null;
             progress: components["schemas"]["Progress"];
             /** Summary */
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
             unknowns: components["schemas"]["UnknownItem"][];
+            /** Flow */
+            flow: components["schemas"]["FlowItem"][];
             /** Can Generate */
             can_generate: boolean;
             /** Has Result */
@@ -462,6 +504,10 @@ export interface components {
             title: string;
             /** Description */
             description: string;
+            /** Heading */
+            heading: string;
+            /** Deliverable */
+            deliverable: string;
         };
         /** TraceEntry */
         TraceEntry: {
@@ -634,7 +680,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -692,6 +738,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -736,7 +791,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -799,7 +854,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -857,7 +912,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -915,6 +970,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
             /** @description 예상하지 못한 서버 오류 */
             500: {
                 headers: {
@@ -926,6 +990,55 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    show_original_question_api_v1_coaching_sessions__session_id__question_original_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -962,6 +1075,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */
@@ -1002,6 +1124,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
                 };
             };
             /** @description 예상하지 못한 서버 오류 */

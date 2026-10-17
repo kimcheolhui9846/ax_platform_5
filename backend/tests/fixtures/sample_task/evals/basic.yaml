@@ -1,8 +1,8 @@
-name: 모르겠어요 한 번 후 직접 입력
+name: 다른 예시 한 번 후 직접 입력
 raw_input: 집들이 선물용 향초
 answers:
   customer:
-    - answer_type: dont_know
+    - answer_type: easier
     - value: 집들이 가는 30대
   problem:
     - value: 선물 고르기가 어렵다

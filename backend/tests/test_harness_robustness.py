@@ -27,30 +27,30 @@ def snapshot(state):
 
 def test_failed_provider_call_rolls_back_apply_answer(harness, provider, reply):
     state = harness.start("향초")
-    reply(harness, state, AnswerType.DONT_KNOW)
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
+    reply(harness, state, AnswerType.EASIER)
     before = snapshot(state)
     pending_id = state.pending_question.question_id
     provider.fail_stages.add("easier_question")
 
     with pytest.raises(ProviderError):
-        reply(harness, state, AnswerType.DONT_KNOW)
+        reply(harness, state, AnswerType.EASIER)
 
     assert snapshot(state) == before
     assert state.pending_question.question_id == pending_id
-    assert state.dont_know_levels == {"customer": 2}
+    assert state.easier_levels == {"customer": 2}
     assert state.asked_questions[-1].answer_type is None
     assert state.trace[-1].stage == "easier_question"
     assert "error" in state.trace[-1].output
 
     provider.fail_stages.clear()
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     assert state.pending_question.level == 3
 
 
 def test_failed_revise_rolls_back(harness, reply, monkeypatch):
     state = harness.start("향초")
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     before = snapshot(state)
     question_id = state.asked_questions[0].question.question_id
 
@@ -70,7 +70,7 @@ def test_failed_revise_rolls_back(harness, reply, monkeypatch):
 def test_revise_other_field_keeps_pending_llm_question(harness, provider, reply):
     state = harness.start("향초")
     reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     pending = state.pending_question
     assert (pending.field, pending.level) == ("problem", 1)
     records = list(state.asked_questions)
@@ -89,12 +89,12 @@ def test_revise_other_field_keeps_pending_llm_question(harness, provider, reply)
     assert state.asked_questions == records
     assert len(provider.calls) == calls
     assert state.facts["customer"].value == "40대 부모"
-    assert state.dont_know_levels == {"problem": 1}
+    assert state.easier_levels == {"problem": 1}
 
 
 def test_revise_pending_field_clears_ladder_and_advances(harness, reply):
     state = harness.start("향초")
-    reply(harness, state, AnswerType.DONT_KNOW)
+    reply(harness, state, AnswerType.EASIER)
     assert state.pending_question.field == "customer"
 
     harness.revise_answer(
@@ -107,7 +107,7 @@ def test_revise_pending_field_clears_ladder_and_advances(harness, reply):
     )
 
     assert state.facts["customer"].value == "학생"
-    assert state.dont_know_levels == {}
+    assert state.easier_levels == {}
     assert state.pending_question.field == "problem"
 
 

@@ -30,10 +30,18 @@ def base_policy(**overrides) -> dict:
     data = {
         "task_type": "t",
         "title": "t",
+        "heading": "하고 싶어요",
+        "deliverable": "기획서",
         "fields": [{"name": "a", "label": "에이", "question": "에이는?"}],
     }
     data.update(overrides)
     return data
+
+
+@pytest.mark.parametrize("key", ["heading", "deliverable"])
+def test_card_copy_is_required(tmp_path, key):
+    with pytest.raises(ValidationError):
+        load_policy(write_policy(tmp_path, base_policy(**{key: ""})))
 
 
 def test_load_sample_policy():

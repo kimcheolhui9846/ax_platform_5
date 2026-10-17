@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.contract import ContractModel
 from app.core.results import ResultCard, ValidationReport
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
+from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
 
 
@@ -39,6 +40,8 @@ class TaskSummary(ContractModel):
     task_type: str
     title: str
     description: str
+    heading: str
+    deliverable: str
 
 
 class ModeInfo(ContractModel):
@@ -106,10 +109,12 @@ class SessionView(ContractModel):
     task_type: str
     mode: CoachingMode
     status: SessionStatus
+    raw_input: str
     next_question: Question | None
     progress: Progress
     summary: list[SummaryItem]
     unknowns: list[UnknownItem]
+    flow: list[FlowItem]  # 흐름 패널: 물어본 필드 → 지금 질문 → 예정
     can_generate: bool
     has_result: bool  # 이전에 만든 결과가 있어 GET /result로 다시 볼 수 있다
     result_stale: bool

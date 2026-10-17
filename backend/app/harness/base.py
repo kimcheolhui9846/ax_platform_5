@@ -3,7 +3,7 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
@@ -127,10 +127,30 @@ def _validation_trace(report: ValidationReport) -> TraceEntry:
 
 
 def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | None:
-    """[코드·순수] 값을 정하는 답이면 (값, 출처), '모르겠어요'·건너뛰기면 None. 잘못된 입력은 HarnessError."""
-    if answer.answer_type in (AnswerType.DONT_KNOW, AnswerType.SKIP):
+    """[코드·순수] 값을 정하는 답이면 (값, 출처), '다른 예시 보기'·'아직 모르겠어요'(건너뛰기)면 None. 잘못된 입력은 HarnessError."""
+    if answer.answer_type in (AnswerType.EASIER, AnswerType.SKIP):
         return None
     return answer_to_fact(question, answer)
+
+
+def counted_fields(records: Sequence[AskedQuestion]) -> set[str]:
+    """[코드·순수] 질문 상한에 센 필드: 기본 질문(level 0)에 한 번이라도 답한 필드.
+
+    사다리 재질문(level ≥ 1)과 지금 걸려 있는 질문은 세지 않는다. '원래 예시 보기'로 같은 기본 질문을
+    다시 받아도 필드 하나로 센다.
+    """
+    return {r.question.field for r in records if r.question.level == 0 and r.answer_type is not None}
+
+
+def unresolved_fields(
+    fields: Sequence[FieldPolicy], facts: Mapping[str, InfoItem], unknowns: Sequence[str]
+) -> list[FieldPolicy]:
+    """[코드·순수] 아직 물을 필드(정책 순서): 기본값 필드가 아니고, 값도 미정 표시도 없는 필드."""
+    return [
+        f
+        for f in fields
+        if f.kind is not FieldKind.DEFAULT and f.name not in facts and f.name not in unknowns
+    ]
 
 
 def question_status(pending: Question | None, result_stale: bool) -> SessionStatus:
@@ -194,12 +214,14 @@ class BaseHarness:
         raw_input: str,
         mode: CoachingMode = CoachingMode.STANDARD,
         profile: HarnessProfile | None = None,
+        owner_id: str = "",
     ) -> SessionState:
         state = SessionState(
             task_type=self.task_type,
             mode=mode,
             raw_input=raw_input,
             profile=profile or HarnessProfile(),
+            owner_id=owner_id,
         )
         self.apply_defaults(state)
         self.diagnose(state)
@@ -264,9 +286,9 @@ class BaseHarness:
         state.asked_questions.append(AskedQuestion(question=question))
 
     def select_question(self, state: SessionState) -> Question | None:
-        """[코드] '모르겠어요' 중인 필드가 먼저, 그다음 policy 순서대로 미충족 필드."""
-        if state.dont_know_levels:
-            name, level = next(iter(state.dont_know_levels.items()))
+        """[코드] '다른 예시 보기' 중인 필드가 먼저, 그다음 policy 순서대로 미충족 필드."""
+        if state.easier_levels:
+            name, level = next(iter(state.easier_levels.items()))
             return self.make_easier_question(state, self.policy.field(name), level)
         if self.should_stop(state):
             return None
@@ -274,13 +296,7 @@ class BaseHarness:
         return self.base_question(state, remaining[0]) if remaining else None
 
     def remaining_fields(self, state: SessionState) -> list[FieldPolicy]:
-        return [
-            f
-            for f in self.policy.fields
-            if f.kind is not FieldKind.DEFAULT
-            and f.name not in state.facts
-            and f.name not in state.unknowns
-        ]
+        return unresolved_fields(self.policy.fields, state.facts, state.unknowns)
 
     def base_question(self, state: SessionState, field: FieldPolicy) -> Question:
         options = _options(field.options)
@@ -292,7 +308,7 @@ class BaseHarness:
         )
 
     def make_easier_question(self, state: SessionState, field: FieldPolicy, level: int) -> Question:
-        """'모르겠어요' 사다리: policy 사다리 → LLM 쉬운 질문 → AI 후보 제안 순으로 내려간다."""
+        """'다른 예시 보기' 사다리: policy 사다리 → LLM 쉬운 질문 → AI 후보 제안 순으로 내려간다."""
         if level >= self.policy.max_easier_level:
             return self.propose_value(state, field, level)
         if level <= len(field.easier_questions):
@@ -342,6 +358,21 @@ class BaseHarness:
             level=level,
             is_ai_proposal=True,
         )
+
+    def show_original(self, state: SessionState) -> None:
+        """'원래 예시 보기'. 사다리에 있는 필드를 기본 질문(level 0)으로 되돌린다. LLM을 부르지 않는다.
+
+        사다리 단계를 지우므로 다시 '다른 예시 보기'를 누르면 첫 단계부터 내려간다.
+        """
+        question = state.pending_question
+        if question is None or question.level == 0:
+            raise HarnessError("기본 질문으로 돌아갈 사다리 질문이 없습니다.")
+        field = self.policy.field(question.field)
+        with _atomic(state):
+            self._drop_unanswered(state)
+            state.easier_levels.pop(field.name, None)
+            self._pose(state, self.base_question(state, field))
+            _settle_status(state)
 
     # ── 답변 ──────────────────────────────────────────────────
 
@@ -393,10 +424,10 @@ class BaseHarness:
         name = question.field
         if fact is not None:
             self._set_fact(state, name, *fact)
-        elif answer_type is AnswerType.DONT_KNOW:
-            state.dont_know_levels[name] = question.level + 1
+        elif answer_type is AnswerType.EASIER:
+            state.easier_levels[name] = question.level + 1
         else:
-            state.dont_know_levels.pop(name, None)
+            state.easier_levels.pop(name, None)
             if name not in state.unknowns:
                 state.unknowns.append(name)
 
@@ -423,10 +454,8 @@ class BaseHarness:
         return self.policy.question_caps[state.mode]
 
     def asked_count(self, state: SessionState) -> int:
-        """질문 상한에 세는 수: 답한 기본 질문. '모르겠어요' 재질문(level ≥ 1)과 지금 걸려 있는 질문은 세지 않는다."""
-        return sum(
-            1 for a in state.asked_questions if a.question.level == 0 and a.answer_type is not None
-        )
+        """질문 상한에 세는 수(counted_fields 참고)."""
+        return len(counted_fields(state.asked_questions))
 
     def should_stop(self, state: SessionState) -> bool:
         if self.asked_count(state) >= self.question_cap(state):
@@ -436,6 +465,12 @@ class BaseHarness:
             all(name in state.facts for name in musts)
             and state.readiness >= self.policy.readiness_threshold
         )
+
+    def questions_left(self, state: SessionState) -> int:
+        """앞으로 더 물을 수 있는 기본 질문 수(흐름 패널의 '예정' 개수). 멈출 때가 됐으면 0이다."""
+        if self.should_stop(state):
+            return 0
+        return max(self.question_cap(state) - self.asked_count(state), 0)
 
     # ── 생성·검증 ─────────────────────────────────────────────
 
@@ -549,7 +584,7 @@ class BaseHarness:
     def _set_fact(self, state: SessionState, name: str, value: str, source: InfoSource) -> None:
         state.facts[name] = InfoItem(value=value, source=source)
         state.assumptions.pop(name, None)
-        state.dont_know_levels.pop(name, None)
+        state.easier_levels.pop(name, None)
         if name in state.unknowns:
             state.unknowns.remove(name)
         if state.result is not None:

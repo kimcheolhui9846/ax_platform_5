@@ -47,8 +47,16 @@ def test_session_error_is_derived_from_status(status):
 
 
 def test_task_views_take_only_the_policy():
-    policy = TaskPolicy(task_type="t", title="제목", description="설명", fields=_fields())
-    assert to_task_summary(policy).model_dump() == {"task_type": "t", "title": "제목", "description": "설명"}
+    policy = TaskPolicy(
+        task_type="t", title="제목", description="설명", heading="하고 싶어요", deliverable="기획서", fields=_fields()
+    )
+    assert to_task_summary(policy).model_dump() == {
+        "task_type": "t",
+        "title": "제목",
+        "description": "설명",
+        "heading": "하고 싶어요",
+        "deliverable": "기획서",
+    }
     form = to_task_form(policy)
     assert [m.question_cap for m in form.modes] == [3, 5, 10]
     assert [f.label for f in form.fields] == ["가", "나", "다"]

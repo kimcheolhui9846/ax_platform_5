@@ -22,7 +22,15 @@ export function AppShell({ rail, header, side = null, mainId = "main", children 
   return (
     <div className="app-viewport">
       <div className="app-shell">
-        <a href={`#${mainId}`} className="skip">
+        <a
+          href={`#${mainId}`}
+          className="skip"
+          onClick={(event) => {
+            // 해시를 바꾸면 화면 주소로 읽히므로 이동 없이 본문으로 초점만 옮긴다
+            event.preventDefault();
+            document.getElementById(mainId)?.focus();
+          }}
+        >
           본문으로 바로가기
         </a>
         <Rail {...rail} />

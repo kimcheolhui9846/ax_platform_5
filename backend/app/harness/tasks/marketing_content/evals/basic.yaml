@@ -8,5 +8,5 @@ answers:
     - answer_type: option
       option_indexes: [3]
   channel:
-    - answer_type: dont_know
+    - answer_type: easier
     - value: 인스타그램 릴스
