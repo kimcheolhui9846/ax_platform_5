@@ -256,6 +256,7 @@ function supplementProps(session: SessionView, result: ResultView, on: Handlers)
     current: session.supplements,
     applied: result.supplements,
     changed: session.supplements_changed,
+    canGenerate: session.can_generate,
     onSave: on.saveSupplements,
     onApply: on.applySupplements,
   };

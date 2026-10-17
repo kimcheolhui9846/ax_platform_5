@@ -2,14 +2,14 @@ import type { SessionView, VersionSummary } from "../api/types";
 
 export type ResultAction = { action: "generate" | "show_result"; label: string; primary: boolean };
 
-export const STALE_NOTICE = "답이 바뀌어 결과가 최신이 아니에요. 바뀐 답을 반영하려면 초안을 다시 만들어 주세요.";
+export const STALE_NOTICE = "입력이 바뀌어 결과가 최신이 아니에요. 바뀐 내용을 반영하려면 초안을 다시 만들어 주세요.";
 
 /** [순수] 답변 확인 화면의 결과 버튼. 최신 결과가 있으면 다시 만들기(LLM 호출)보다 보기가 먼저다. */
 export function confirmActions(session: Pick<SessionView, "has_result" | "result_stale">): ResultAction[] {
   if (!session.has_result) return [{ action: "generate", label: "맞아요 · 이 정보로 초안 만들기", primary: true }];
   if (session.result_stale) {
     return [
-      { action: "generate", label: "바뀐 답으로 초안 다시 만들기", primary: true },
+      { action: "generate", label: "바뀐 내용으로 초안 다시 만들기", primary: true },
       { action: "show_result", label: "이전 결과 보기", primary: false },
     ];
   }
@@ -22,7 +22,7 @@ export function confirmActions(session: Pick<SessionView, "has_result" | "result
 /** [순수] 결과 화면의 다시 만들기. 결과가 낡았을 때만 주 버튼이다. */
 export function regenerateAction(stale: boolean): ResultAction {
   return stale
-    ? { action: "generate", label: "바뀐 답으로 다시 만들기", primary: true }
+    ? { action: "generate", label: "바뀐 내용으로 다시 만들기", primary: true }
     : { action: "generate", label: "초안 다시 만들기", primary: false };
 }
 

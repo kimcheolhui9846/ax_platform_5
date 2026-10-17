@@ -13,5 +13,6 @@
 .gallery .skip { display: none; }
 
 /* 대화상자를 연 화면: 프레임 위에 대화상자 표면을 겹쳐 그린다(실제 대화상자는 열 수 없어서) */
-.gallery-dialog-frame { position: relative; }
-.gallery-dialog { position: absolute; top: var(--space-12); left: 0; right: 0; margin: 0 auto; }
+.gallery-dialog-frame { display: grid; }
+.gallery-dialog-base { grid-area: 1 / 1; }
+.gallery-dialog { grid-area: 1 / 1; align-self: start; justify-self: center; margin-top: var(--space-12); max-height: none; overflow: visible; }

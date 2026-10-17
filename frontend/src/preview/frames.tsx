@@ -48,7 +48,9 @@ function dialogFrame(id: string, title: string, route: Route, model: ScreenModel
     title,
     render: (mainId) => (
       <div className="gallery-dialog-frame">
-        <AppView route={route} model={model} busy={false} on={NOOP_HANDLERS} mainId={mainId} />
+        <div className="gallery-dialog-base">
+          <AppView route={route} model={model} busy={false} on={NOOP_HANDLERS} mainId={mainId} />
+        </div>
         <div className="dialog gallery-dialog" role="dialog" aria-labelledby={`${mainId}-dialog`}>
           {dialog(`${mainId}-dialog`)}
         </div>

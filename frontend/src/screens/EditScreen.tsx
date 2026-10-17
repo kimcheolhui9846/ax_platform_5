@@ -28,6 +28,7 @@ export function EditMain({ section, busy, onSubmit, onBack }: MainProps) {
         maxLength={2500}
         submitLabel="문구 반영하기"
         busy={busy}
+        canSubmit={text.trim() !== current.trim()}
         onChange={setText}
         onSubmit={onSubmit}
       />
@@ -44,6 +45,7 @@ export type SupplementProps = {
   current: SupplementItem[];
   applied: SupplementItem[];
   changed: boolean;
+  canGenerate: boolean;
   onSave: (values: Record<string, string | null>) => void;
   onApply: () => void;
 };
@@ -55,7 +57,8 @@ export function EditSide({ flow, supplements, busy }: SideProps) {
     <section className="card side-card stack" aria-label="결과 기준">
       <h2>질문과 답변 흐름</h2>
       <FlowSummary flow={flow} />
-      <SupplementPanel {...supplements} busy={busy} />
+      {/* 문구 수정 화면에서는 초안 반영을 두지 않는다 */}
+      <SupplementPanel {...supplements} onApply={null} busy={busy} />
     </section>
   );
 }

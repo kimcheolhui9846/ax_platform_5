@@ -23,7 +23,7 @@ export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
 export const DOWNLOADED_NOTICE = "문서를 내려받았어요.";
 export const SUPPLEMENTS_SAVED_NOTICE = "입력 내용을 저장했어요. ‘초안에 반영’을 눌러 적용해 주세요.";
 export const SUPPLEMENTS_APPLIED_NOTICE = "입력한 정보를 초안의 보완 기준에 반영했어요.";
-export const SECTION_EDITED_NOTICE = "소개 문구를 반영했어요. 다른 기준과 검토 기록은 유지됩니다.";
+export const SECTION_EDITED_NOTICE = "문구를 반영했어요. 다른 기준과 검토 기록은 그대로예요.";
 
 /** [순수] 답이 바뀐 세션의 다음 화면. 걸린 질문이 있으면 질문, 없으면 답변 확인. */
 export function routeAfterSession(session: SessionView): Route {

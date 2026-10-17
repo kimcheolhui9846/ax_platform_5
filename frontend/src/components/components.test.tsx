@@ -201,14 +201,24 @@ const items: SupplementItem[] = [
 ];
 
 describe("SupplementPanel", () => {
-  const html = (changed: boolean, current = items) =>
-    renderToString(<SupplementPanel current={current} applied={[]} changed={changed} busy={false} onSave={noop} onApply={noop} />);
+  const html = (changed: boolean, current = items, canGenerate = true, apply: (() => void) | null = noop) =>
+    renderToString(<SupplementPanel current={current} applied={[]} changed={changed} canGenerate={canGenerate} busy={false} onSave={noop} onApply={apply} />);
 
   it("입력 상태와 미확인 항목을 보이고, 반영할 것이 있을 때만 초안에 반영을 누를 수 있다", () => {
     expect(html(true)).toContain("입력 1/2 · 아직 초안에 미반영");
     expect(html(true)).toContain("미확인: 크기");
     expect(html(true)).toContain('<button type="button" class="btn">초안에 반영</button>');
     expect(html(false)).toContain('<button type="button" class="btn" disabled="">초안에 반영</button>');
+  });
+
+  it("지금 생성할 수 없으면 바뀌었어도 초안에 반영을 누를 수 없다", () => {
+    expect(html(true, items, false)).toContain('<button type="button" class="btn" disabled="">초안에 반영</button>');
+  });
+
+  it("onApply가 null이면 초안에 반영 버튼을 그리지 않는다(문구 수정 화면)", () => {
+    const out = html(true, items, true, null);
+    expect(out).not.toContain("초안에 반영</button>");
+    expect(out).toContain("정보 입력·수정");
   });
 
   it("대화상자는 닫힌 채로 시작한다(양식을 그리지 않는다)", () => {
@@ -229,6 +239,12 @@ describe("SupplementForm", () => {
     expect(html).toContain('value="면"');
     expect(html).toContain('placeholder="미확인"');
     expect(html.match(/미확인으로/g)).toHaveLength(2);
+  });
+
+  it("열면 첫 입력칸에만 포커스가 간다", () => {
+    expect(html.match(/autofocus/g)).toHaveLength(1);
+    expect(html.indexOf("autofocus")).toBeLessThan(html.indexOf('placeholder="미확인"', html.indexOf("autofocus") + 1));
+    expect(html).toMatch(/<input[^>]*id="t-material"[^>]*autofocus|<input[^>]*autofocus[^>]*id="t-material"/);
   });
 
   it("예시가 없는 항목은 예시 넣기를 누를 수 없다", () => {
@@ -261,5 +277,10 @@ describe("EditMain", () => {
     expect(html).toMatch(/maxlength="2500"/i);
     expect(html).toContain("문구 반영하기");
     expect(html).toContain("← 결과로 돌아가기");
+  });
+
+  it("글이 지금 문구와 같으면 문구 반영하기를 누를 수 없다", () => {
+    const html = renderToString(<EditMain section={section} busy={false} onSubmit={noop} onBack={noop} />);
+    expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>문구 반영하기/);
   });
 });

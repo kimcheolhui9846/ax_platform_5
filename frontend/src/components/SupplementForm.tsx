@@ -32,7 +32,7 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
         </button>
       </div>
       <p className="muted">모르는 항목은 비워 두어도 괜찮아요. 입력 내용은 저장 후 초안에 따로 반영합니다.</p>
-      {items.map((item) => {
+      {items.map((item, index) => {
         const id = `${titleId}-${item.name}`;
         return (
           <div key={item.name} className="field-row">
@@ -43,6 +43,7 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
               value={draft[item.name] ?? ""}
               placeholder="미확인"
               autoComplete="off"
+              autoFocus={index === 0}
               onChange={(event) => set(item.name, event.target.value)}
             />
             <div className="field-actions">

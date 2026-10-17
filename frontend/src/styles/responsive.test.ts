@@ -30,7 +30,7 @@ describe("반응형 배치", () => {
   it("미리보기 프레임을 자르는 스크롤 상자가 없다", () => {
     const css = (sheets["./preview.css"] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
     const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
-    const clipping = rules.filter((r) => r.selector !== ".gallery-frame" && /overflow/.test(r.body)).map((r) => r.selector);
+    const clipping = rules.filter((r) => r.selector !== ".gallery-frame" && /overflow(-[xy])?:\s*(?!visible)\S/.test(r.body)).map((r) => r.selector);
     expect(clipping).toEqual([]);
     expect(rules.find((r) => r.selector === ".gallery")?.body).toMatch(/width:\s*max-content/);
   });

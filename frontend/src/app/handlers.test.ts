@@ -43,6 +43,10 @@ function setup(patch: Partial<AppState> = {}) {
 
 const session = makeSession({ session_id: "sess_1", next_question: makeQuestion({ question_id: "q_1" }) });
 
+it("문구 수정 알림 문구", () => {
+  expect(SECTION_EDITED_NOTICE).toBe("문구를 반영했어요. 다른 기준과 검토 기록은 그대로예요.");
+});
+
 describe("routeAfterSession", () => {
   it("걸린 질문이 있으면 질문, 없으면 답변 확인", () => {
     expect(routeAfterSession(session)).toEqual({ name: "question", sessionId: "sess_1" });
