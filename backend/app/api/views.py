@@ -5,6 +5,7 @@ from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.results import GenerationResult, ResultAssumption
 from app.core.state import (
     Assumption,
+    CarriedContext,
     CoachingMode,
     InfoItem,
     ResultVersion,
@@ -17,6 +18,7 @@ from app.harness.evidence import EvidenceSource
 from app.harness.flow import plan_flow
 from app.harness.policy import FieldPolicy, SupplementField, TaskPolicy
 from app.schemas.coaching import (
+    ContextItem,
     EvidenceItem,
     EvidenceProposalView,
     FieldSummary,
@@ -25,6 +27,7 @@ from app.schemas.coaching import (
     ModeInfo,
     Progress,
     ResultView,
+    SessionContext,
     SessionSummary,
     SessionView,
     SummaryItem,
@@ -134,6 +137,18 @@ def session_error(status: SessionStatus) -> str | None:
     return GENERATION_FAILED_MESSAGE if status is SessionStatus.FAILED else None
 
 
+def to_session_context(context: CarriedContext, labels: Mapping[str, str]) -> SessionContext:
+    """[순수] 가져온 기준에 화면용 라벨(이 과제의 필드 라벨)을 붙인다."""
+    return SessionContext(
+        session_id=context.session_id,
+        task_type=context.task_type,
+        version=context.version,
+        title=context.title,
+        summary=context.summary,
+        items=[ContextItem(field=i.field, label=labels.get(i.field, i.field), value=i.value) for i in context.items],
+    )
+
+
 def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
     """can_generate는 비동기 생성을 도입할 때를 위해 남겨 둔 값이다(지금 생성은 동기라 항상 true)."""
     return SessionView(
@@ -153,6 +168,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         flow=plan_flow(harness.policy, state, harness.questions_left(state)),
         supplements=supplement_items(harness.policy.supplement_fields, state.supplements),
         supplements_changed=supplements_changed(state.supplements, state.versions[-1] if state.versions else None),
+        context=to_session_context(state.context, harness.policy.labels) if state.context else None,
         can_generate=state.status is not SessionStatus.GENERATING,
         has_result=state.result is not None,
         result_stale=state.result_stale,

@@ -11,6 +11,7 @@ INTERNAL_ERROR_MESSAGE = "서버에서 문제가 생겼습니다. 잠시 후 다
 SESSION_NOT_FOUND_MESSAGE = "세션을 찾을 수 없습니다."
 RESULT_NOT_READY_MESSAGE = "아직 생성된 결과가 없습니다."
 VERSION_NOT_FOUND_MESSAGE = "그 버전을 찾을 수 없습니다."
+PREVIOUS_SESSION_NOT_FOUND_MESSAGE = "이어 갈 이전 작업을 찾을 수 없습니다."
 SECTION_NOT_FOUND_MESSAGE = "그 섹션을 찾을 수 없습니다."
 IMAGE_FAILED_MESSAGE = "참고 이미지를 만들지 못했어요. 결과 글은 그대로예요."
 ASSET_NOT_FOUND_MESSAGE = "그 파일을 찾을 수 없습니다."
