@@ -6,6 +6,7 @@ import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
 import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
+import { GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
 import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
@@ -359,5 +360,23 @@ describe("근거 검토 화면", () => {
     expect(side(new Set())).not.toContain("시장 배경 반영");
     expect(side(new Set(["zip"]))).toContain("반영했어요</button>");
     expect(side(new Set(["zip"]))).toContain("검토 기록 유지하고 돌아가기");
+  });
+});
+
+describe("생성 중 화면", () => {
+  it("본문은 진행 상태를 알리고 취소 버튼이 없다", () => {
+    const html = renderToString(<GeneratingMain />);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain("초안 생성 중");
+    expect(html).toContain("답변을 바탕으로 초안을 정리하고 있어요");
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain("생성 취소");
+    expect(html).not.toContain("<button");
+  });
+
+  it("옆 패널은 정리할 기준과 흐름 요약을 그린다", () => {
+    const html = renderToString(<GeneratingSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
+    expect(html).toContain("정리할 기준");
+    expect(html).toContain("부모");
   });
 });

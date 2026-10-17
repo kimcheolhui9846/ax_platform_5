@@ -179,4 +179,16 @@ describe("이미지를 받아 둔 상태", () => {
       images: assets,
     });
   });
+
+  it("초안을 만드는 동안은 세션 화면이 생성 중 화면이다", () => {
+    const session = makeSession();
+    const inflight = { seq: 1, load: null, generating: true };
+    const edit: Route = { name: "edit", sessionId: "sess_1", order: 1 };
+    for (const route of [{ name: "confirm", sessionId: "sess_1" } as Route, { name: "result", sessionId: "sess_1" } as Route, edit]) {
+      expect(screenModel(at(route, { session, inflight }))).toEqual({ kind: "generating", task, session });
+    }
+    expect(screenModel(at({ name: "confirm", sessionId: "sess_1" }, { inflight }))).toEqual({ kind: "loading" });
+    expect(screenModel(at(HOME, { sessions: [], session, inflight }))).toEqual({ kind: "home", tasks: [task], sessions: [] });
+    expect(screenModel(at({ name: "confirm", sessionId: "sess_1" }, { session, inflight: { ...inflight, generating: false } }))).toMatchObject({ kind: "confirm" });
+  });
 });

@@ -160,12 +160,28 @@
 .guide { gap: var(--space-6); }
 .guide > .btn { align-self: flex-start; }
 
+/* 생성 중·생성 실패 */
+.generation-card { padding: var(--space-12) var(--space-8); align-items: flex-start; gap: var(--space-6); }
+.generation-card h1 { font-size: var(--text-2xl); line-height: var(--text-2xl-line); }
+.spinner {
+  width: var(--spinner-size); height: var(--spinner-size); border-radius: var(--radius-pill);
+  border: var(--spinner-line) solid var(--color-line); border-top-color: var(--color-accent);
+  animation: spin 1s linear infinite;
+}
+.skeleton { width: 100%; display: flex; flex-direction: column; gap: var(--space-3); }
+.skeleton span { height: var(--skeleton-line); border-radius: var(--radius-sm); background: var(--color-soft); }
+.skeleton span:nth-child(2) { width: 84%; }
+.skeleton span:nth-child(3) { width: 64%; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @container app (max-width: 1099px) {
   .mode-grid { grid-template-columns: minmax(0, 1fr); }
   .mode-card { min-height: 0; }
 }
 
 @container app (max-width: 719px) {
+  .generation-card { padding: var(--space-6) var(--space-5); }
+  .generation-card h1 { font-size: var(--text-xl); line-height: var(--text-xl-line); }
   .document-image { grid-template-columns: 1fr; gap: var(--space-4); padding: var(--space-3); }
   .edit-card, .dialog { padding: var(--space-5); }
   .field-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }

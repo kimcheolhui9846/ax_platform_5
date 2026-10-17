@@ -10,6 +10,7 @@ export type Call<T> = {
   request: () => Promise<ApiResult<T>>;
   done: (data: T, seq: number) => Action;
   load: string | null; // 화면을 그리려고 부르는 요청이면 그 이름(loadKey). 실패하면 같은 화면에서 다시 부르지 않는다
+  generating: boolean; // 초안 생성 요청이면 true(생성 중 화면)
   outdatesSessionOnFail: boolean; // 실패해도 서버 세션이 바뀌었을 수 있으면(생성 실패 → FAILED) true
 };
 
@@ -18,10 +19,10 @@ export type Runner = <T>(call: Call<T>) => Promise<void>;
 /** 요청마다 번호를 붙여 시작과 끝을 알린다. 번호가 다른(늦게 온) 응답은 리듀서가 버린다. */
 export function createRunner(dispatch: (action: Action) => void): Runner {
   let seq = 0;
-  return async <T>({ request, done, load, outdatesSessionOnFail }: Call<T>) => {
+  return async <T>({ request, done, load, generating, outdatesSessionOnFail }: Call<T>) => {
     seq += 1;
     const mine = seq;
-    dispatch({ type: "requested", seq: mine, load });
+    dispatch({ type: "requested", seq: mine, load, generating });
     try {
       const outcome = toOutcome(await request());
       dispatch(
@@ -44,6 +45,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: listTasks,
         done: (tasks, seq) => ({ type: "tasksLoaded", seq, tasks }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "sessions":
@@ -51,6 +53,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: listSessions,
         done: (sessions, seq) => ({ type: "sessionsLoaded", seq, sessions }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "form":
@@ -58,6 +61,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: () => getTaskForm(load.task),
         done: (form, seq) => ({ type: "formLoaded", seq, form }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "session":
@@ -65,6 +69,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: () => getSession(load.sessionId),
         done: (session, seq) => ({ type: "sessionLoaded", seq, session, next: null, notice: null }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "result":
@@ -72,6 +77,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: () => getResult(load.sessionId),
         done: (result, seq) => ({ type: "resultLoaded", seq, result, next: null, outdatesSession: false, notice: null }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "evidence":
@@ -79,6 +85,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: () => getEvidence(load.sessionId),
         done: (items, seq) => ({ type: "evidenceLoaded", seq, sessionId: load.sessionId, items }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     case "version":
@@ -86,6 +93,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         request: () => getVersion(load.sessionId, load.version),
         done: (version, seq) => ({ type: "versionLoaded", seq, version }),
         load: key,
+        generating: false,
         outdatesSessionOnFail: false,
       });
   }

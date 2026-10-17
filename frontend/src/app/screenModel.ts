@@ -26,6 +26,7 @@ export type ScreenModel =
   | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
+  | { kind: "generating"; task: TaskSummary; session: SessionView }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
   | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null; images: Images }
   | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection; images: Images }
@@ -67,6 +68,8 @@ function resolve(state: AppState): ScreenModel {
       if (session === null || session.session_id !== route.sessionId) return LOADING;
       const task = findTask(state.tasks, session.task_type);
       if (task === null) return LOADING;
+      // 초안을 만드는 동안은 어느 세션 화면이든 생성 중 화면이다(주소는 그대로)
+      if (state.inflight?.generating) return { kind: "generating", task, session };
       if (route.name === "version" || route.name === "saved") {
         const version = state.version;
         const loaded = version !== null && version.session_id === session.session_id && version.version.version === route.version;

@@ -65,6 +65,9 @@
   --border-width: 1.5px;
   --line-width: 1px;
   --focus-ring: 3px;
+  --spinner-size: 36px;
+  --spinner-line: 3px;
+  --skeleton-line: 18px;
 
   /* 레이아웃 */
   --page-min-width: 360px;

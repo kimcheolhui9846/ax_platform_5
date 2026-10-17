@@ -53,6 +53,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       request,
       done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), notice: null }),
       load: null,
+      generating: false,
       outdatesSessionOnFail: false,
     });
 
@@ -76,6 +77,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         notice,
       }),
       load: null,
+      generating: true,
       outdatesSessionOnFail: true,
     });
   };
@@ -129,6 +131,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           notice: next.next_question ? null : NOTHING_LEFT_NOTICE,
         }),
         load: null,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     },
@@ -143,6 +146,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         request: () => saveVersionRequest(sessionId, number),
         done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId, version: number } }),
         load: null,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     },
@@ -153,6 +157,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         request: () => saveSupplementsRequest(sessionId, values),
         done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
         load: null,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     },
@@ -175,6 +180,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           notice: SECTION_EDITED_NOTICE,
         }),
         load: null,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     },
@@ -196,6 +202,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
           notice: EVIDENCE_APPLIED_NOTICE,
         }),
         load: null,
+        generating: false,
         outdatesSessionOnFail: false,
       });
     },

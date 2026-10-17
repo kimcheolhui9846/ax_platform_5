@@ -4,7 +4,7 @@ import { contextOf, isListRoute, sessionIdOf, taskOf, toHash } from "../lib/rout
 import type { Route } from "../lib/routes";
 
 /** 기다리는 요청. seq가 다른 응답은 늦게 온 것이라 버린다. load는 화면을 그리려고 부른 요청의 이름(loadKey)이다. */
-export type Inflight = { seq: number; load: string | null };
+export type Inflight = { seq: number; load: string | null; generating: boolean };
 
 export type AppState = {
   route: Route;
@@ -25,7 +25,7 @@ export type AppState = {
 
 export type Action =
   | { type: "navigated"; route: Route }
-  | { type: "requested"; seq: number; load: string | null }
+  | { type: "requested"; seq: number; load: string | null; generating: boolean }
   | { type: "failed"; seq: number; message: string; outdatesSession: boolean }
   | { type: "tasksLoaded"; seq: number; tasks: TaskSummary[] }
   | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
@@ -74,7 +74,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return navigate(state, action.route);
     case "requested":
       // 버튼 요청은 이전 알림을 지운다. 불러오기는 지우지 않는다(생성 실패 알림 뒤 곧바로 세션을 다시 받는다)
-      return { ...state, inflight: { seq: action.seq, load: action.load }, toast: action.load === null ? null : state.toast };
+      return { ...state, inflight: { seq: action.seq, load: action.load, generating: action.generating }, toast: action.load === null ? null : state.toast };
     case "draftChanged":
       return { ...state, drafts: { ...state.drafts, [action.task]: action.text } };
     case "noticed":

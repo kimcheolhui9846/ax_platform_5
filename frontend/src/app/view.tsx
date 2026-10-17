@@ -17,6 +17,7 @@ import { versionIsStale } from "../lib/sessions";
 import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
 import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
+import { GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { DocumentsScreen } from "../screens/DocumentsScreen";
 import { EditMain, EditSide } from "../screens/EditScreen";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
@@ -75,6 +76,8 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     if (file) on.download(file);
   };
   switch (model.kind) {
+    case "generating":
+      return { main: <GeneratingMain />, side: <GeneratingSide flow={model.session.flow} /> };
     case "loading":
       return { main: <LoadingScreen />, side: null };
     case "evidence":

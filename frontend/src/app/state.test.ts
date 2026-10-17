@@ -12,8 +12,13 @@ const confirm: Route = { name: "confirm", sessionId: "sess_1" };
 const result: Route = { name: "result", sessionId: "sess_1" };
 
 function waiting(state: AppState, seq: number, load: string | null = null): AppState {
-  return reducer(state, { type: "requested", seq, load });
+  return reducer(state, { type: "requested", seq, load, generating: false });
 }
+
+it("requested가 generating을 inflight에 남긴다", () => {
+  const state = reducer(initialState(HOME), { type: "requested", seq: 1, load: null, generating: true });
+  expect(state.inflight?.generating).toBe(true);
+});
 
 describe("reducer", () => {
   it("같은 주소로 옮기면 상태가 그대로다", () => {
