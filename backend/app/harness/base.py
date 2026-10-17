@@ -19,6 +19,7 @@ from app.core.results import (
     VersionReason,
     sections_from_cards,
     utcnow,
+    with_section_text,
 )
 from app.core.state import (
     Answer,
@@ -543,6 +544,26 @@ class BaseHarness:
         if version is not None:
             version.saved = True
         return version
+
+    def edit_section(self, state: SessionState, order: int, text: str) -> bool:
+        """[코드] 결과 섹션 하나의 글을 바꾼 새 버전(edit)을 만든다. LLM을 부르지 않는다.
+
+        직전 버전의 기준(사실·가정·미정)을 이어받고, 결과의 최신 여부(result_stale)는 그대로 둔다. 코드 검증만 다시
+        돈다. 결과가 없거나 그 섹션이 없으면 False(세션은 그대로). 빈 글이면 HarnessError.
+        """
+        cleaned = text.strip()
+        if not cleaned:
+            raise HarnessError("고칠 문구가 비어 있습니다.")
+        if state.result is None or not state.versions:
+            return False
+        result = with_section_text(state.result, order, cleaned)
+        if result is None:
+            return False
+        report = ValidationReport(issues=collect_issues([*COMMON_VALIDATORS, *self.validators], state, result, self.policy))
+        state.versions.append(state.versions[-1].derived(len(state.versions) + 1, VersionReason.EDIT, result, report))
+        state.result = result
+        state.validation = report
+        return True
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
         """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""

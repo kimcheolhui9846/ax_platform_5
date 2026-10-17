@@ -20,10 +20,11 @@ class CardType(StrEnum):
 
 
 class VersionReason(StrEnum):
-    """결과 버전이 생긴 까닭. 보완·문구 수정·근거 반영은 그 기능이 생길 때(묶음 3) 더한다."""
+    """결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다."""
 
     FIRST = "first"  # 첫 초안
     REGENERATE = "regenerate"  # 다시 만든 초안
+    EDIT = "edit"  # 문구 수정
 
 
 class ResultCard(ContractModel):
@@ -105,6 +106,17 @@ class GenerationResult(ContractModel):
             cards = [ResultCard.model_validate(c) for c in data["cards"]]
             data = {k: v for k, v in data.items() if k != "cards"} | {"sections": sections_from_cards(cards)}
         return data
+
+
+def with_section_text(result: GenerationResult, order: int, text: str) -> GenerationResult | None:
+    """[순수] 섹션 하나의 글을 바꾼 새 결과(복사본). 그 섹션이 없으면 None. 완성본(full_text)도 다시 만든다."""
+    if not any(s.order == order for s in result.sections):
+        return None
+    sections = [
+        s.model_copy(update={"blocks": [TextBlock(text=text)]}) if s.order == order else s.model_copy(deep=True)
+        for s in result.sections
+    ]
+    return result.model_copy(deep=True, update={"sections": sections, "full_text": compose_full_text(sections)})
 
 
 class ValidationIssue(ContractModel):

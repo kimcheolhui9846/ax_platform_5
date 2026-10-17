@@ -103,6 +103,14 @@ export function getVersion(sessionId: string, version: number): Promise<ApiResul
   });
 }
 
+/** 결과 섹션 하나의 문구를 고친 새 버전을 만든다(LLM 호출 없음). */
+export function editResultSection(sessionId: string, order: number, text: string): Promise<ApiResult<ResultView>> {
+  return api.PATCH(`${BASE}/sessions/{session_id}/result/sections/{order}`, {
+    params: { path: { session_id: sessionId, order } },
+    body: { text },
+  });
+}
+
 /** 그 버전에 저장 표시를 한다. */
 export function saveVersion(sessionId: string, version: number): Promise<ApiResult<VersionView>> {
   return api.POST(`${BASE}/sessions/{session_id}/versions/{version}/save`, {

@@ -83,6 +83,10 @@ class ReviseAnswerRequest(BaseModel):
     option_ids: list[str] = Field(default_factory=list)
 
 
+class EditSectionRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2500)  # 디자인의 문구 입력 상한
+
+
 class Progress(ContractModel):
     asked: int
     cap: int

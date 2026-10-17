@@ -237,6 +237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/result/sections/{order}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit Result Section
+         * @description 결과 섹션 하나의 문구를 고친 새 버전(edit). LLM을 부르지 않는다.
+         */
+        patch: operations["edit_result_section_api_v1_coaching_sessions__session_id__result_sections__order__patch"];
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/trace": {
         parameters: {
             query?: never;
@@ -292,6 +312,11 @@ export interface components {
             raw_input: string;
             /** @default standard */
             mode: components["schemas"]["CoachingMode"];
+        };
+        /** EditSectionRequest */
+        EditSectionRequest: {
+            /** Text */
+            text: string;
         };
         /**
          * ErrorBody
@@ -670,10 +695,10 @@ export interface components {
         };
         /**
          * VersionReason
-         * @description 결과 버전이 생긴 까닭. 보완·문구 수정·근거 반영은 그 기능이 생길 때(묶음 3) 더한다.
+         * @description 결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다.
          * @enum {string}
          */
-        VersionReason: "first" | "regenerate";
+        VersionReason: "first" | "regenerate" | "edit";
         /** VersionSummary */
         VersionSummary: {
             /** Version */
@@ -1339,6 +1364,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    edit_result_section_api_v1_coaching_sessions__session_id__result_sections__order__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                order: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditSectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultView"];
                 };
             };
             /** @description 과제·세션·결과가 없음 */

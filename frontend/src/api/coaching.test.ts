@@ -7,6 +7,7 @@ import type { ApiResult } from "./coaching";
 import {
   continueSession,
   createSession,
+  editResultSection,
   generateResult,
   getResult,
   getVersion,
@@ -108,6 +109,15 @@ describe("coaching API 래퍼", () => {
     expectTypeOf(listSessions).returns.resolves.toEqualTypeOf<ApiResult<SessionSummary[]>>();
     expectTypeOf(getVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
     expectTypeOf(saveVersion).returns.resolves.toEqualTypeOf<ApiResult<VersionView>>();
+  });
+
+  it("결과 문구 수정", async () => {
+    await editResultSection("sess_1", 1, "고친 문구");
+    expect(api.PATCH).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/result/sections/{order}`, {
+      params: { path: { session_id: "sess_1", order: 1 } },
+      body: { text: "고친 문구" },
+    });
+    expectTypeOf(editResultSection).returns.resolves.toEqualTypeOf<ApiResult<ResultView>>();
   });
 
   it("돌려주는 타입", () => {

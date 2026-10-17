@@ -146,6 +146,12 @@ class ResultVersion(BaseModel):
             unknowns=list(unknowns),
         )
 
+    def derived(
+        self, number: int, reason: VersionReason, result: GenerationResult, validation: ValidationReport | None
+    ) -> "ResultVersion":
+        """이 버전의 기준(사실·가정·미정)을 그대로 이어받고 결과만 바꾼 새 버전(문구 수정)."""
+        return ResultVersion.snapshot(number, reason, result, validation, self.facts, self.assumptions, self.unknowns)
+
 
 class TraceEntry(ContractModel):
     stage: str

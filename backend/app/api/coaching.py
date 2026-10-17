@@ -17,6 +17,7 @@ from app.api.views import (
 )
 from app.core.messages import (
     RESULT_NOT_READY_MESSAGE,
+    SECTION_NOT_FOUND_MESSAGE,
     SESSION_NOT_FOUND_MESSAGE,
     VERSION_NOT_FOUND_MESSAGE,
     unknown_task_message,
@@ -29,6 +30,7 @@ from app.providers.base import ProviderError
 from app.schemas.coaching import (
     AnswerRequest,
     CreateSessionRequest,
+    EditSectionRequest,
     ResultView,
     ReviseAnswerRequest,
     SessionSummary,
@@ -225,6 +227,23 @@ def save_version(
         if saved is None:
             raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
     return to_version_view(state, saved, harness.policy.fields)
+
+
+@router.patch(
+    "/sessions/{session_id}/result/sections/{order}",
+    response_model=ResultView,
+    responses=error_responses(404, 422),
+)
+def edit_result_section(
+    session_id: str, order: int, body: EditSectionRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> ResultView:
+    """결과 섹션 하나의 문구를 고친 새 버전(edit). LLM을 부르지 않는다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        if state.result is None:
+            raise HTTPException(status_code=404, detail=RESULT_NOT_READY_MESSAGE)
+        if not harness.edit_section(state, order, body.text):
+            raise HTTPException(status_code=404, detail=SECTION_NOT_FOUND_MESSAGE)
+    return to_result_view(state, harness.policy.fields)
 
 
 @router.get(
