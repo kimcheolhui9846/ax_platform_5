@@ -82,7 +82,7 @@ supplement_fields:
   - { name: core_customer, label: 핵심 고객, example: 일상의 실용성을 중시하는 고객 }
   - { name: competitor_brands, label: 경쟁 브랜드, example: 아직 조사 전 }
   - { name: name_clearance, label: 이름 사용 여부, example: 상표·도메인 확인 필요 }
-carry_over: { product_idea: product_and_customer, product: product_and_customer, business_idea: product_and_customer, core_value: customer_value, solution: differentiation }
+carry_over: { product_idea: product_and_customer, product: product_and_customer, business_idea: product_and_customer, user: product_and_customer, core_value: customer_value, solution: differentiation }
 rules:
   - 흔한 감성 키워드를 나열하지 않는다
   - 상표·도메인 검토 없이 이름 사용을 확정적으로 권고하지 않는다

@@ -120,7 +120,7 @@ def test_clear_context_after_a_result_recomputes_staleness(harness):
     harness.clear_context(state)
 
     assert state.result_stale is True
-    assert state.status.value == "revising"
+    assert state.status.value == "clarifying"  # 빠진 항목을 다시 묻는다
 
 
 def test_clear_context_without_context_changes_nothing(harness):
@@ -144,3 +144,42 @@ def test_carry_over_targets_must_be_fields():
     data["carry_over"] = {"anything": "not_a_field"}
     with pytest.raises(ValueError, match="carry_over"):
         TaskPolicy.model_validate(data)
+
+
+def test_clear_context_restores_the_policy_default_of_a_default_field(harness):
+    state = harness.start("향초", context=carried(harness, "length", "길게"))
+    assert state.facts["length"].source is InfoSource.PREVIOUS_TASK
+
+    harness.clear_context(state)
+
+    assert state.facts["length"].value == "중간"
+    assert state.facts["length"].source is InfoSource.DEFAULT
+
+
+def test_clear_context_asks_a_removed_field_again_when_no_question_is_pending(harness):
+    first = harness.start("향초").pending_question.field
+    context = carried(harness, first, "가져온 값")
+    state = harness.start("향초", context=context)
+    state.pending_question = None  # 질문이 모두 끝난 세션
+    state.asked_questions = []
+
+    harness.clear_context(state)
+
+    assert state.pending_question is not None and state.pending_question.field == first
+    assert state.status.value == "clarifying"
+
+
+def test_clear_context_leaves_a_pending_question_on_another_field_alone(harness):
+    first = harness.start("향초").pending_question.field
+    other = next(f.name for f in harness.policy.fields if f.kind != "default" and f.name not in (first, harness.policy.raw_input_field))
+    context = CarriedContext(
+        session_id="sess_prev", task_type="product_planning", version=1, title="t", summary="s",
+        items=[CarriedItem(field=other, value="가져온 값", from_name=other)],
+    )
+    state = harness.start("향초", context=context)
+    pending = state.pending_question
+    assert pending is not None and pending.field != other
+
+    harness.clear_context(state)
+
+    assert state.pending_question.question_id == pending.question_id

@@ -319,9 +319,9 @@ class BaseHarness:
         return state
 
     def apply_defaults(self, state: SessionState) -> None:
-        """[코드] kind=default 필드는 묻지 않고 기본값을 넣는다."""
+        """[코드] kind=default 필드는 묻지 않고 기본값을 넣는다. 이미 값이 있는 필드는 건드리지 않는다."""
         for f in self.policy.fields:
-            if f.kind is FieldKind.DEFAULT and f.default is not None:
+            if f.kind is FieldKind.DEFAULT and f.default is not None and f.name not in state.facts:
                 state.facts[f.name] = InfoItem(value=f.default, source=InfoSource.DEFAULT)
 
     def apply_context(self, state: SessionState) -> None:
@@ -691,21 +691,27 @@ class BaseHarness:
     def clear_context(self, state: SessionState) -> None:
         """이전 과제에서 가져온 내용을 뺀다. 아직 출처가 previous_task인 사실만 지운다(그 뒤 사용자가 고친 값은 둔다).
 
-        결과가 있으면 최신 여부를 답·보완 정보가 마지막 버전과 다른지로 다시 정하고 상태를 정리한다. 가져온 내용이 없으면
-        그대로다.
+        기본값 필드는 정책 기본값으로 되돌린다. 결과가 있으면 최신 여부를 답·보완 정보가 마지막 버전과 다른지로 다시
+        정한다. 걸린 질문이 없으면 평소 규칙으로 다음 질문을 건다(빠진 항목을 다시 묻는다. 다른 예시 사다리면 LLM
+        호출이 날 수 있다). 다른 필드 질문이 걸려 있으면 그대로 둔다. 가져온 내용이 없으면 그대로다.
         """
         if state.context is None:
             return
-        for item in state.context.items:
-            current = state.facts.get(item.field)
-            if current is not None and current.source is InfoSource.PREVIOUS_TASK:
-                del state.facts[item.field]
-        state.context = None
-        state.readiness = self.readiness(state)
-        if state.versions:
-            latest = state.versions[-1]
-            state.result_stale = answers_changed(state, latest) or supplements_changed(state.supplements, latest)
-        _settle_status(state)
+        with _atomic(state):
+            for item in state.context.items:
+                current = state.facts.get(item.field)
+                if current is not None and current.source is InfoSource.PREVIOUS_TASK:
+                    del state.facts[item.field]
+            state.context = None
+            self.apply_defaults(state)
+            if state.versions:
+                latest = state.versions[-1]
+                state.result_stale = answers_changed(state, latest) or supplements_changed(state.supplements, latest)
+            if state.pending_question is None:
+                self.advance(state)
+            else:
+                state.readiness = self.readiness(state)
+                _settle_status(state)
 
     def find_evidence(self, state: SessionState) -> list[EvidenceSource]:
         """[자료] 결과를 검토할 근거 자료. 지금은 과제 폴더 evidence.yaml(샘플)이고, 웹 검색을 붙이면 이 단계만 바꾼다."""
