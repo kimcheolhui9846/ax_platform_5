@@ -27,9 +27,7 @@ export function assetsToLoad(model: ScreenModel, assets: Images): string[] {
   return imageIdsOf(model).filter((id) => !(id in assets));
 }
 
-/** 아직 부르지 않은 id만 골라 `requested`에 적는다(같은 이미지를 두 번 받지 않으려고. StrictMode가 effect를 두 번 돌려도 한 번만 받는다). */
-export function claimAssets(requested: Set<string>, ids: string[]): string[] {
-  const fresh = ids.filter((id) => !requested.has(id));
-  for (const id of fresh) requested.add(id);
-  return fresh;
+/** [순수] 지금 받는 중이 아닌 id만 고른다(StrictMode가 effect를 두 번 돌려도 같은 이미지를 두 번 받지 않으려고). 받기가 끝나면 호출한 쪽이 받는 중 목록에서 뺀다. */
+export function notInFlight(inFlight: ReadonlySet<string>, ids: string[]): string[] {
+  return ids.filter((id) => !inFlight.has(id));
 }

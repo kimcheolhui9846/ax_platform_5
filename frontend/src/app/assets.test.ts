@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeResult, makeSession, makeTask, makeVersionView } from "../testing/factories";
-import { assetsToLoad, claimAssets, imageIdsOf } from "./assets";
+import { assetsToLoad, notInFlight, imageIdsOf } from "./assets";
 import type { ScreenModel } from "./screenModel";
 
 const withImages = (ids: string[]) => {
@@ -37,11 +37,11 @@ describe("불러올 이미지", () => {
   });
 });
 
-describe("claimAssets", () => {
-  it("이미 부른 id는 다시 고르지 않는다", () => {
-    const requested = new Set<string>();
-    expect(claimAssets(requested, ["a", "b"])).toEqual(["a", "b"]);
-    expect(claimAssets(requested, ["a", "b"])).toEqual([]);
-    expect(claimAssets(requested, ["b", "c"])).toEqual(["c"]);
+describe("notInFlight", () => {
+  it("받는 중인 id는 고르지 않고, 끝나서 목록에서 빠진 id(세션을 떠났다 돌아온 경우)는 다시 고른다", () => {
+    const inFlight = new Set(["a"]);
+    expect(notInFlight(inFlight, ["a", "b"])).toEqual(["b"]);
+    inFlight.delete("a");
+    expect(notInFlight(inFlight, ["a", "b"])).toEqual(["a", "b"]);
   });
 });
