@@ -109,7 +109,7 @@ function navigate(state: AppState, route: Route): AppState {
 function sameVersion(version: VersionView | null, route: Route): boolean {
   return (
     version !== null &&
-    route.name === "version" &&
+    (route.name === "version" || route.name === "saved") &&
     version.session_id === route.sessionId &&
     version.version.version === route.version
   );

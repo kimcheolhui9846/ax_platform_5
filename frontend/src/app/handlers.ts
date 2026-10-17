@@ -130,7 +130,7 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       const number = result.version.version;
       void run({
         request: () => saveVersionRequest(sessionId, number),
-        done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId } }),
+        done: (version, seq) => ({ type: "versionSaved", seq, version, next: { name: "saved", sessionId, version: number } }),
         load: null,
         outdatesSessionOnFail: false,
       });

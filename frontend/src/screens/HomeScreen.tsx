@@ -1,5 +1,5 @@
 import type { SessionSummary, TaskSummary } from "../api/types";
-import { latestByTask } from "../lib/sessions";
+import { latestByTask, resumeLabel } from "../lib/sessions";
 
 type Props = {
   tasks: TaskSummary[];
@@ -30,7 +30,7 @@ export function HomeScreen({ tasks, sessions, onStart, onResume, onWork }: Props
                 {resume ? (
                   <>
                     <button type="button" className="btn primary full" onClick={() => onResume(resume)}>
-                      {`진행 중인 ${task.title} 이어하기 →`}
+                      {resumeLabel(resume)}
                     </button>
                     <button type="button" className="btn textbtn" onClick={() => onStart(task.task_type)}>
                       새로 시작하기

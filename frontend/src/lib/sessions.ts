@@ -15,6 +15,22 @@ export function resumeRoute(summary: SessionSummary): Route {
   return summary.has_result ? { name: "result", sessionId } : { name: "confirm", sessionId };
 }
 
+/** [순수] 홈 과제 카드의 이어하기 문구. 결과까지 끝난 세션은 결과를 이어 본다. */
+export function resumeLabel(summary: SessionSummary): string {
+  return !summary.has_question && summary.has_result ? `${summary.title} 결과 이어 보기 →` : `진행 중인 ${summary.title} 이어하기 →`;
+}
+
+/** [순수] 버전이 지금 답과 맞지 않는지: 지난 버전이거나, 지금 버전이라도 답이 바뀌어 결과가 낡았다. */
+export function versionIsStale(version: { latest: boolean }, session: { result_stale: boolean }): boolean {
+  return !version.latest || session.result_stale;
+}
+
+/** [순수] 버전 보기 위 안내. 지난 버전인지, 지금 버전인데 답이 바뀌었는지 알린다. */
+export function versionNotice(latest: boolean, stale: boolean): string {
+  if (!latest) return "보기 전용 · 지난 버전이에요. 지금 작업의 답변과 기록은 그대로예요.";
+  return stale ? "지금 결과와 같은 버전이에요. 답이 바뀌어 최신은 아니에요." : "지금 결과와 같은 버전이에요.";
+}
+
 /** [순수] 목록에 보일 진행 단계. */
 export function stageLabel(summary: SessionSummary): string {
   if (summary.has_question) return "질문 진행 중";

@@ -218,9 +218,14 @@ export const RESULT: ResultView = {
   },
 };
 
-export const SAVED_RESULT: ResultView = {
-  ...RESULT,
+export const SAVED_VERSION: VersionView = {
+  session_id: "sess_preview",
   version: { ...RESULT.version, saved: true },
+  latest: true,
+  result: RESULT.result,
+  validation: RESULT.validation,
+  summary: RESULT.summary,
+  unknowns: RESULT.unknowns,
 };
 
 export const OLD_VERSION: VersionView = {

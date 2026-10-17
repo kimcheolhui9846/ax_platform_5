@@ -25,7 +25,7 @@ export type ScreenModel =
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
   | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null }
-  | { kind: "saved"; task: TaskSummary; session: SessionView; result: ResultView }
+  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView }
   | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView };
 
 const LOADING: ScreenModel = { kind: "loading" };
@@ -39,10 +39,11 @@ export function screenModel(state: AppState): ScreenModel {
 function resolve(state: AppState): ScreenModel {
   const { route } = state;
   switch (route.name) {
-    case "home":
-      return state.tasks === null || state.sessions === null
-        ? LOADING
-        : { kind: "home", tasks: state.tasks, sessions: state.sessions };
+    case "home": {
+      // 내 세션 목록을 못 받았어도 홈은 이어하기 없이 연다(새 과제는 시작할 수 있다)
+      const sessions = state.sessions ?? (state.stalled === "sessions" ? [] : null);
+      return state.tasks === null || sessions === null ? LOADING : { kind: "home", tasks: state.tasks, sessions };
+    }
     case "guide":
       return { kind: "guide" };
     case "work":
@@ -61,16 +62,16 @@ function resolve(state: AppState): ScreenModel {
       if (session === null || session.session_id !== route.sessionId) return LOADING;
       const task = findTask(state.tasks, session.task_type);
       if (task === null) return LOADING;
-      if (route.name === "version") {
+      if (route.name === "version" || route.name === "saved") {
         const version = state.version;
         const loaded = version !== null && version.session_id === session.session_id && version.version.version === route.version;
-        return loaded ? { kind: "version", task, session, version } : LOADING;
+        if (!loaded) return LOADING;
+        return route.name === "saved" ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
       }
-      if (route.name === "result" || route.name === "saved") {
+      if (route.name === "result") {
         if (!session.has_result) return { kind: "result", task, session, result: null };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
-        if (result === null) return LOADING;
-        return route.name === "saved" ? { kind: "saved", task, session, result } : { kind: "result", task, session, result };
+        return result === null ? LOADING : { kind: "result", task, session, result };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);

@@ -14,7 +14,7 @@ import {
   QUESTION,
   REQUEST,
   RESULT,
-  SAVED_RESULT,
+  SAVED_VERSION,
   SESSIONS,
   SESSION_DONE,
   SESSION_FAILED,
@@ -69,7 +69,12 @@ export const FRAMES: Frame[] = [
   frame("confirm-failed", "답변 확인 · 생성 실패", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_FAILED }),
   frame("result", "결과 문서", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT }),
   frame("result-stale", "결과 · 최신 아님", result, { kind: "result", task: PRODUCT, session: SESSION_STALE, result: { ...RESULT, stale: true } }),
-  frame("saved", "저장 완료", { name: "saved", sessionId: SESSION_ID }, { kind: "saved", task: PRODUCT, session: SESSION_DONE, result: SAVED_RESULT }),
+  frame(
+    "saved",
+    "저장 완료",
+    { name: "saved", sessionId: SESSION_ID, version: SAVED_VERSION.version.version },
+    { kind: "saved", task: PRODUCT, session: SESSION_DONE, version: SAVED_VERSION },
+  ),
   frame(
     "version",
     "버전 보기 · 지난 버전",

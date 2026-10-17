@@ -193,7 +193,7 @@ describe("makeHandlers — 요청", () => {
     await calls[0].request();
     expect(saveVersion).toHaveBeenCalledWith("sess_1", 2);
     const view = makeVersionView();
-    expect(calls[0].done(view, 4)).toEqual({ type: "versionSaved", seq: 4, version: view, next: { name: "saved", sessionId: "sess_1" } });
+    expect(calls[0].done(view, 4)).toEqual({ type: "versionSaved", seq: 4, version: view, next: { name: "saved", sessionId: "sess_1", version: 2 } });
     expect(calls[0].load).toBeNull();
   });
 

@@ -43,11 +43,11 @@ function missing(state: AppState): Load | null {
   if (session === null || session.session_id !== sessionId || state.sessionOutdated) {
     return { kind: "session", sessionId };
   }
-  if (route.name === "version") {
+  if (route.name === "version" || route.name === "saved") {
     const version = state.version;
     const loaded = version !== null && version.session_id === sessionId && version.version.version === route.version;
     return loaded ? null : { kind: "version", sessionId, version: route.version };
   }
-  const wantsResult = (route.name === "result" || route.name === "saved") && session.has_result;
+  const wantsResult = route.name === "result" && session.has_result;
   return wantsResult && state.result?.session_id !== sessionId ? { kind: "result", sessionId } : null;
 }

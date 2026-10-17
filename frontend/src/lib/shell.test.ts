@@ -44,7 +44,7 @@ describe("enabledNav", () => {
 
 describe("묶음 2 주소의 단계와 메뉴", () => {
   it("저장 완료·버전 보기는 3단계, 목록 화면은 과제 밖이다", () => {
-    expect(routePhase({ name: "saved", sessionId: "s" })).toBe(2);
+    expect(routePhase({ name: "saved", sessionId: "s", version: 1 })).toBe(2);
     expect(routePhase({ name: "version", sessionId: "s", version: 1 })).toBe(2);
     expect(routePhase({ name: "work" })).toBeNull();
     expect(routePhase({ name: "documents" })).toBeNull();
@@ -55,7 +55,7 @@ describe("묶음 2 주소의 단계와 메뉴", () => {
     for (const route of [
       { name: "documents" },
       { name: "result", sessionId: "s" },
-      { name: "saved", sessionId: "s" },
+      { name: "saved", sessionId: "s", version: 1 },
       { name: "version", sessionId: "s", version: 1 },
     ] as const) {
       expect(railActive(route)).toBe("documents");

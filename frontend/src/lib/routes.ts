@@ -13,7 +13,7 @@ export type Route =
   | { name: "revise"; sessionId: string; questionId: string }
   | { name: "confirm"; sessionId: string }
   | { name: "result"; sessionId: string }
-  | { name: "saved"; sessionId: string }
+  | { name: "saved"; sessionId: string; version: number }
   | { name: "version"; sessionId: string; version: number };
 
 export const HOME: Route = { name: "home" };
@@ -52,8 +52,6 @@ function sessionView(sessionId: string, view: string): Route | null {
       return { name: "confirm", sessionId };
     case "result":
       return { name: "result", sessionId };
-    case "saved":
-      return { name: "saved", sessionId };
     default:
       return null;
   }
@@ -71,8 +69,9 @@ export function parseRoute(hash: string): Route {
   if (first === "s" && parts.length === 4 && third === "question") {
     return { name: "revise", sessionId: second, questionId: fourth };
   }
-  if (first === "s" && parts.length === 4 && third === "v" && VERSION_NUMBER.test(fourth)) {
-    return { name: "version", sessionId: second, version: Number(fourth) };
+  if (first === "s" && parts.length === 4 && VERSION_NUMBER.test(fourth)) {
+    if (third === "v") return { name: "version", sessionId: second, version: Number(fourth) };
+    if (third === "saved") return { name: "saved", sessionId: second, version: Number(fourth) };
   }
   return HOME;
 }
@@ -99,6 +98,8 @@ export function toHash(route: Route): string {
       return `#/s/${e(route.sessionId)}/question/${e(route.questionId)}`;
     case "version":
       return `#/s/${e(route.sessionId)}/v/${route.version}`;
+    case "saved":
+      return `#/s/${e(route.sessionId)}/saved/${route.version}`;
     default:
       return `#/s/${e(route.sessionId)}/${route.name}`;
   }

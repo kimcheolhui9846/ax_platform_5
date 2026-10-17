@@ -2,23 +2,23 @@ import type { TaskSummary, VersionView } from "../api/types";
 import { ResultDocument } from "../components/ResultDocument";
 import { documentContent } from "../lib/document";
 import { formatDate } from "../lib/format";
-import { versionLine } from "../lib/sessions";
+import { versionLine, versionNotice } from "../lib/sessions";
 
-type MainProps = { task: TaskSummary; version: VersionView; onCurrent: () => void };
+type MainProps = { task: TaskSummary; version: VersionView; stale: boolean; onCurrent: () => void };
 
-/** 버전 보기(보기 전용). 지난 버전이면 그렇다고 알리고 지금 버전으로 돌아가게 한다. */
-export function VersionMain({ task, version, onCurrent }: MainProps) {
+/** 버전 보기(보기 전용). 지난 버전이면 그렇다고 알리고 지금 버전으로 돌아가게 한다. stale은 versionIsStale로 정한다. */
+export function VersionMain({ task, version, stale, onCurrent }: MainProps) {
   return (
     <div className="stack">
       <div className="notice version-notice">
         <p className="grow">
-          {version.latest ? "지금 결과와 같은 버전이에요." : "보기 전용 · 지난 버전이에요. 지금 작업의 답변과 기록은 그대로예요."}
+          {versionNotice(version.latest, stale)}
         </p>
         <button type="button" className="btn" onClick={onCurrent}>
           현재 버전으로
         </button>
       </div>
-      <ResultDocument {...documentContent(task, version, !version.latest)} />
+      <ResultDocument {...documentContent(task, version, stale)} />
     </div>
   );
 }

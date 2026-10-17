@@ -1,27 +1,27 @@
-import type { ResultView, SessionView, TaskSummary } from "../api/types";
+import type { SessionView, TaskSummary, VersionView } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { versionLine } from "../lib/sessions";
 
 type MainProps = {
   task: TaskSummary;
-  result: ResultView;
+  version: VersionView;
   onDocuments: () => void;
-  onResult: () => void;
+  onOpen: () => void;
   onDownload: () => void;
 };
 
-/** 저장 완료. 결과물 목록과 다시 보기, 내려받기로 이어 준다. */
-export function SavedMain({ task, result, onDocuments, onResult, onDownload }: MainProps) {
+/** 저장 완료. 저장한 그 버전을 결과물 목록·다시 보기·내려받기로 이어 준다. */
+export function SavedMain({ task, version, onDocuments, onOpen, onDownload }: MainProps) {
   return (
     <section className="card saved stack">
       <p className="small">✓ 저장 완료</p>
       <h1>{`${task.title} 초안을 저장했어요.`}</h1>
-      <p className="muted">{`결과물 목록에서 이 버전(${versionLine(result.version)})을 다시 열 수 있어요.`}</p>
+      <p className="muted">{`결과물 목록에서 이 버전(${versionLine(version.version)})을 다시 열 수 있어요.`}</p>
       <div className="saved-actions">
         <button type="button" className="btn primary" onClick={onDocuments}>
           결과물 목록 보기
         </button>
-        <button type="button" className="btn" onClick={onResult}>
+        <button type="button" className="btn" onClick={onOpen}>
           저장한 결과 다시 보기
         </button>
       </div>

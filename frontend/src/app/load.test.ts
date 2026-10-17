@@ -69,11 +69,11 @@ describe("needsLoad — 묶음 2 화면", () => {
     }
   });
 
-  it("저장 완료 화면은 결과 화면처럼 결과가 있어야 한다", () => {
-    const saved: Route = { name: "saved", sessionId: "sess_1" };
+  it("저장 완료 화면은 저장한 그 버전이 있어야 한다", () => {
+    const saved: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const done = makeSession({ next_question: null, has_result: true });
-    expect(needsLoad(at(saved, { session: done }))).toEqual({ kind: "result", sessionId: "sess_1" });
-    expect(needsLoad(at(saved, { session: done, result: makeResult() }))).toBeNull();
+    expect(needsLoad(at(saved, { session: done }))).toEqual({ kind: "version", sessionId: "sess_1", version: 1 });
+    expect(needsLoad(at(saved, { session: done, version: makeVersionView() }))).toBeNull();
   });
 
   it("버전 보기는 세션 다음에 그 버전", () => {

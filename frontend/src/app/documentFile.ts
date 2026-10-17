@@ -2,6 +2,7 @@ import type { TaskSummary } from "../api/types";
 import { documentContent } from "../lib/document";
 import type { Shown } from "../lib/document";
 import { documentHtml } from "../lib/documentHtml";
+import { versionIsStale } from "../lib/sessions";
 import type { DocumentFile } from "../lib/documentHtml";
 import type { ScreenModel } from "./screenModel";
 
@@ -18,9 +19,8 @@ export function documentFileOf(model: ScreenModel): DocumentFile | null {
     case "result":
       return model.result === null ? null : fileFor(model.task, model.session.raw_input, model.result, model.session.result_stale);
     case "saved":
-      return fileFor(model.task, model.session.raw_input, model.result, model.session.result_stale);
     case "version":
-      return fileFor(model.task, model.session.raw_input, model.version, !model.version.latest);
+      return fileFor(model.task, model.session.raw_input, model.version, versionIsStale(model.version, model.session));
     default:
       return null;
   }

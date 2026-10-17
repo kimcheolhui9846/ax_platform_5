@@ -174,11 +174,13 @@ describe("reducer", () => {
   it("버전을 저장하면 저장 완료로 가고, 지금 결과는 다시 받는다", () => {
     const state: AppState = { ...initialState(result), session: makeSession({ has_result: true }), result: makeResult() };
     const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
-    const saved: Route = { name: "saved", sessionId: "sess_1" };
+    const saved: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const done = reducer(waiting(state, 1), { type: "versionSaved", seq: 1, version, next: saved });
     expect(done.route).toEqual(saved);
     expect(done.version).toBe(version);
     expect(done.result).toBeNull();
+    // 저장 완료에서 같은 번호의 버전 보기로 옮겨도 받은 버전을 그대로 쓴다
+    expect(reducer(done, { type: "navigated", route: { name: "version", sessionId: "sess_1", version: 1 } }).version).toBe(version);
   });
 
   it("다른 버전으로 옮기면 보던 버전을 비운다", () => {

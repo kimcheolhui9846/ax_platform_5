@@ -100,6 +100,8 @@ describe("renderScreen", () => {
     expect(main).toContain("새로 시작하기");
     expect(main).toContain("내 작업 보기");
     expect(draw({ kind: "home", tasks: [task], sessions: [] }).main).toContain("상품기획 시작하기 →");
+    const finished = [makeSessionSummary({ has_question: false, has_result: true })];
+    expect(draw({ kind: "home", tasks: [task], sessions: finished }).main).toContain("상품기획 결과 이어 보기 →");
   });
 
   it("내 작업은 세션마다 진행 단계와 이어서 작업하기, 없으면 빈 안내", () => {
@@ -133,7 +135,7 @@ describe("renderScreen", () => {
 
   it("저장 완료는 결과물·다시 보기·내려받기", () => {
     const session = makeSession({ next_question: null, has_result: true });
-    const { main, side } = draw({ kind: "saved", task, session, result: makeResult() });
+    const { main, side } = draw({ kind: "saved", task, session, version: makeVersionView() });
     expect(main).toContain("✓ 저장 완료");
     expect(main).toContain("상품기획 초안을 저장했어요.");
     expect(main).toContain("결과물 목록 보기");
@@ -151,6 +153,10 @@ describe("renderScreen", () => {
     expect(main).toContain("V1 · 첫 초안 / 상품 콘셉트 · 첫 제작 기획서 · 최신 아님");
     expect(side).toContain("문서 내려받기");
     expect(draw({ kind: "version", task, session, version: makeVersionView() }).main).toContain("지금 결과와 같은 버전이에요.");
+    const changed = makeSession({ next_question: null, has_result: true, result_stale: true });
+    expect(draw({ kind: "version", task, session: changed, version: makeVersionView() }).main).toContain(
+      "지금 결과와 같은 버전이에요. 답이 바뀌어 최신은 아니에요.",
+    );
   });
 });
 

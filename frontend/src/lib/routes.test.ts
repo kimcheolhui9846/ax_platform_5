@@ -14,7 +14,7 @@ const ROUTES: [Route, string][] = [
   [{ name: "result", sessionId: "sess_1" }, "#/s/sess_1/result"],
   [{ name: "work" }, "#/work"],
   [{ name: "documents" }, "#/documents"],
-  [{ name: "saved", sessionId: "sess_1" }, "#/s/sess_1/saved"],
+  [{ name: "saved", sessionId: "sess_1", version: 2 }, "#/s/sess_1/saved/2"],
   [{ name: "version", sessionId: "sess_1", version: 2 }, "#/s/sess_1/v/2"],
 ];
 
@@ -25,7 +25,7 @@ describe("parseRoute·toHash", () => {
   });
 
   it("빈 주소와 모르는 주소는 홈이다", () => {
-    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/s/sess_1/edit", "#/product_planning/question", "#/a/b/c/d/e", "#/s/sess_1/v/0", "#/s/sess_1/v/x", "#/s/sess_1/v/2/x"]) {
+    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/s/sess_1/edit", "#/product_planning/question", "#/a/b/c/d/e", "#/s/sess_1/v/0", "#/s/sess_1/saved", "#/s/sess_1/saved/x", "#/s/sess_1/v/x", "#/s/sess_1/v/2/x"]) {
       expect(parseRoute(hash)).toEqual(HOME);
     }
   });
@@ -75,12 +75,12 @@ describe("isListRoute", () => {
   it("홈·내 작업·결과물은 내 세션 목록을 쓰는 화면이다", () => {
     expect([HOME, { name: "work" }, { name: "documents" }].every((r) => isListRoute(r as Route))).toBe(true);
     expect(isListRoute({ name: "guide" })).toBe(false);
-    expect(isListRoute({ name: "saved", sessionId: "s" })).toBe(false);
+    expect(isListRoute({ name: "saved", sessionId: "s", version: 1 })).toBe(false);
   });
 
   it("목록 화면은 각자 다른 묶음이고, 저장 완료·버전 보기는 그 세션 묶음이다", () => {
     expect(contextOf({ name: "work" })).toBe("work");
     expect(contextOf({ name: "documents" })).toBe("documents");
-    expect(contextOf({ name: "saved", sessionId: "s" })).toBe(contextOf({ name: "version", sessionId: "s", version: 1 }));
+    expect(contextOf({ name: "saved", sessionId: "s", version: 1 })).toBe(contextOf({ name: "version", sessionId: "s", version: 1 }));
   });
 });

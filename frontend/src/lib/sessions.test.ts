@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeSessionSummary } from "../testing/factories";
-import { clip, latestByTask, resumeRoute, savedDocuments, stageLabel, versionLine } from "./sessions";
+import { clip, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
 
 describe("세션 요약 판단", () => {
   it("버전 한 줄", () => {
@@ -51,5 +51,19 @@ describe("세션 요약 판단", () => {
     expect(clip("한글 파우치", 10)).toBe("한글 파우치");
     expect(clip("한글을 활용한 파우치를 만들고 싶어요", 10)).toBe("한글을 활용한 파…");
     expect(clip("  여러   칸 띄움  ", 20)).toBe("여러 칸 띄움");
+  });
+});
+
+describe("이어하기 문구와 버전 최신 여부", () => {
+  it("결과까지 끝난 세션은 결과 이어 보기, 그 밖에는 진행 중인 과제 이어하기", () => {
+    expect(resumeLabel(makeSessionSummary({ has_question: true }))).toBe("진행 중인 상품기획 이어하기 →");
+    expect(resumeLabel(makeSessionSummary({ has_question: false, has_result: false }))).toBe("진행 중인 상품기획 이어하기 →");
+    expect(resumeLabel(makeSessionSummary({ has_question: false, has_result: true }))).toBe("상품기획 결과 이어 보기 →");
+  });
+
+  it("지난 버전이거나, 지금 버전이라도 답이 바뀌었으면 최신이 아니다", () => {
+    expect(versionIsStale({ latest: true }, { result_stale: false })).toBe(false);
+    expect(versionIsStale({ latest: false }, { result_stale: false })).toBe(true);
+    expect(versionIsStale({ latest: true }, { result_stale: true })).toBe(true);
   });
 });

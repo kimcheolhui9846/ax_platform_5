@@ -95,14 +95,17 @@ describe("screenModel", () => {
     expect(screenModel(at({ name: "work" }))).toEqual({ kind: "loading" });
   });
 
-  it("저장 완료는 결과가 있어야 하고, 결과가 없는 세션이면 결과 없음 화면이다", () => {
-    const route: Route = { name: "saved", sessionId: "sess_1" };
+  it("저장 완료는 저장한 그 버전으로 그린다(지금 결과가 아니다)", () => {
+    const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
-    const result = makeResult();
-    expect(screenModel(at(route, { session, result }))).toEqual({ kind: "saved", task, session, result });
+    const version = makeVersionView();
+    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version });
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
-    const never = makeSession({ next_question: null, has_result: false });
-    expect(screenModel(at(route, { session: never }))).toEqual({ kind: "result", task, session: never, result: null });
+    expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
+  });
+
+  it("내 세션 목록을 못 받아도 홈은 이어하기 없이 열린다(새 과제는 시작할 수 있다)", () => {
+    expect(screenModel(at(HOME, { stalled: "sessions" }))).toEqual({ kind: "home", tasks: [task], sessions: [] });
   });
 
   it("버전 보기는 그 버전을 받아야 그린다", () => {

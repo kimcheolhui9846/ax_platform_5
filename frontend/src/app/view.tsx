@@ -11,6 +11,7 @@ import { modeName } from "../lib/modes";
 import { questionKicker } from "../lib/question";
 import type { ExampleAction } from "../lib/question";
 import type { Route } from "../lib/routes";
+import { versionIsStale } from "../lib/sessions";
 import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
 import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
@@ -187,9 +188,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
         main: (
           <SavedMain
             task={model.task}
-            result={model.result}
+            version={model.version}
             onDocuments={() => on.navigate("documents")}
-            onResult={on.showResult}
+            onOpen={() => on.openVersion(model.session.session_id, model.version.version.version)}
             onDownload={download}
           />
         ),
@@ -197,7 +198,14 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
       };
     case "version":
       return {
-        main: <VersionMain task={model.task} version={model.version} onCurrent={on.showResult} />,
+        main: (
+          <VersionMain
+            task={model.task}
+            version={model.version}
+            stale={versionIsStale(model.version, model.session)}
+            onCurrent={on.showResult}
+          />
+        ),
         side: <VersionSide version={model.version} onDocuments={() => on.navigate("documents")} onDownload={download} />,
       };
   }
