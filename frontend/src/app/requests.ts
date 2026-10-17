@@ -95,7 +95,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
 export async function loadAsset(assetId: string): Promise<string | null> {
   try {
     const outcome = toOutcome(await getAsset(assetId));
-    return outcome.ok ? outcome.data : null;
+    return outcome.ok && typeof outcome.data === "string" ? outcome.data : null;
   } catch {
     return null;
   }

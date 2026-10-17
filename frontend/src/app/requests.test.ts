@@ -7,12 +7,13 @@ vi.mock("../api/coaching", () => ({
   getResult: vi.fn(),
   listSessions: vi.fn(),
   getVersion: vi.fn(),
+  getAsset: vi.fn(),
 }));
 
 import { BACKEND_UNREACHABLE } from "../api/client";
-import { getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
+import { getAsset, getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
 import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
-import { createRunner, startLoad } from "./requests";
+import { createRunner, loadAsset, startLoad } from "./requests";
 import type { Call, Runner } from "./requests";
 import type { Action } from "./state";
 
@@ -119,5 +120,31 @@ describe("startLoad", () => {
     const [sessions, version] = calls;
     expect(sessions.done([makeSessionSummary()], 1)).toEqual({ type: "sessionsLoaded", seq: 1, sessions: [makeSessionSummary()] });
     expect(version.done(makeVersionView(), 2)).toEqual({ type: "versionLoaded", seq: 2, version: makeVersionView() });
+  });
+});
+
+describe("loadAsset", () => {
+  it("받은 이미지는 data URL로 돌려준다", async () => {
+    vi.mocked(getAsset).mockResolvedValue(ok("data:image/svg+xml;base64,AA"));
+    expect(await loadAsset("a")).toBe("data:image/svg+xml;base64,AA");
+  });
+
+  it("실패 응답이면 null이다", async () => {
+    vi.mocked(getAsset).mockResolvedValue({
+      data: undefined,
+      error: { detail: "없어요" },
+      response: new Response(null, { status: 404, headers: jsonHeaders }),
+    });
+    expect(await loadAsset("a")).toBeNull();
+  });
+
+  it("성공 응답이어도 이미지가 아니라 data가 없으면 null이다", async () => {
+    vi.mocked(getAsset).mockResolvedValue({ data: undefined, response: new Response(null, { status: 200 }) });
+    expect(await loadAsset("a")).toBeNull();
+  });
+
+  it("예외가 나면 null이다", async () => {
+    vi.mocked(getAsset).mockRejectedValue(new TypeError("Failed to fetch"));
+    expect(await loadAsset("a")).toBeNull();
   });
 });

@@ -164,3 +164,19 @@ describe("screenModel", () => {
     expect(screenModel(at(route, { session: noResult }))).toEqual({ kind: "result", task, session: noResult, result: null, images: {} });
   });
 });
+
+describe("이미지를 받아 둔 상태", () => {
+  const assets = { a: "data:image/svg+xml;base64,AA", b: null };
+
+  it("수정·저장 완료·버전 보기 모델에도 받아 둔 이미지가 실린다", () => {
+    const session = makeSession({ session_id: "sess_1", next_question: null, has_result: true });
+    const result = makeResult({ session_id: "sess_1" });
+    expect(screenModel(at({ name: "edit", sessionId: "sess_1", order: 1 }, { session, result, assets }))).toMatchObject({ kind: "edit", images: assets });
+    const saved = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
+    expect(screenModel(at({ name: "saved", sessionId: "sess_1", version: 1 }, { session, version: saved, assets }))).toMatchObject({ kind: "saved", images: assets });
+    expect(screenModel(at({ name: "version", sessionId: "sess_1", version: 1 }, { session, version: makeVersionView(), assets }))).toMatchObject({
+      kind: "version",
+      images: assets,
+    });
+  });
+});
