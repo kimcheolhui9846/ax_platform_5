@@ -78,6 +78,25 @@ def test_image_failure_keeps_the_result_with_a_warning():
     assert next(t for t in state.trace if t.stage == "image").output["error"]
 
 
+class _BrokenAssets(InMemoryAssetStore):
+    def put(self, owner_id, data, mime):
+        raise OSError("disk full")
+
+
+def test_asset_store_failure_keeps_the_result_with_a_warning():
+    harness = make_harness(MockImageProvider(), _BrokenAssets())
+    state = harness.start("향초")
+
+    harness.generate(state)
+
+    assert state.status.value == "completed"
+    assert all(b.type == "text" for s in state.result.sections for b in s.blocks)
+    assert [(i.rule, i.message) for i in state.validation.issues if i.rule == "image_unavailable"] == [
+        ("image_unavailable", IMAGE_FAILED_MESSAGE)
+    ]
+    assert next(t for t in state.trace if t.stage == "image").output["error"]
+
+
 def test_editing_text_keeps_the_generated_image():
     harness = make_harness(MockImageProvider(), InMemoryAssetStore())
     state = harness.start("향초")

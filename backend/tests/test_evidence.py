@@ -127,6 +127,8 @@ def test_evidence_api():
     items = client.get(f"{BASE}/sessions/{sid}/evidence").json()
     assert [i["id"] for i in items] == ["ykk_zipper_caution", "kcdf_craft_trend_fair_2025"]
     assert items[0]["record"]["title"] == "제작 점검 항목"
+    assert set(items[0]["record"]) == {"title", "text", "note", "caution"}
+    assert items[0]["record"]["note"] and items[0]["record"]["caution"]
     assert items[0]["applies_to"] == "suggestion"
     assert items[1]["record"] is None
 
@@ -140,3 +142,12 @@ def test_evidence_api():
     background = client.post(f"{BASE}/sessions/{sid}/evidence/kcdf_craft_trend_fair_2025/apply")
     assert (background.status_code, background.json()) == (422, {"detail": EVIDENCE_NO_RECORD_MESSAGE})
     assert api_client(client.app, client_id=OTHER_CLIENT_ID).get(f"{BASE}/sessions/{sid}/evidence").status_code == 404
+
+
+def test_apply_evidence_api_without_a_result_is_404_result_not_ready():
+    client = api_client(create_app(provider=MockProvider(), debug=True))
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "한글 파우치"}).json()["session_id"]
+
+    response = client.post(f"{BASE}/sessions/{sid}/evidence/ykk_zipper_caution/apply")
+
+    assert (response.status_code, response.json()) == (404, {"detail": RESULT_NOT_READY_MESSAGE})

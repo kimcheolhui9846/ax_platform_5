@@ -580,7 +580,7 @@ class BaseHarness:
                     result.evidence = carry_evidence(state.result.evidence, result.sections)
                 result, image_issues = self.illustrate(state, result)
                 report = self.validate(state, result)
-                report.issues.extend(image_issues)
+                report = report.model_copy(update={"issues": [*report.issues, *image_issues]})
         except HarnessError:
             raise
         except Exception as exc:
@@ -693,7 +693,7 @@ class BaseHarness:
             raise HarnessError(EVIDENCE_NO_RECORD_MESSAGE)
         if any(r.source_id == source_id for r in state.result.evidence):
             return True
-        record = evidence_record(source, state.result.sections)
+        record = evidence_record(source, source.record, state.result.sections)
         self._add_derived_version(state, VersionReason.EVIDENCE, with_evidence(state.result, record))
         return True
 
@@ -715,7 +715,11 @@ class BaseHarness:
         except ProviderError as exc:
             state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
             return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
-        asset_id = self.assets.put(state.owner_id, image.data, image.mime)
+        try:
+            asset_id = self.assets.put(state.owner_id, image.data, image.mime)
+        except OSError as exc:  # 디스크 문제도 제공자 실패처럼 경고로 줄인다
+            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
         state.trace.append(
             TraceEntry(
                 stage="image",

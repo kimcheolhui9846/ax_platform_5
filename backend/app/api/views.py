@@ -60,7 +60,7 @@ def to_evidence_items(sources: Sequence[EvidenceSource]) -> list[EvidenceItem]:
             scope=s.scope,
             url=s.url,
             applies_to=s.applies_to,
-            record=EvidenceProposalView(**s.record.model_dump()) if s.record else None,
+            record=EvidenceProposalView(title=s.record.title, text=s.record.text, note=s.record.note, caution=s.record.caution) if s.record else None,
         )
         for s in sources
     ]

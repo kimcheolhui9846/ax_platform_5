@@ -105,12 +105,12 @@ class ResultSection(ContractModel):
     blocks: list[Block]
 
 
-def section_order_for(sections: Sequence["ResultSection"], kind: CardType) -> int | None:
+def section_order_for(sections: Sequence[ResultSection], kind: CardType) -> int | None:
     """[순수] 그 종류의 첫 섹션 order. 없으면 None."""
     return next((s.order for s in sections if s.kind is kind), None)
 
 
-def carry_evidence(records: Sequence[EvidenceRecord], sections: Sequence["ResultSection"]) -> list[EvidenceRecord]:
+def carry_evidence(records: Sequence[EvidenceRecord], sections: Sequence[ResultSection]) -> list[EvidenceRecord]:
     """[순수] 다시 만든 결과로 옮기는 근거 기록. 섹션이 바뀌었으니 종류로 자리를 다시 잡는다."""
     return [r.model_copy(update={"section_order": section_order_for(sections, r.section_kind)}) for r in records]
 

@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/v1/coaching", tags=["assets"], responses=error_r
 # SVG를 주소로 바로 열어도 스크립트·외부 자원이 돌지 않게 한다
 _SAFE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, no-store",  # 주인이 헤더로 갈리므로 프록시·공유 캐시에 남기지 않는다
     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
 }
 

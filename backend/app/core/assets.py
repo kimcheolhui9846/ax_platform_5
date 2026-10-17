@@ -64,18 +64,25 @@ class LocalAssetStore:
 
     def put(self, owner_id: str, data: bytes, mime: str) -> str:
         asset_id = _new_id(mime)
-        (self._root / f"{asset_id}.bin").write_bytes(data)
-        (self._root / f"{asset_id}.json").write_text(json.dumps({"owner_id": owner_id, "mime": mime}), encoding="utf-8")
+        # 임시 파일에 쓴 뒤 옮겨 반쯤 쓴 파일이 남지 않게 한다. 정보(.json)가 나중이라 .json이 있으면 .bin도 온전하다
+        self._write_atomically(self._root / f"{asset_id}.bin", data)
+        self._write_atomically(self._root / f"{asset_id}.json", json.dumps({"owner_id": owner_id, "mime": mime}).encode("utf-8"))
         return asset_id
+
+    @staticmethod
+    def _write_atomically(path: Path, data: bytes) -> None:
+        temp = path.with_name(path.name + ".tmp")
+        temp.write_bytes(data)
+        temp.replace(path)
 
     def get(self, asset_id: str) -> Asset | None:
         if not _ASSET_ID.fullmatch(asset_id):
             return None
-        meta = self._root / f"{asset_id}.json"
-        if not meta.exists():
+        try:
+            info = json.loads((self._root / f"{asset_id}.json").read_text(encoding="utf-8"))
+            return Asset(owner_id=info["owner_id"], mime=info["mime"], data=(self._root / f"{asset_id}.bin").read_bytes())
+        except (OSError, ValueError, KeyError):  # 없거나 깨진 파일은 없는 파일과 같다
             return None
-        info = json.loads(meta.read_text(encoding="utf-8"))
-        return Asset(owner_id=info["owner_id"], mime=info["mime"], data=(self._root / f"{asset_id}.bin").read_bytes())
 
 
 def build_asset_store(kind: StoreKind, root: Path) -> AssetStore:

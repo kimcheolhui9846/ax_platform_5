@@ -58,15 +58,13 @@ def load_evidence(path: Path) -> list[EvidenceSource]:
         return _Catalog.model_validate(yaml.safe_load(fp)).sources
 
 
-def evidence_record(source: EvidenceSource, sections: Sequence[ResultSection]) -> EvidenceRecord:
-    """[순수] 자료의 점검 문구를 결과에 붙일 기록으로. 점검 문구가 없는 자료는 부르는 쪽이 거른다."""
-    if source.record is None:
-        raise ValueError(f"점검 문구가 없는 자료입니다: {source.id}")
+def evidence_record(source: EvidenceSource, proposal: EvidenceProposal, sections: Sequence[ResultSection]) -> EvidenceRecord:
+    """[순수] 자료의 점검 문구(proposal)를 결과에 붙일 기록으로. 점검 문구가 없는 자료는 부르는 쪽이 거른다."""
     return EvidenceRecord(
         source_id=source.id,
-        title=source.record.title,
-        text=source.record.text,
-        note=source.record.note,
+        title=proposal.title,
+        text=proposal.text,
+        note=proposal.note,
         source_title=source.title,
         publisher=source.publisher,
         url=source.url,

@@ -7,6 +7,7 @@ from app.main import create_app
 from app.providers.mock import MockProvider
 from tests.conftest import CLIENT_ID, OTHER_CLIENT_ID, api_client
 
+PNG = bytes([0x89]) + b"PNG"
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg"/>'
 
 
@@ -65,3 +66,35 @@ def test_asset_route_documents_image_bodies_and_errors():
     responses = spec["paths"]["/api/v1/coaching/assets/{asset_id}"]["get"]["responses"]
     assert set(responses["200"]["content"]) == set(IMAGE_MIMES)
     assert {"404", "422", "500"} <= set(responses)
+
+
+def test_get_asset_api_forbids_shared_caches_and_keeps_the_stored_mime():
+    store = InMemoryAssetStore()
+    asset_id = store.put(CLIENT_ID, PNG, "image/png")
+    app = create_app(provider=MockProvider(), assets=store)
+
+    response = api_client(app).get(f"/api/v1/coaching/assets/{asset_id}")
+
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+def test_local_store_returns_none_for_missing_or_broken_files(tmp_path):
+    store = LocalAssetStore(tmp_path / "assets")
+    asset_id = store.put("owner-0001", SVG, "image/svg+xml")
+    (tmp_path / "assets" / f"{asset_id}.bin").unlink()
+    assert store.get(asset_id) is None  # 바이트 파일이 없다
+
+    other = store.put("owner-0001", SVG, "image/svg+xml")
+    (tmp_path / "assets" / f"{other}.json").write_text("{깨짐", encoding="utf-8")
+    assert store.get(other) is None  # 정보 파일이 깨졌다
+
+    third = store.put("owner-0001", SVG, "image/svg+xml")
+    (tmp_path / "assets" / f"{third}.json").write_text("{}", encoding="utf-8")
+    assert store.get(third) is None  # 키가 빠졌다
+
+
+def test_local_store_leaves_no_temp_files(tmp_path):
+    store = LocalAssetStore(tmp_path / "assets")
+    asset_id = store.put("owner-0001", SVG, "image/svg+xml")
+    assert sorted(p.name for p in (tmp_path / "assets").iterdir()) == [f"{asset_id}.bin", f"{asset_id}.json"]
