@@ -150,6 +150,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           ),
       };
     }
+    default:
+      // 임시: 내 작업·결과물·저장 완료·버전 보기 화면은 Task 6에서 그린다
+      return { main: <LoadingScreen />, side: null };
   }
 }
 

@@ -31,14 +31,35 @@ describe("railItems", () => {
 });
 
 describe("enabledNav", () => {
-  it("묶음 0에서는 홈만 연다", () => {
-    expect([...enabledNav(false)]).toEqual(["home"]);
+  it("메뉴 세 개를 모두 연다", () => {
+    expect([...enabledNav(false)]).toEqual(["home", "work", "documents"]);
   });
 
-  // 요청 중에 홈으로 떠나면 늦게 온 응답이 다음에 고른 과제 화면에 섞인다(헤더 '과제 선택'과 같은 규칙).
+  // 요청 중에 다른 화면으로 떠나면 늦게 온 응답이 버려진다(헤더 '과제 선택'과 같은 규칙).
   it("요청 중에는 모든 메뉴를 막는다", () => {
     expect(enabledNav(true).size).toBe(0);
     expect(railItems("home", enabledNav(true)).every((item) => item.disabled)).toBe(true);
+  });
+});
+
+describe("묶음 2 주소의 단계와 메뉴", () => {
+  it("저장 완료·버전 보기는 3단계, 목록 화면은 과제 밖이다", () => {
+    expect(routePhase({ name: "saved", sessionId: "s" })).toBe(2);
+    expect(routePhase({ name: "version", sessionId: "s", version: 1 })).toBe(2);
+    expect(routePhase({ name: "work" })).toBeNull();
+    expect(routePhase({ name: "documents" })).toBeNull();
+  });
+
+  it("내 작업은 내 작업, 결과·저장 완료·버전·결과물은 결과물 메뉴다", () => {
+    expect(railActive({ name: "work" })).toBe("work");
+    for (const route of [
+      { name: "documents" },
+      { name: "result", sessionId: "s" },
+      { name: "saved", sessionId: "s" },
+      { name: "version", sessionId: "s", version: 1 },
+    ] as const) {
+      expect(railActive(route)).toBe("documents");
+    }
   });
 });
 

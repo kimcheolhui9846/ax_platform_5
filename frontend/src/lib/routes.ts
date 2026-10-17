@@ -5,17 +5,21 @@
 export type Route =
   | { name: "home" }
   | { name: "guide" }
+  | { name: "work" }
+  | { name: "documents" }
   | { name: "request"; task: string }
   | { name: "mode"; task: string }
   | { name: "question"; sessionId: string }
   | { name: "revise"; sessionId: string; questionId: string }
   | { name: "confirm"; sessionId: string }
-  | { name: "result"; sessionId: string };
+  | { name: "result"; sessionId: string }
+  | { name: "saved"; sessionId: string }
+  | { name: "version"; sessionId: string; version: number };
 
 export const HOME: Route = { name: "home" };
 
 const TASK_VIEWS = new Set(["request", "mode"]);
-const SESSION_VIEWS = new Set(["question", "confirm", "result"]);
+const VERSION_NUMBER = /^[1-9]\d*$/;
 
 function decode(segment: string): string {
   try {
@@ -25,20 +29,50 @@ function decode(segment: string): string {
   }
 }
 
+/** 조각 하나로 된 공용 화면. */
+function page(name: string): Route | null {
+  switch (name) {
+    case "guide":
+      return { name: "guide" };
+    case "work":
+      return { name: "work" };
+    case "documents":
+      return { name: "documents" };
+    default:
+      return null;
+  }
+}
+
+/** `#/s/{id}/{view}` 모양의 세션 화면. */
+function sessionView(sessionId: string, view: string): Route | null {
+  switch (view) {
+    case "question":
+      return { name: "question", sessionId };
+    case "confirm":
+      return { name: "confirm", sessionId };
+    case "result":
+      return { name: "result", sessionId };
+    case "saved":
+      return { name: "saved", sessionId };
+    default:
+      return null;
+  }
+}
+
 /** [순수] 해시를 주소로. 모르는 모양은 홈이다. */
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decode);
   const [first, second, third, fourth] = parts;
-  if (parts.length === 1 && first === "guide") return { name: "guide" };
+  if (parts.length === 1) return page(first) ?? HOME;
   if (parts.length === 2 && first !== "s" && TASK_VIEWS.has(second)) {
     return second === "request" ? { name: "request", task: first } : { name: "mode", task: first };
   }
-  if (first === "s" && parts.length === 3 && SESSION_VIEWS.has(third)) {
-    if (third === "question") return { name: "question", sessionId: second };
-    return third === "confirm" ? { name: "confirm", sessionId: second } : { name: "result", sessionId: second };
-  }
+  if (first === "s" && parts.length === 3) return sessionView(second, third) ?? HOME;
   if (first === "s" && parts.length === 4 && third === "question") {
     return { name: "revise", sessionId: second, questionId: fourth };
+  }
+  if (first === "s" && parts.length === 4 && third === "v" && VERSION_NUMBER.test(fourth)) {
+    return { name: "version", sessionId: second, version: Number(fourth) };
   }
   return HOME;
 }
@@ -55,12 +89,16 @@ export function toHash(route: Route): string {
     case "home":
       return "#/";
     case "guide":
-      return "#/guide";
+    case "work":
+    case "documents":
+      return `#/${route.name}`;
     case "request":
     case "mode":
       return `#/${e(route.task)}/${route.name}`;
     case "revise":
       return `#/s/${e(route.sessionId)}/question/${e(route.questionId)}`;
+    case "version":
+      return `#/s/${e(route.sessionId)}/v/${route.version}`;
     default:
       return `#/s/${e(route.sessionId)}/${route.name}`;
   }
@@ -71,6 +109,8 @@ export function contextOf(route: Route): string {
   switch (route.name) {
     case "home":
     case "guide":
+    case "work":
+    case "documents":
       return route.name;
     case "request":
     case "mode":
@@ -78,6 +118,11 @@ export function contextOf(route: Route): string {
     default:
       return `session:${route.sessionId}`;
   }
+}
+
+/** [순수] 내 세션 목록을 쓰는 화면(홈의 이어하기, 내 작업, 결과물). */
+export function isListRoute(route: Route): boolean {
+  return route.name === "home" || route.name === "work" || route.name === "documents";
 }
 
 export function taskOf(route: Route): string | null {

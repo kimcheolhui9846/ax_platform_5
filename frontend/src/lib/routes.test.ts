@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HOME, contextOf, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
+import { HOME, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
 import type { Route } from "./routes";
 
 const ROUTES: [Route, string][] = [
@@ -12,6 +12,10 @@ const ROUTES: [Route, string][] = [
   [{ name: "revise", sessionId: "sess_1", questionId: "q_1" }, "#/s/sess_1/question/q_1"],
   [{ name: "confirm", sessionId: "sess_1" }, "#/s/sess_1/confirm"],
   [{ name: "result", sessionId: "sess_1" }, "#/s/sess_1/result"],
+  [{ name: "work" }, "#/work"],
+  [{ name: "documents" }, "#/documents"],
+  [{ name: "saved", sessionId: "sess_1" }, "#/s/sess_1/saved"],
+  [{ name: "version", sessionId: "sess_1", version: 2 }, "#/s/sess_1/v/2"],
 ];
 
 describe("parseRoute·toHash", () => {
@@ -21,7 +25,7 @@ describe("parseRoute·toHash", () => {
   });
 
   it("빈 주소와 모르는 주소는 홈이다", () => {
-    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/s/sess_1/edit", "#/product_planning/question", "#/a/b/c/d/e"]) {
+    for (const hash of ["", "#", "#/", "#/nope", "#/s/sess_1", "#/s/sess_1/edit", "#/product_planning/question", "#/a/b/c/d/e", "#/s/sess_1/v/0", "#/s/sess_1/v/x", "#/s/sess_1/v/2/x"]) {
       expect(parseRoute(hash)).toEqual(HOME);
     }
   });
@@ -64,5 +68,19 @@ describe("isRouteHash", () => {
   it("화면 주소(#/…)와 빈 주소만 화면 이동이다. 문서 안 앵커(#main)는 아니다", () => {
     for (const hash of ["", "#", "#/", "#/guide", "#/s/sess_1/question"]) expect(isRouteHash(hash)).toBe(true);
     for (const hash of ["#main", "#question-desktop-main"]) expect(isRouteHash(hash)).toBe(false);
+  });
+});
+
+describe("isListRoute", () => {
+  it("홈·내 작업·결과물은 내 세션 목록을 쓰는 화면이다", () => {
+    expect([HOME, { name: "work" }, { name: "documents" }].every((r) => isListRoute(r as Route))).toBe(true);
+    expect(isListRoute({ name: "guide" })).toBe(false);
+    expect(isListRoute({ name: "saved", sessionId: "s" })).toBe(false);
+  });
+
+  it("목록 화면은 각자 다른 묶음이고, 저장 완료·버전 보기는 그 세션 묶음이다", () => {
+    expect(contextOf({ name: "work" })).toBe("work");
+    expect(contextOf({ name: "documents" })).toBe("documents");
+    expect(contextOf({ name: "saved", sessionId: "s" })).toBe(contextOf({ name: "version", sessionId: "s", version: 1 }));
   });
 });

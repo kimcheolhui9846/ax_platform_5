@@ -1,4 +1,12 @@
-import type { Question, ResultView, SessionView, TaskForm, TaskSummary } from "../api/types";
+import type {
+  Question,
+  ResultView,
+  SessionSummary,
+  SessionView,
+  TaskForm,
+  TaskSummary,
+  VersionView,
+} from "../api/types";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import type { AppState } from "./state";
@@ -7,14 +15,18 @@ import type { AppState } from "./state";
 export type ScreenModel =
   | { kind: "loading" }
   | { kind: "unavailable" }
-  | { kind: "home"; tasks: TaskSummary[] }
+  | { kind: "home"; tasks: TaskSummary[]; sessions: SessionSummary[] }
   | { kind: "guide" }
+  | { kind: "work"; sessions: SessionSummary[] }
+  | { kind: "documents"; sessions: SessionSummary[] }
   | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string }
   | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
-  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null };
+  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null }
+  | { kind: "saved"; task: TaskSummary; session: SessionView; result: ResultView }
+  | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView };
 
 const LOADING: ScreenModel = { kind: "loading" };
 
@@ -28,9 +40,15 @@ function resolve(state: AppState): ScreenModel {
   const { route } = state;
   switch (route.name) {
     case "home":
-      return state.tasks === null ? LOADING : { kind: "home", tasks: state.tasks };
+      return state.tasks === null || state.sessions === null
+        ? LOADING
+        : { kind: "home", tasks: state.tasks, sessions: state.sessions };
     case "guide":
       return { kind: "guide" };
+    case "work":
+    case "documents":
+      if (state.sessions === null) return LOADING;
+      return route.name === "work" ? { kind: "work", sessions: state.sessions } : { kind: "documents", sessions: state.sessions };
     case "request":
     case "mode": {
       const task = findTask(state.tasks, route.task);
@@ -43,10 +61,16 @@ function resolve(state: AppState): ScreenModel {
       if (session === null || session.session_id !== route.sessionId) return LOADING;
       const task = findTask(state.tasks, session.task_type);
       if (task === null) return LOADING;
-      if (route.name === "result") {
+      if (route.name === "version") {
+        const version = state.version;
+        const loaded = version !== null && version.session_id === session.session_id && version.version.version === route.version;
+        return loaded ? { kind: "version", task, session, version } : LOADING;
+      }
+      if (route.name === "result" || route.name === "saved") {
         if (!session.has_result) return { kind: "result", task, session, result: null };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
-        return result === null ? LOADING : { kind: "result", task, session, result };
+        if (result === null) return LOADING;
+        return route.name === "saved" ? { kind: "saved", task, session, result } : { kind: "result", task, session, result };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);

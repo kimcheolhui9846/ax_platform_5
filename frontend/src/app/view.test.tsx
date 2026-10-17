@@ -25,7 +25,7 @@ describe("renderScreen", () => {
   });
 
   it("홈은 과제 카드", () => {
-    const { main, side } = draw({ kind: "home", tasks: [task] });
+    const { main, side } = draw({ kind: "home", tasks: [task], sessions: [] });
     expect(main).toContain("만들고 싶은 상품을 구체화하고 싶어요");
     expect(main).toContain("완성할 것 · 상품 콘셉트 · 첫 제작 기획서");
     expect(main).toContain("상품기획 시작하기 →");
@@ -111,7 +111,7 @@ describe("AppView", () => {
   });
 
   it("요청 중에는 메뉴·과제 선택·흐름 안내를 막는다", () => {
-    const html = renderToString(<AppView route={HOME} model={{ kind: "home", tasks: [task] }} busy on={NOOP_HANDLERS} />);
+    const html = renderToString(<AppView route={HOME} model={{ kind: "home", tasks: [task], sessions: [] }} busy on={NOOP_HANDLERS} />);
     expect(html).toContain('<button type="button" class="rail-help" disabled="">흐름 안내</button>');
     expect(html).toMatch(/<button type="button" class="btn" disabled="">과제 선택<\/button>/);
   });
@@ -119,7 +119,7 @@ describe("AppView", () => {
 
 describe("projectOf·pageTitle", () => {
   it("과제 화면은 과제 이름", () => {
-    expect(projectOf({ kind: "home", tasks: [] })).toBeNull();
+    expect(projectOf({ kind: "home", tasks: [], sessions: [] })).toBeNull();
     expect(projectOf({ kind: "request", task, form, draft: "" })).toBe("상품기획");
     expect(pageTitle({ kind: "guide" })).toBe("창작자 AX");
     expect(pageTitle({ kind: "request", task, form, draft: "" })).toBe("창작자 AX · 상품기획");

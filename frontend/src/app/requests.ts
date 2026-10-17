@@ -67,5 +67,8 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         load: key,
         outdatesSessionOnFail: false,
       });
+    default:
+      // 임시: 목록·버전 불러오기는 Task 7에서 연결한다
+      return Promise.resolve();
   }
 }

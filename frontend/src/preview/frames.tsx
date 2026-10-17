@@ -43,7 +43,7 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
 export const FRAMES: Frame[] = [
-  frame("home", "홈 · 과제 선택", HOME, { kind: "home", tasks: TASKS }),
+  frame("home", "홈 · 과제 선택", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
   frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST }),
   frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST }),
   frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),

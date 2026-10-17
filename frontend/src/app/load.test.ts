@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
-import { makeForm, makeResult, makeSession, makeTask } from "../testing/factories";
+import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { loadKey, needsLoad } from "./load";
 import { initialState } from "./state";
 import type { AppState } from "./state";
@@ -16,9 +16,9 @@ function at(route: Route, patch: Partial<AppState> = {}): AppState {
 describe("needsLoad", () => {
   it("과제 목록이 먼저다", () => {
     expect(needsLoad(initialState(HOME))).toEqual({ kind: "tasks" });
-    expect(needsLoad(at(HOME))).toBeNull();
+    expect(needsLoad(at(HOME, { sessions: [] }))).toBeNull();
     // 받은 목록이 비어 있어도 다시 부르지 않는다(무한 요청 방지)
-    expect(needsLoad({ ...initialState(HOME), tasks: [] })).toBeNull();
+    expect(needsLoad({ ...initialState(HOME), tasks: [], sessions: [] })).toBeNull();
   });
 
   it("요청·모드 화면은 그 과제의 입력 양식이 있어야 한다", () => {
@@ -58,5 +58,36 @@ describe("loadKey", () => {
     expect(loadKey({ kind: "form", task: "branding" })).toBe("form:branding");
     expect(loadKey({ kind: "session", sessionId: "s" })).toBe("session:s");
     expect(loadKey({ kind: "result", sessionId: "s" })).toBe("result:s");
+  });
+});
+
+describe("needsLoad — 묶음 2 화면", () => {
+  it("홈·내 작업·결과물은 내 세션 목록이 있어야 한다", () => {
+    for (const route of [HOME, { name: "work" }, { name: "documents" }] as Route[]) {
+      expect(needsLoad(at(route))).toEqual({ kind: "sessions" });
+      expect(needsLoad(at(route, { sessions: [makeSessionSummary()] }))).toBeNull();
+    }
+  });
+
+  it("저장 완료 화면은 결과 화면처럼 결과가 있어야 한다", () => {
+    const saved: Route = { name: "saved", sessionId: "sess_1" };
+    const done = makeSession({ next_question: null, has_result: true });
+    expect(needsLoad(at(saved, { session: done }))).toEqual({ kind: "result", sessionId: "sess_1" });
+    expect(needsLoad(at(saved, { session: done, result: makeResult() }))).toBeNull();
+  });
+
+  it("버전 보기는 세션 다음에 그 버전", () => {
+    const route: Route = { name: "version", sessionId: "sess_1", version: 2 };
+    expect(needsLoad(at(route))).toEqual({ kind: "session", sessionId: "sess_1" });
+    const session = makeSession({ next_question: null, has_result: true });
+    expect(needsLoad(at(route, { session }))).toEqual({ kind: "version", sessionId: "sess_1", version: 2 });
+    const two = makeVersionView({ version: { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate", saved: false } });
+    expect(needsLoad(at(route, { session, version: two }))).toBeNull();
+    expect(needsLoad(at(route, { session, version: makeVersionView() }))).toEqual({ kind: "version", sessionId: "sess_1", version: 2 });
+  });
+
+  it("목록·버전 불러오기의 이름", () => {
+    expect(loadKey({ kind: "sessions" })).toBe("sessions");
+    expect(loadKey({ kind: "version", sessionId: "s", version: 3 })).toBe("version:s:3");
   });
 });

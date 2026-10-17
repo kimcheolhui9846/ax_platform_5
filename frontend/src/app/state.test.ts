@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
-import { makeForm, makeResult, makeSession, makeTask } from "../testing/factories";
+import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { initialState, isBusy, reducer } from "./state";
 import type { AppState } from "./state";
 
@@ -151,5 +151,40 @@ describe("reducer", () => {
     const noticed = reducer(drafted, { type: "noticed", message: "알림" });
     expect(noticed.toast).toBe("알림");
     expect(reducer(noticed, { type: "toastClosed" }).toast).toBeNull();
+  });
+
+  it("목록 화면에 새로 들어오면 내 세션 목록을 다시 받고, 목록 화면끼리는 그대로 둔다", () => {
+    const sessions = [makeSessionSummary()];
+    const onQuestion: AppState = { ...initialState(question), sessions };
+    expect(reducer(onQuestion, { type: "navigated", route: HOME }).sessions).toBeNull();
+    const onHome: AppState = { ...initialState(HOME), sessions };
+    expect(reducer(onHome, { type: "navigated", route: { name: "work" } }).sessions).toBe(sessions);
+  });
+
+  it("목록과 버전을 받는다", () => {
+    const sessions = [makeSessionSummary()];
+    const listed = reducer(waiting(initialState(HOME), 1, "sessions"), { type: "sessionsLoaded", seq: 1, sessions });
+    expect(listed.sessions).toBe(sessions);
+    const version = makeVersionView();
+    const route: Route = { name: "version", sessionId: "sess_1", version: 1 };
+    const opened = reducer(waiting(initialState(route), 2, "version:sess_1:1"), { type: "versionLoaded", seq: 2, version });
+    expect(opened.version).toBe(version);
+  });
+
+  it("버전을 저장하면 저장 완료로 가고, 지금 결과는 다시 받는다", () => {
+    const state: AppState = { ...initialState(result), session: makeSession({ has_result: true }), result: makeResult() };
+    const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
+    const saved: Route = { name: "saved", sessionId: "sess_1" };
+    const done = reducer(waiting(state, 1), { type: "versionSaved", seq: 1, version, next: saved });
+    expect(done.route).toEqual(saved);
+    expect(done.version).toBe(version);
+    expect(done.result).toBeNull();
+  });
+
+  it("다른 버전으로 옮기면 보던 버전을 비운다", () => {
+    const version = makeVersionView();
+    const state: AppState = { ...initialState({ name: "version", sessionId: "sess_1", version: 1 }), version };
+    expect(reducer(state, { type: "navigated", route: { name: "version", sessionId: "sess_1", version: 2 } }).version).toBeNull();
+    expect(reducer(state, { type: "navigated", route: result }).version).toBeNull();
   });
 });

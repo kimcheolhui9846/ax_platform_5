@@ -1,5 +1,5 @@
-import type { ResultView, SessionView, TaskForm, TaskSummary } from "../api/types";
-import { contextOf, sessionIdOf, taskOf, toHash } from "../lib/routes";
+import type { ResultView, SessionSummary, SessionView, TaskForm, TaskSummary, VersionView } from "../api/types";
+import { contextOf, isListRoute, sessionIdOf, taskOf, toHash } from "../lib/routes";
 import type { Route } from "../lib/routes";
 
 /** 기다리는 요청. seq가 다른 응답은 늦게 온 것이라 버린다. load는 화면을 그리려고 부른 요청의 이름(loadKey)이다. */
@@ -8,10 +8,12 @@ export type Inflight = { seq: number; load: string | null };
 export type AppState = {
   route: Route;
   tasks: TaskSummary[] | null; // 아직 받지 않았으면 null
+  sessions: SessionSummary[] | null; // 내 세션 목록. 목록 화면(홈·내 작업·결과물)에 새로 들어올 때마다 다시 받는다
   form: TaskForm | null; // 지금 과제의 입력 양식(요청·모드 화면)
   session: SessionView | null;
   sessionOutdated: boolean; // 결과를 만들었거나 생성이 실패해 서버 세션이 바뀌었다. 다시 받아야 한다
   result: ResultView | null;
+  version: VersionView | null; // 버전 보기·저장 완료 화면의 버전
   drafts: Record<string, string>; // 과제별 쓰다 만 요청 글
   inflight: Inflight | null;
   stalled: string | null; // 실패한 불러오기(loadKey). 같은 화면에서는 다시 부르지 않는다
@@ -23,9 +25,12 @@ export type Action =
   | { type: "requested"; seq: number; load: string | null }
   | { type: "failed"; seq: number; message: string; outdatesSession: boolean }
   | { type: "tasksLoaded"; seq: number; tasks: TaskSummary[] }
+  | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
   | { type: "formLoaded"; seq: number; form: TaskForm }
   | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; notice: string | null }
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean }
+  | { type: "versionLoaded"; seq: number; version: VersionView }
+  | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
   | { type: "draftChanged"; task: string; text: string }
   | { type: "noticed"; message: string }
   | { type: "toastClosed" }
@@ -37,10 +42,12 @@ export function initialState(route: Route): AppState {
   return {
     route,
     tasks: null,
+    sessions: null,
     form: null,
     session: null,
     sessionOutdated: false,
     result: null,
+    version: null,
     drafts: {},
     inflight: null,
     stalled: null,
@@ -76,7 +83,10 @@ export function reducer(state: AppState, action: Action): AppState {
   }
 }
 
-/** 화면 이동. 과제·세션 묶음(contextOf)을 떠나면 기다리던 요청의 응답을 버리고, 다른 과제·세션의 데이터는 비운다. */
+/**
+ * 화면 이동. 과제·세션 묶음(contextOf)을 떠나면 기다리던 요청의 응답을 버리고, 다른 과제·세션의 데이터는 비운다.
+ * 목록 화면에 새로 들어오면 내 세션 목록을 다시 받는다(그사이 답하거나 저장했을 수 있다).
+ */
 function navigate(state: AppState, route: Route): AppState {
   if (toHash(route) === toHash(state.route)) return state;
   const sessionId = sessionIdOf(route);
@@ -86,11 +96,23 @@ function navigate(state: AppState, route: Route): AppState {
     route,
     inflight: contextOf(route) === contextOf(state.route) ? state.inflight : null,
     stalled: null,
+    sessions: isListRoute(route) && !isListRoute(state.route) ? null : state.sessions,
     form: state.form !== null && state.form.task_type === taskOf(route) ? state.form : null,
     session: sameSession ? state.session : null,
     sessionOutdated: sameSession && state.sessionOutdated,
     result: state.result !== null && state.result.session_id === sessionId ? state.result : null,
+    version: sameVersion(state.version, route) ? state.version : null,
   };
+}
+
+/** 이동한 주소가 지금 들고 있는 버전을 보는 주소인지. */
+function sameVersion(version: VersionView | null, route: Route): boolean {
+  return (
+    version !== null &&
+    route.name === "version" &&
+    version.session_id === route.sessionId &&
+    version.version.version === route.version
+  );
 }
 
 function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
@@ -104,6 +126,8 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
       };
     case "tasksLoaded":
       return { ...done, tasks: action.tasks };
+    case "sessionsLoaded":
+      return { ...done, sessions: action.sessions };
     case "formLoaded":
       return { ...done, form: action.form };
     case "sessionLoaded":
@@ -122,6 +146,11 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         result: action.result,
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
       };
+    case "versionLoaded":
+      return { ...done, version: action.version };
+    case "versionSaved":
+      // 지금 결과의 저장 표시가 바뀌었으므로 결과는 다시 받는다
+      return { ...done, route: action.next ?? done.route, version: action.version, result: null };
   }
 }
 
