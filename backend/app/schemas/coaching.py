@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
-from app.core.results import ResultCard, ValidationReport, VersionReason
+from app.core.results import ResultSection, ValidationReport, VersionReason
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
@@ -132,7 +132,7 @@ class LabeledAssumption(ContractModel):
 class LabeledResult(ContractModel):
     """GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다."""
 
-    cards: list[ResultCard]
+    sections: list[ResultSection]
     assumptions: list[LabeledAssumption]
     full_text: str
     content: dict[str, Any]

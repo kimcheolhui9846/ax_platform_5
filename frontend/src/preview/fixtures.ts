@@ -203,11 +203,11 @@ export const RESULT: ResultView = {
     passed: true,
   },
   result: {
-    cards: [
-      { card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "가방 안의 작은 물건을 정리하는 한글 파우치.\n한글 형태를 일상 소품으로 즐기게 한다." },
-      { card_type: "suggestion", order: 2, title: "핵심 기능", body: "작은 소지품이 섞이지 않게 칸을 나누고, 한글 자모를 겉면 패턴으로 쓴다." },
-      { card_type: "suggestion", order: 3, title: "첫 제작 방향", body: "수납과 사용 편의를 우선한다. 소재와 봉제 가능성을 먼저 확인한다." },
-      { card_type: "action", order: 4, title: "다음 실행", body: "잠재 고객 다섯 명에게 시제품 사진을 보여 주고 구매 이유와 우려를 듣는다." },
+    sections: [
+      { order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "가방 안의 작은 물건을 정리하는 한글 파우치.\n한글 형태를 일상 소품으로 즐기게 한다." }] },
+      { order: 2, heading: "핵심 기능", kind: "suggestion", blocks: [{ type: "text", text: "작은 소지품이 섞이지 않게 칸을 나누고, 한글 자모를 겉면 패턴으로 쓴다." }] },
+      { order: 3, heading: "첫 제작 방향", kind: "suggestion", blocks: [{ type: "text", text: "수납과 사용 편의를 우선한다. 소재와 봉제 가능성을 먼저 확인한다." }] },
+      { order: 4, heading: "다음 실행", kind: "action", blocks: [{ type: "text", text: "잠재 고객 다섯 명에게 시제품 사진을 보여 주고 구매 이유와 우려를 듣는다." }] },
     ],
     assumptions: [
       { field: "price_direction", label: "가격 방향", value: "1~3만원", reason: "비슷한 소형 파우치의 가격대", requires_confirmation: true },
@@ -232,7 +232,7 @@ export const OLD_VERSION: VersionView = {
   session_id: "sess_preview",
   version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true },
   latest: false,
-  result: { ...RESULT.result, cards: RESULT.result.cards.slice(0, 2) },
+  result: { ...RESULT.result, sections: RESULT.result.sections.slice(0, 2) },
   validation: null,
   summary: SUMMARY,
   unknowns: [{ field: "usage_context", label: "사용 상황" }],

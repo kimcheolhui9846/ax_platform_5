@@ -77,10 +77,10 @@ def test_version_keeps_its_own_copy_of_the_result(harness):
     state = harness.start("향초")
     harness.generate(state)
 
-    state.result.cards[0].title = "나중에 바뀐 제목"
+    state.result.sections[0].heading = "나중에 바뀐 제목"
     state.validation.issues.append(state.validation.issues[0] if state.validation.issues else _issue())
 
-    assert state.versions[0].result.cards[0].title != "나중에 바뀐 제목"
+    assert state.versions[0].result.sections[0].heading != "나중에 바뀐 제목"
     assert state.versions[0].validation != state.validation
 
 

@@ -94,6 +94,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 1. `backend/app/schemas/`(또는 응답에 실리는 `app/core/state.py`·`results.py`의 모델)를 고친다. 응답에서 닿는 모든 스키마는 모든 속성을 required로 내야 한다(생성된 프론트 타입이 `?:`로 느슨해지지 않게). `tests/test_contract.py`가 이를 확인하므로 새 응답 모델은 `ContractModel`을 상속하면 된다. 개발용 선택 필드는 그 테스트의 `DEBUG_ONLY_FIELDS`에 이유와 함께 올린다.
    화면용 값(라벨 등)은 LLM이 채우는 모델(`TaskResult`·`ResultAssumption`)이 아니라 `schemas/`의 뷰 모델에 두고 `api/views.py`에서 붙인다(예: `LabeledResult`, `UnknownItem`).
+   결과는 섹션·블록이다(`GenerationResult.sections`, `ResultSection`, `TextBlock`). LLM은 카드(`TaskResult.cards`)를 쓰고 `to_generation_result`가 섹션으로 바꾼다. 저장된 옛 결과(`cards`)는 읽을 때 섹션이 된다.
 2. `uv run --directory backend pytest`
 3. `npm --prefix frontend run gen:api` → `npm --prefix frontend run build`에서 나는 타입 오류를 따라 프론트를 고친다.
 

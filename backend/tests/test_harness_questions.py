@@ -145,7 +145,7 @@ def test_revise_after_result_marks_stale(harness, reply):
     state = harness.start("향초")
     reply(harness, state, AnswerType.OPTION, option_ids=("o1",))
     reply(harness, state, AnswerType.FREE_TEXT, value="선물 고르기가 어렵다")
-    state.result = GenerationResult(cards=[], full_text="이전 결과", content={})
+    state.result = GenerationResult(sections=[], full_text="이전 결과", content={})
 
     harness.revise_answer(
         state,
@@ -234,7 +234,7 @@ def test_revise_that_completes_stale_session_goes_to_revising(harness, reply):
     state = harness.start("향초")
     reply(harness, state, AnswerType.SKIP)
     reply(harness, state, AnswerType.FREE_TEXT, value="선물 고르기가 어렵다")
-    state.result = GenerationResult(cards=[], full_text="이전 결과", content={})
+    state.result = GenerationResult(sections=[], full_text="이전 결과", content={})
 
     harness.revise_answer(
         state,

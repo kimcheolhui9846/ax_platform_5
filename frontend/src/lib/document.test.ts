@@ -6,13 +6,13 @@ import { documentContent, documentSections, resultKicker, resultTitle } from "./
 const v2 = { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate" as const, saved: false };
 
 describe("결과 문서", () => {
-  it("카드를 순서대로 01, 02 … 섹션으로", () => {
+  it("섹션을 순서대로 01, 02 …로, 본문은 글 블록을 잇는다", () => {
     const sections = documentSections([
-      { card_type: "action", order: 3, title: "다음 실행", body: "다섯 명에게 묻기" },
-      { card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "한글 파우치" },
+      { order: 3, heading: "다음 실행", kind: "action", blocks: [{ type: "text", text: "다섯 명에게 묻기" }] },
+      { order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "한글" }, { type: "text", text: "파우치" }] },
     ]);
     expect(sections).toEqual([
-      { key: "diagnosis-1", number: "01", heading: "상품 콘셉트", tag: "진단", body: "한글 파우치" },
+      { key: "diagnosis-1", number: "01", heading: "상품 콘셉트", tag: "진단", body: "한글\n\n파우치" },
       { key: "action-3", number: "02", heading: "다음 실행", tag: "실행 과제", body: "다섯 명에게 묻기" },
     ]);
   });

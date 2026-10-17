@@ -16,7 +16,7 @@ def test_generate_completes_with_validated_result(harness):
 
     assert state.status is SessionStatus.COMPLETED
     assert state.result.content["summary"] == "[mock] 요약"
-    assert state.result.cards
+    assert state.result.sections
     assert state.validation.passed
     assert [t.stage for t in state.trace[-2:]] == ["generate", "validate"]
 
@@ -140,7 +140,7 @@ def test_assumptions_marked_flags_missing_and_accepts_label(harness):
 
     def result_with(field: str | None) -> GenerationResult:
         marked = [ResultAssumption(field=field, value="30대")] if field else []
-        return GenerationResult(cards=[], assumptions=marked, full_text="", content={})
+        return GenerationResult(sections=[], assumptions=marked, full_text="", content={})
 
     assert [i.rule for i in check_assumptions_marked(state, result_with(None), harness.policy)] == [
         "assumptions_marked"
@@ -198,14 +198,14 @@ def test_to_generation_result_maps_parsed_fields():
 def test_collect_issues_runs_every_validator(harness):
     from app.core.results import GenerationResult
     from app.core.state import SessionState
-    from app.harness.validation import check_cards_present, collect_issues
+    from app.harness.validation import check_sections_present, collect_issues
 
     state = SessionState(task_type="sample_task", raw_input="x")
-    result = GenerationResult(cards=[], full_text="", content={})
+    result = GenerationResult(sections=[], full_text="", content={})
     issues = collect_issues(
-        [check_cards_present, check_cards_present], state, result, harness.policy
+        [check_sections_present, check_sections_present], state, result, harness.policy
     )
-    assert [i.rule for i in issues] == ["cards_present", "cards_present"]
+    assert [i.rule for i in issues] == ["sections_present", "sections_present"]
 
 
 def test_scenario_answer_to_answer_maps_option_indexes():

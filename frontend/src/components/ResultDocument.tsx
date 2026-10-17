@@ -13,7 +13,7 @@ export function ResultDocument({ title, kicker, rows, result, issues }: Document
         <h1>{title}</h1>
       </div>
       <CriteriaBox rows={rows} />
-      {documentSections(result.cards).map((section) => (
+      {documentSections(result.sections).map((section) => (
         <section key={section.key} className="document-section">
           <h2 className="section-heading">
             <span className="section-number">{section.number}</span>

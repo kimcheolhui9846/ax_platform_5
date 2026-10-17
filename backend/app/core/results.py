@@ -1,9 +1,10 @@
 """생성 결과와 검증 리포트. 모든 과제가 공유하는 결과 래퍼다."""
 from datetime import datetime, timezone
 from enum import StrEnum
+from collections.abc import Sequence
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.core.contract import ContractModel
 
@@ -53,14 +54,57 @@ class TaskResult(BaseModel, Generic[ContentT]):
     content: ContentT
 
 
+class TextBlock(ContractModel):
+    """결과 섹션의 글 블록. 이미지 블록(묶음 3b)과 type으로 구분한다."""
+
+    type: Literal["text"] = "text"
+    text: str
+
+
+class ResultSection(ContractModel):
+    """결과 문서의 섹션 하나(진단·제안·실행 과제). 내용은 블록 목록이다."""
+
+    order: int
+    heading: str
+    kind: CardType
+    blocks: list[TextBlock]
+
+
+def sections_from_cards(cards: Sequence[ResultCard]) -> list[ResultSection]:
+    """[순수] LLM이 쓴 카드를 순서대로 섹션으로 바꾼다(본문은 글 블록 하나)."""
+    return [
+        ResultSection(order=c.order, heading=c.title, kind=c.card_type, blocks=[TextBlock(text=c.body)])
+        for c in sorted(cards, key=lambda c: c.order)
+    ]
+
+
+def section_text(section: ResultSection) -> str:
+    """[순수] 섹션의 글 블록을 이어 붙인 본문."""
+    return "\n\n".join(block.text for block in section.blocks if block.type == "text")
+
+
+def compose_full_text(sections: Sequence[ResultSection]) -> str:
+    """[순수] 섹션들로 다시 만든 완성본(문구를 고친 뒤 검증·복사에 쓴다)."""
+    return "\n\n".join(f"{s.heading}\n{section_text(s)}" for s in sections)
+
+
 class GenerationResult(ContractModel):
     """세션에 저장되는 결과. content는 과제별 스키마를 통과한 값의 dict다."""
 
-    cards: list[ResultCard]
+    sections: list[ResultSection]
     assumptions: list[ResultAssumption] = Field(default_factory=list)
     full_text: str
     content: dict[str, Any]
     generated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sections_from_legacy_cards(cls, data: Any) -> Any:
+        """섹션이 생기기 전에 저장한 결과(cards)는 섹션으로 읽는다."""
+        if isinstance(data, dict) and "sections" not in data and "cards" in data:
+            cards = [ResultCard.model_validate(c) for c in data["cards"]]
+            data = {k: v for k, v in data.items() if k != "cards"} | {"sections": sections_from_cards(cards)}
+        return data
 
 
 class ValidationIssue(ContractModel):

@@ -355,8 +355,8 @@ export interface components {
          * @description GenerationResult에 화면용 라벨을 붙인 것. LLM이 채우는 결과 형태(TaskResult)에는 라벨을 두지 않는다.
          */
         LabeledResult: {
-            /** Cards */
-            cards: components["schemas"]["ResultCard"][];
+            /** Sections */
+            sections: components["schemas"]["ResultSection"][];
             /** Assumptions */
             assumptions: components["schemas"]["LabeledAssumption"][];
             /** Full Text */
@@ -446,25 +446,18 @@ export interface components {
             /** Type */
             type: string;
         };
-        /** ResultCard */
-        ResultCard: {
-            /** @description 카드 유형: 진단·제안·실행 과제 */
-            card_type: components["schemas"]["CardType"];
-            /**
-             * Title
-             * @description 카드 제목
-             */
-            title: string;
-            /**
-             * Body
-             * @description 카드 본문
-             */
-            body: string;
-            /**
-             * Order
-             * @description 표시 순서
-             */
+        /**
+         * ResultSection
+         * @description 결과 문서의 섹션 하나(진단·제안·실행 과제). 내용은 블록 목록이다.
+         */
+        ResultSection: {
+            /** Order */
             order: number;
+            /** Heading */
+            heading: string;
+            kind: components["schemas"]["CardType"];
+            /** Blocks */
+            blocks: components["schemas"]["TextBlock"][];
         };
         /** ResultView */
         ResultView: {
@@ -600,6 +593,20 @@ export interface components {
             heading: string;
             /** Deliverable */
             deliverable: string;
+        };
+        /**
+         * TextBlock
+         * @description 결과 섹션의 글 블록. 이미지 블록(묶음 3b)과 type으로 구분한다.
+         */
+        TextBlock: {
+            /**
+             * Type
+             * @default text
+             * @constant
+             */
+            type: "text";
+            /** Text */
+            text: string;
         };
         /** TraceEntry */
         TraceEntry: {

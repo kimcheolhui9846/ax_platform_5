@@ -8,12 +8,12 @@ from app.harness.policy import TaskPolicy
 Validator = Callable[[SessionState, GenerationResult, TaskPolicy], list[ValidationIssue]]
 
 
-def check_cards_present(
+def check_sections_present(
     state: SessionState, result: GenerationResult, policy: TaskPolicy
 ) -> list[ValidationIssue]:
-    if result.cards:
+    if result.sections:
         return []
-    return [ValidationIssue(rule="cards_present", message="결과 카드가 하나도 없습니다.", severity="error")]
+    return [ValidationIssue(rule="sections_present", message="결과 섹션이 하나도 없습니다.", severity="error")]
 
 
 def check_assumptions_marked(
@@ -35,7 +35,7 @@ def check_assumptions_marked(
     return [ValidationIssue(rule="assumptions_marked", message=f"AI 가정이 결과에 표시되지 않았습니다: {names}")]
 
 
-COMMON_VALIDATORS: list[Validator] = [check_cards_present, check_assumptions_marked]
+COMMON_VALIDATORS: list[Validator] = [check_sections_present, check_assumptions_marked]
 
 
 def collect_issues(

@@ -97,7 +97,7 @@ def label_assumptions(
 def label_result(result: GenerationResult, labels: Mapping[str, str]) -> LabeledResult:
     """[순수] 저장된 결과를 화면용(라벨 포함) 결과로 바꾼다."""
     return LabeledResult(
-        cards=result.cards,
+        sections=result.sections,
         assumptions=label_assumptions(result.assumptions, labels),
         full_text=result.full_text,
         content=result.content,

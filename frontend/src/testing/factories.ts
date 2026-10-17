@@ -120,7 +120,7 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
     unknowns: [],
     validation: { issues: [], passed: true },
     result: {
-      cards: [{ card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "집들이 선물용 수제 향초." }],
+      sections: [{ order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "집들이 선물용 수제 향초." }] }],
       assumptions: [],
       full_text: "상품 콘셉트",
       content: {},

@@ -30,7 +30,7 @@ export function documentHtml(content: DocumentContent & { request: string }): st
   const rows = content.rows
     .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.note ? ` <span class="note">· ${e(row.note)}</span>` : ""}</td></tr>`)
     .join("");
-  const sections = documentSections(content.result.cards)
+  const sections = documentSections(content.result.sections)
     .map((s) => `<h2><span class="num">${s.number}</span> ${e(s.heading)} <span class="note">${e(s.tag)}</span></h2><p>${e(s.body)}</p>`)
     .join("");
   return [

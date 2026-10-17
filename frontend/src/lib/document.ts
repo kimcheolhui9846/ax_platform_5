@@ -1,4 +1,4 @@
-import type { LabeledResult, ResultCard, ResultView, TaskSummary, ValidationIssue, VersionSummary } from "../api/types";
+import type { LabeledResult, ResultSection, ResultView, TaskSummary, ValidationIssue, VersionSummary } from "../api/types";
 import { criteriaRows } from "./criteria";
 import type { CriteriaRow } from "./criteria";
 import { cardLabel } from "./labels";
@@ -6,16 +6,24 @@ import { versionLine } from "./sessions";
 
 export type DocumentSection = { key: string; number: string; heading: string; tag: string; body: string };
 
-/** [순수] 결과 카드를 문서 섹션(순서대로 01, 02 …)으로. */
-export function documentSections(cards: ResultCard[]): DocumentSection[] {
-  return [...cards]
+/** [순수] 섹션의 글 블록을 이어 붙인 본문. */
+export function sectionText(section: Pick<ResultSection, "blocks">): string {
+  return section.blocks
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("\n\n");
+}
+
+/** [순수] 결과 섹션을 문서 섹션(순서대로 01, 02 …)으로. */
+export function documentSections(sections: ResultSection[]): DocumentSection[] {
+  return [...sections]
     .sort((a, b) => a.order - b.order)
-    .map((card, index) => ({
-      key: `${card.card_type}-${card.order}`,
+    .map((section, index) => ({
+      key: `${section.kind}-${section.order}`,
       number: String(index + 1).padStart(2, "0"),
-      heading: card.title,
-      tag: cardLabel(card.card_type),
-      body: card.body,
+      heading: section.heading,
+      tag: cardLabel(section.kind),
+      body: sectionText(section),
     }));
 }
 

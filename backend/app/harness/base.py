@@ -17,6 +17,7 @@ from app.core.results import (
     ValidationIssue,
     ValidationReport,
     VersionReason,
+    sections_from_cards,
     utcnow,
 )
 from app.core.state import (
@@ -82,7 +83,7 @@ def _free_text(value: str | None) -> str:
 def to_generation_result(parsed: TaskResult) -> GenerationResult:
     """[코드·순수] LLM이 만든 TaskResult를 세션에 저장할 GenerationResult로 바꾼다."""
     return GenerationResult(
-        cards=parsed.cards,
+        sections=sections_from_cards(parsed.cards),
         assumptions=parsed.assumptions,
         full_text=parsed.full_text,
         content=parsed.content.model_dump(mode="json"),

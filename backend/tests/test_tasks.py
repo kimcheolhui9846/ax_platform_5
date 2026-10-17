@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.results import GenerationResult, ResultCard
+from app.core.results import GenerationResult, ResultCard, sections_from_cards
 from app.core.state import CoachingMode, SessionState
 from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
@@ -75,7 +75,7 @@ def test_eval_scenarios_complete(registry, task_type):
 
 def make_result(full_text: str = "본문", content: dict | None = None) -> GenerationResult:
     card = ResultCard(card_type="diagnosis", title="t", body="b", order=1)
-    return GenerationResult(cards=[card], full_text=full_text, content=content or {})
+    return GenerationResult(sections=sections_from_cards([card]), full_text=full_text, content=content or {})
 
 
 def test_business_plan_flags_market_claims(registry):
