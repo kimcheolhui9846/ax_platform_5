@@ -152,6 +152,8 @@ const SESSION_BASE: SessionView = {
   progress: { asked: 1, cap: 5, readiness: 0.38 },
   summary: SUMMARY,
   unknowns: [],
+  supplements: [],
+  supplements_changed: false,
   flow: [ANSWERED_USER, current(QUESTION), ...UPCOMING],
   can_generate: true,
   has_result: false,
@@ -198,6 +200,7 @@ export const RESULT: ResultView = {
   version: { version: 2, created_at: "2026-10-16T09:30:00Z", reason: "regenerate", saved: false },
   summary: DONE_SUMMARY,
   unknowns: [{ field: "customer_problem", label: "고객 문제" }],
+  supplements: [],
   validation: {
     issues: [{ rule: "unverified_number", message: "가격은 AI 가정이에요. 비슷한 상품 가격을 확인해 주세요.", severity: "warning" }],
     passed: true,
@@ -226,6 +229,7 @@ export const SAVED_VERSION: VersionView = {
   validation: RESULT.validation,
   summary: RESULT.summary,
   unknowns: RESULT.unknowns,
+  supplements: RESULT.supplements,
 };
 
 export const OLD_VERSION: VersionView = {
@@ -236,6 +240,7 @@ export const OLD_VERSION: VersionView = {
   validation: null,
   summary: SUMMARY,
   unknowns: [{ field: "usage_context", label: "사용 상황" }],
+  supplements: [],
 };
 
 export const SESSIONS: SessionSummary[] = [

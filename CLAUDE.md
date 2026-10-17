@@ -54,7 +54,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 결과물에서 거꾸로 따라간다.
 
 1. `output_schema.py` — 원하는 결과물이 바뀌었나?
-2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '다른 예시 보기' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 금지 규칙(`rules`)
+2. `policy.yaml` — 그 결과물에 필요한 정보(필드·가중치·종류), 질문 문구와 순서, '다른 예시 보기' 사다리(`easier_questions`, `max_easier_level`보다 적게. 고정 단계는 기본 단일 선택이고 `multi_select: true`로 바꾼다), 모드별 질문 상한(`question_caps`, 양의 정수), 준비도 기준(`readiness_threshold`), 미확인 정보 항목(`supplement_fields`, 필드와 다른 이름), 금지 규칙(`rules`)
 3. `prompts/` — 이 과제에서만 다르게 할 단계 템플릿 (`diagnose`, `easier_question`, `propose_value`, `generate`, `validate`). 과제마다 고정인 내용은 `system` 블록, 세션 값은 `user` 블록에 둔다(`generate`는 보통 `task_guidance` 블록만 덮는다). 단계마다 쓸 수 있는 변수는 `prompting.py`의 `STAGE_CONTEXT`에 있다.
 4. `validators.py` — 결과를 기계적으로 확인할 규칙. '이 표현이 있으면 경고'는 `validation.term_rule(rule, terms, message_template)`로 만든다.
 5. `harness.py` — 위로 표현할 수 없는 로직만 `BaseHarness` 메서드를 오버라이드
@@ -88,6 +88,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `SessionView.error`는 저장값이 아니라 상태에서 나온다(`FAILED`일 때만 생성 실패 문구). 실패 뒤 답하거나, 이전 답을 고치거나, 질문이 걸린 채 이어 가거나, '원래 예시 보기'를 누르면 함께 사라진다.
 - 흐름 패널의 질문 목록(`SessionView.flow`)은 `app/harness/flow.py`의 `plan_flow`(순수)가 만든다. 물어본 필드(처음 물은 순서, 완료·미정·멈춤) → 지금 질문 → 예정(정책 순서, `questions_left`만큼)이다. 멈춤(`paused`)은 '다른 예시 보기' 중에 결과를 먼저 만들어 걸린 질문이 내려간 필드다. 이미 상한에 셌으므로 예정 자리를 쓰지 않고, 이어 가면 다시 묻는다. 답한 항목에는 그 답을 정한 질문이 실려 있어 그 `question_id`로 답을 고친다.
 - 결과는 버전으로 쌓인다(`SessionState.versions`, `ResultVersion`). 생성이 성공할 때마다 `new_version`이 하나를 덧붙이고(첫 번째는 `first`, 그 뒤는 `regenerate`), 마지막 버전의 결과가 지금 결과(`state.result`)다. 버전은 그때의 사실·가정·미정을 복사해 두므로 결과 화면·버전 보기의 '반영한 기준'은 그 버전의 것이다(`ResultView.summary`). 실패한 생성은 버전을 남기지 않는다. `POST /sessions/{id}/versions/{n}/save`가 저장 표시를 하고, `GET …/versions/{n}`이 지난 버전을 보여 준다.
+- 미확인 정보 보완은 정책의 `supplement_fields`(필드와 이름이 겹치지 않는 별도 항목)다. `PUT /sessions/{id}/supplements`가 세션의 `supplements`에 사용자 입력(`user_supplement`, "사용자 입력 · 검증 전")으로 두고, 질문 흐름·준비도에는 넣지 않는다. 바뀌면 결과는 stale이 되고, 생성 프롬프트의 세션 맥락에 "보완 정보"로 실린다. 생성 이유는 `generate_reason`이 정한다: 답(사실·가정·미정)은 그대로이고 보완 정보만 바뀌었으면 `supplement`. 문구 수정(`PATCH /sessions/{id}/result/sections/{order}`)은 LLM 없이 섹션 글을 바꾼 `edit` 버전이고 직전 버전의 기준을 이어받는다.
 - 세션에는 주인(`owner_id`)이 있다. 지금은 브라우저가 만든 익명 ID를 `X-Client-Id` 헤더로 보내고(`frontend/src/lib/clientId.ts`, `api/client.ts`의 `withClientId`), 백엔드는 `app/api/owner.py`의 `current_owner`로 받는다. 세션 경로는 모두 owner를 받고, 남의 세션은 없는 세션과 같은 404다(잠금도 만들지 않는다). 헤더가 없거나 형식이 틀리면 422. 로그인을 붙일 때는 `current_owner` 하나만 바꾼다. 테스트는 `tests/conftest.py`의 `api_client(app, client_id=...)`를 쓴다. 내 세션 목록은 `GET /sessions`(`SessionSummary`, 최근에 바뀐 순서, 저장한 버전 포함)다.
 
 ## API 계약이 바뀔 때

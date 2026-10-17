@@ -81,6 +81,12 @@ fields:
     options: [1만원 이하, 1~3만원, 3~5만원, 5만원 이상]
     easier_questions:
       - question: 비슷한 상품을 산다면 얼마까지 내겠어요?
+supplement_fields:
+  - { name: target_customer, label: 고객, example: 일상 소지품을 정리하는 사용자 }
+  - { name: material, label: 소재, example: 면 100% }
+  - { name: size, label: 크기, example: 가로 20 × 세로 12cm }
+  - { name: production_cost, label: 제작 비용, example: "8,000원 / 개" }
+  - { name: sale_price, label: 판매 가격, example: "18,000원 / 개" }
 rules:
   - 고객 문제와 무관한 기능 확대를 제안하지 않는다
   - 제작 조건을 무시한 제안을 하지 않는다

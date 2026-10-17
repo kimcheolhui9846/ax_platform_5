@@ -64,6 +64,7 @@ def test_other_clients_session_looks_missing_everywhere():
         ("GET", f"/sessions/{sid}/versions/1", None),
         ("POST", f"/sessions/{sid}/versions/1/save", None),
         ("PATCH", f"/sessions/{sid}/result/sections/1", {"text": "남의 문구"}),
+        ("PUT", f"/sessions/{sid}/supplements", {"values": {}}),
     ]
     for method, path, body in attempts:
         response = theirs.request(method, f"{BASE}{path}", json=body)

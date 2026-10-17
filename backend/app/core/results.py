@@ -25,6 +25,7 @@ class VersionReason(StrEnum):
     FIRST = "first"  # 첫 초안
     REGENERATE = "regenerate"  # 다시 만든 초안
     EDIT = "edit"  # 문구 수정
+    SUPPLEMENT = "supplement"  # 보완 정보 반영
 
 
 class ResultCard(ContractModel):

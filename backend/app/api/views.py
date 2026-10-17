@@ -12,9 +12,9 @@ from app.core.state import (
     SessionStatus,
     source_label,
 )
-from app.harness.base import BaseHarness
+from app.harness.base import BaseHarness, supplements_changed
 from app.harness.flow import plan_flow
-from app.harness.policy import FieldPolicy, TaskPolicy
+from app.harness.policy import FieldPolicy, SupplementField, TaskPolicy
 from app.schemas.coaching import (
     FieldSummary,
     LabeledAssumption,
@@ -25,6 +25,7 @@ from app.schemas.coaching import (
     SessionSummary,
     SessionView,
     SummaryItem,
+    SupplementItem,
     TaskForm,
     TaskSummary,
     UnknownItem,
@@ -127,6 +128,8 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         summary=build_summary(harness.policy.fields, state.facts, state.assumptions),
         unknowns=label_unknowns(state.unknowns, harness.policy.labels),
         flow=plan_flow(harness.policy, state, harness.questions_left(state)),
+        supplements=supplement_items(harness.policy.supplement_fields, state.supplements),
+        supplements_changed=supplements_changed(state.supplements, state.versions[-1] if state.versions else None),
         can_generate=state.status is not SessionStatus.GENERATING,
         has_result=state.result is not None,
         result_stale=state.result_stale,
@@ -145,7 +148,17 @@ def field_labels(fields: Sequence[FieldPolicy]) -> dict[str, str]:
     return {f.name: f.label for f in fields}
 
 
-def to_result_view(state: SessionState, fields: Sequence[FieldPolicy]) -> ResultView:
+def supplement_items(fields: Sequence[SupplementField], values: Mapping[str, InfoItem]) -> list[SupplementItem]:
+    """[순수] 정책 순서대로 보완 항목과 지금 값(없으면 None)."""
+    return [
+        SupplementItem(name=f.name, label=f.label, example=f.example, value=values[f.name].value if f.name in values else None)
+        for f in fields
+    ]
+
+
+def to_result_view(
+    state: SessionState, fields: Sequence[FieldPolicy], supplement_fields: Sequence[SupplementField]
+) -> ResultView:
     """[순수] 지금 결과. 기준(summary·unknowns)은 지금 세션이 아니라 이 결과를 만든 버전의 것이다."""
     if state.result is None or not state.versions:
         raise ValueError("생성된 결과가 없는 세션입니다.")
@@ -160,10 +173,16 @@ def to_result_view(state: SessionState, fields: Sequence[FieldPolicy]) -> Result
         version=version_summary(latest),
         summary=build_summary(fields, latest.facts, latest.assumptions),
         unknowns=label_unknowns(latest.unknowns, labels),
+        supplements=supplement_items(supplement_fields, latest.supplements),
     )
 
 
-def to_version_view(state: SessionState, version: ResultVersion, fields: Sequence[FieldPolicy]) -> VersionView:
+def to_version_view(
+    state: SessionState,
+    version: ResultVersion,
+    fields: Sequence[FieldPolicy],
+    supplement_fields: Sequence[SupplementField],
+) -> VersionView:
     """[순수] 버전 하나 보기(그 버전의 결과와 기준)."""
     labels = field_labels(fields)
     return VersionView(
@@ -174,6 +193,7 @@ def to_version_view(state: SessionState, version: ResultVersion, fields: Sequenc
         validation=version.validation,
         summary=build_summary(fields, version.facts, version.assumptions),
         unknowns=label_unknowns(version.unknowns, labels),
+        supplements=supplement_items(supplement_fields, version.supplements),
     )
 
 

@@ -8,6 +8,7 @@ describe("세션 요약 판단", () => {
     expect(versionLine({ version: 1, reason: "first" })).toBe("V1 · 첫 초안");
     expect(versionLine({ version: 3, reason: "regenerate" })).toBe("V3 · 다시 만든 초안");
     expect(versionLine({ version: 4, reason: "edit" })).toBe("V4 · 문구 수정");
+    expect(versionLine({ version: 5, reason: "supplement" })).toBe("V5 · 보완 정보 반영");
   });
 
   it("이어서 작업할 화면: 걸린 질문 → 결과 → 답변 확인", () => {

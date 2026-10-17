@@ -4,6 +4,7 @@ type Schemas = components["schemas"];
 
 export type TaskSummary = Schemas["TaskSummary"];
 export type SessionView = Schemas["SessionView"];
+export type SupplementItem = Schemas["SupplementItem"];
 export type ResultView = Schemas["ResultView"];
 export type Question = Schemas["Question"];
 export type Progress = Schemas["Progress"];

@@ -33,6 +33,7 @@ class InfoSource(StrEnum):
     PREVIOUS_TASK = "previous_task"
     AI_ASSUMPTION = "ai_assumption"
     DEFAULT = "default"
+    USER_SUPPLEMENT = "user_supplement"
 
 
 # 정보 출처의 한국어 라벨. 프롬프트와 API 응답(SummaryItem.source_label)이 함께 쓴다.
@@ -42,6 +43,7 @@ SOURCE_LABELS: dict[InfoSource, str] = {
     InfoSource.PREVIOUS_TASK: "이전 과제",
     InfoSource.AI_ASSUMPTION: "AI 가정",
     InfoSource.DEFAULT: "기본값",
+    InfoSource.USER_SUPPLEMENT: "사용자 입력 · 검증 전",
 }
 
 
@@ -121,6 +123,7 @@ class ResultVersion(BaseModel):
     facts: dict[str, InfoItem] = Field(default_factory=dict)
     assumptions: dict[str, Assumption] = Field(default_factory=dict)
     unknowns: list[str] = Field(default_factory=list)
+    supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 그 버전에 반영한 보완 정보
     saved: bool = False  # 저장 표시(결과물 목록에 모인다)
 
     @classmethod
@@ -133,6 +136,7 @@ class ResultVersion(BaseModel):
         facts: Mapping[str, InfoItem],
         assumptions: Mapping[str, Assumption],
         unknowns: Sequence[str],
+        supplements: Mapping[str, InfoItem],
     ) -> "ResultVersion":
         """그때의 결과·검증·기준을 복사해 버전 하나를 만든다. 뒤에 세션이 바뀌어도 이 버전은 그대로다."""
         return cls(
@@ -144,13 +148,16 @@ class ResultVersion(BaseModel):
             facts={name: item.model_copy() for name, item in facts.items()},
             assumptions={name: item.model_copy() for name, item in assumptions.items()},
             unknowns=list(unknowns),
+            supplements={name: item.model_copy() for name, item in supplements.items()},
         )
 
     def derived(
         self, number: int, reason: VersionReason, result: GenerationResult, validation: ValidationReport | None
     ) -> "ResultVersion":
-        """이 버전의 기준(사실·가정·미정)을 그대로 이어받고 결과만 바꾼 새 버전(문구 수정)."""
-        return ResultVersion.snapshot(number, reason, result, validation, self.facts, self.assumptions, self.unknowns)
+        """이 버전의 기준(사실·가정·미정·보완 정보)을 그대로 이어받고 결과만 바꾼 새 버전(문구 수정)."""
+        return ResultVersion.snapshot(
+            number, reason, result, validation, self.facts, self.assumptions, self.unknowns, self.supplements
+        )
 
 
 class TraceEntry(ContractModel):
@@ -188,6 +195,7 @@ class SessionState(BaseModel):
     facts: dict[str, InfoItem] = Field(default_factory=dict)
     assumptions: dict[str, Assumption] = Field(default_factory=dict)
     unknowns: list[str] = Field(default_factory=list)
+    supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 미확인 정보 보완(사용자 입력·검증 전). 질문 흐름과 준비도에는 들지 않는다
     easier_levels: dict[str, int] = Field(default_factory=dict)  # 다른 예시 보기 사다리 현재 단계
     conflicts: list[Conflict] = Field(default_factory=list)
     asked_questions: list[AskedQuestion] = Field(default_factory=list)
@@ -210,7 +218,14 @@ class SessionState(BaseModel):
         if self.result is not None and not self.versions:
             self.versions = [
                 ResultVersion.snapshot(
-                    1, VersionReason.FIRST, self.result, self.validation, self.facts, self.assumptions, self.unknowns
+                    1,
+                    VersionReason.FIRST,
+                    self.result,
+                    self.validation,
+                    self.facts,
+                    self.assumptions,
+                    self.unknowns,
+                    self.supplements,
                 )
             ]
         return self

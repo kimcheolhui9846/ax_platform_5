@@ -163,6 +163,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/supplements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Supplements
+         * @description 미확인 정보를 저장한다(사용자 입력·검증 전). 초안에 반영은 다시 생성(generate)이다.
+         */
+        put: operations["save_supplements_api_v1_coaching_sessions__session_id__supplements_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/question/original": {
         parameters: {
             query?: never;
@@ -361,7 +381,7 @@ export interface components {
          * InfoSource
          * @enum {string}
          */
-        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default";
+        InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default" | "user_supplement";
         /** LabeledAssumption */
         LabeledAssumption: {
             /** Field */
@@ -498,6 +518,8 @@ export interface components {
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
             unknowns: components["schemas"]["UnknownItem"][];
+            /** Supplements */
+            supplements: components["schemas"]["SupplementItem"][];
         };
         /** ReviseAnswerRequest */
         ReviseAnswerRequest: {
@@ -564,6 +586,10 @@ export interface components {
             unknowns: components["schemas"]["UnknownItem"][];
             /** Flow */
             flow: components["schemas"]["FlowItem"][];
+            /** Supplements */
+            supplements: components["schemas"]["SupplementItem"][];
+            /** Supplements Changed */
+            supplements_changed: boolean;
             /** Can Generate */
             can_generate: boolean;
             /** Has Result */
@@ -588,6 +614,27 @@ export interface components {
             confidence: number;
             /** Is Assumption */
             is_assumption: boolean;
+        };
+        /** SupplementItem */
+        SupplementItem: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Example */
+            example: string;
+            /** Value */
+            value: string | null;
+        };
+        /**
+         * SupplementsRequest
+         * @description {항목 이름: 값 | null}. null·빈 값이면 그 항목을 지운다.
+         */
+        SupplementsRequest: {
+            /** Values */
+            values: {
+                [key: string]: string | null;
+            };
         };
         /** TaskForm */
         TaskForm: {
@@ -698,7 +745,7 @@ export interface components {
          * @description 결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다.
          * @enum {string}
          */
-        VersionReason: "first" | "regenerate" | "edit";
+        VersionReason: "first" | "regenerate" | "edit" | "supplement";
         /** VersionSummary */
         VersionSummary: {
             /** Version */
@@ -728,6 +775,8 @@ export interface components {
             summary: components["schemas"]["SummaryItem"][];
             /** Unknowns */
             unknowns: components["schemas"]["UnknownItem"][];
+            /** Supplements */
+            supplements: components["schemas"]["SupplementItem"][];
         };
     };
     responses: never;
@@ -1188,6 +1237,59 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save_supplements_api_v1_coaching_sessions__session_id__supplements_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplementsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과가 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

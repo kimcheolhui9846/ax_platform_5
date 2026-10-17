@@ -137,16 +137,55 @@ def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | N
     return answer_to_fact(question, answer)
 
 
+def _values(items: Mapping[str, InfoItem]) -> dict[str, str]:
+    return {name: item.value for name, item in items.items()}
+
+
+def apply_supplements(current: Mapping[str, InfoItem], values: Mapping[str, str | None]) -> dict[str, InfoItem]:
+    """[코드·순수] 보완 정보에 입력을 반영한 새 사전. 앞뒤 공백을 지우고, 빈 값·None이면 그 항목을 지운다."""
+    merged = dict(current)
+    for name, value in values.items():
+        text = (value or "").strip()
+        if not text:
+            merged.pop(name, None)
+        elif name not in merged or merged[name].value != text:
+            merged[name] = InfoItem(value=text, source=InfoSource.USER_SUPPLEMENT)
+    return merged
+
+
+def supplements_changed(current: Mapping[str, InfoItem], latest: ResultVersion | None) -> bool:
+    """[코드·순수] 보완 정보가 마지막 결과 버전에 반영된 것과 다른지(결과가 없으면 입력이 있는지)."""
+    if latest is None:
+        return bool(current)
+    return _values(current) != _values(latest.supplements)
+
+
+def generate_reason(state: SessionState) -> VersionReason:
+    """[코드·순수] 이번 생성의 버전 이유. 답은 그대로이고 보완 정보만 바뀌었으면 보완 반영이다."""
+    if not state.versions:
+        return VersionReason.FIRST
+    latest = state.versions[-1]
+    same_answers = (
+        _values(state.facts) == _values(latest.facts)
+        and _values(state.assumptions) == _values(latest.assumptions)
+        and list(state.unknowns) == latest.unknowns
+    )
+    if same_answers and supplements_changed(state.supplements, latest):
+        return VersionReason.SUPPLEMENT
+    return VersionReason.REGENERATE
+
+
 def new_version(state: SessionState, result: GenerationResult, report: ValidationReport) -> ResultVersion:
-    """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정을 복사해 함께 남긴다."""
+    """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정·보완 정보를 복사해 함께 남긴다."""
     return ResultVersion.snapshot(
         len(state.versions) + 1,
-        VersionReason.REGENERATE if state.versions else VersionReason.FIRST,
+        generate_reason(state),
         result,
         report,
         state.facts,
         state.assumptions,
         state.unknowns,
+        state.supplements,
     )
 
 
@@ -564,6 +603,19 @@ class BaseHarness:
         state.result = result
         state.validation = report
         return True
+
+    def set_supplements(self, state: SessionState, values: Mapping[str, str | None]) -> None:
+        """미확인 정보를 저장한다(사용자 입력·검증 전). 바뀌면 결과는 최신이 아니게 되고, 다음 생성에 반영된다."""
+        unknown = sorted(set(values) - set(self.policy.supplement_labels))
+        if unknown:
+            raise HarnessError(f"보완할 수 없는 항목입니다: {', '.join(unknown)}")
+        merged = apply_supplements(state.supplements, values)
+        if _values(merged) == _values(state.supplements):
+            return
+        state.supplements = merged
+        if state.result is not None:
+            state.result_stale = True
+            _settle_status(state)
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
         """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""
