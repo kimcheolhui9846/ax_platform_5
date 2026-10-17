@@ -15,6 +15,8 @@
 {% block user %}
 {% include "_context.md" %}
 
+{% include "_supplements.md" %}
+
 ## 검토할 결과
 {{ result_text }}
 {% endblock %}

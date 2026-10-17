@@ -234,6 +234,12 @@ describe("SupplementPanel", () => {
 describe("SupplementForm", () => {
   const html = renderToString(<SupplementForm titleId="t" items={items} busy={false} onSave={noop} onCancel={noop} />);
 
+  it("저장 중에는 닫기·취소도 누를 수 없다(저장이 끝나야 닫힌다)", () => {
+    const saving = renderToString(<SupplementForm titleId="t" items={items} busy={true} onSave={noop} onCancel={noop} />);
+    expect(saving).toMatch(/<button type="button" class="btn compact" aria-label="정보 입력 닫기" disabled="">/);
+    expect(saving).toContain('<button type="button" class="btn" disabled="">취소</button>');
+  });
+
   it("항목마다 지금 값(미확인은 빈 칸)과 예시 넣기·미확인으로", () => {
     expect(html).toContain('<h2 id="t">미확인 정보를 채워 주세요</h2>');
     expect(html).toContain('value="면"');

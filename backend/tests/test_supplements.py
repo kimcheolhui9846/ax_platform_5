@@ -159,10 +159,20 @@ def test_reverting_supplements_keeps_stale_when_answers_changed(harness, reply):
     assert state.result_stale is True
 
 
-def test_supplements_are_in_the_generate_prompt_only(harness):
+def test_supplements_are_not_in_the_question_prompts(harness):
     state = harness.start("향초")
     harness.set_supplements(state, {"material": "면 100%"})
     harness.generate(state)
 
     diagnose = next(t for t in state.trace if t.stage == "diagnose").input["user"]
     assert "보완 정보" not in diagnose
+
+
+def test_llm_review_sees_the_supplements(harness):
+    harness.policy.llm_validation = True  # 검토가 보완 정보로 쓴 값을 근거 없는 값으로 오판하지 않게
+    state = harness.start("향초")
+    harness.set_supplements(state, {"material": "면 100%"})
+    harness.generate(state)
+
+    review = next(t for t in state.trace if t.stage == "validate").input["user"]
+    assert "- material (소재): 면 100%" in review

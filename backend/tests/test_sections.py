@@ -45,6 +45,20 @@ def test_results_saved_with_cards_are_read_as_sections():
     assert [(s.heading, section_text(s)) for s in result.sections] == [("콘셉트", "한글 파우치")]
 
 
+def test_legacy_cards_longer_than_the_new_limit_still_load():
+    """길이 상한(2500)은 LLM 출력 제약이다. 상한이 생기기 전에 저장한 결과는 그대로 읽는다."""
+    long_body = "가" * 3000
+    legacy = {
+        "cards": [{"card_type": "diagnosis", "title": "콘셉트", "body": long_body, "order": 1}],
+        "full_text": long_body,
+        "content": {},
+    }
+
+    result = GenerationResult.model_validate(legacy)
+
+    assert section_text(result.sections[0]) == long_body
+
+
 def test_section_orders_are_renumbered_even_when_cards_repeat_an_order():
     overlapped = sections_from_cards([card(1, "가", "a"), card(1, "나", "b"), card(2, "다", "c")])
     assert [(s.order, s.heading) for s in overlapped] == [(1, "가"), (2, "나"), (3, "다")]

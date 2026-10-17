@@ -27,7 +27,7 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
           <p className="small">추가 정보 입력</p>
           <h2 id={titleId}>미확인 정보를 채워 주세요</h2>
         </div>
-        <button type="button" className="btn compact" aria-label="정보 입력 닫기" onClick={onCancel}>
+        <button type="button" className="btn compact" aria-label="정보 입력 닫기" disabled={busy} onClick={onCancel}>
           닫기
         </button>
       </div>
@@ -59,7 +59,7 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
       })}
       <p className="small muted">입력값은 사용자 제공 정보입니다. 예시값을 선택해도 사실 검증이 완료된 것은 아니에요.</p>
       <div className="row dialog-footer">
-        <button type="button" className="btn" onClick={onCancel}>
+        <button type="button" className="btn" disabled={busy} onClick={onCancel}>
           취소
         </button>
         <button type="submit" className="btn primary grow" disabled={busy}>

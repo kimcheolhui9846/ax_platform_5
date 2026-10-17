@@ -108,7 +108,8 @@ class GenerationResult(ContractModel):
     def _sections_from_legacy_cards(cls, data: Any) -> Any:
         """섹션이 생기기 전에 저장한 결과(cards)는 섹션으로 읽는다."""
         if isinstance(data, dict) and "sections" not in data and "cards" in data:
-            cards = [ResultCard.model_validate(c) for c in data["cards"]]
+            # 길이 상한은 LLM 출력 제약이라, 상한이 생기기 전에 저장한 카드는 검증 없이 옮긴다
+            cards = [ResultCard.model_construct(**c) if isinstance(c, dict) else c for c in data["cards"]]
             data = {k: v for k, v in data.items() if k != "cards"} | {"sections": sections_from_cards(cards)}
         return data
 
