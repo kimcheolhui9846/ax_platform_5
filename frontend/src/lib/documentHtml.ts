@@ -1,5 +1,5 @@
 import { formatAssumption } from "./assumption";
-import type { DocumentContent } from "./document";
+import type { DocumentBlock, DocumentContent, DocumentRecord } from "./document";
 import { documentSections } from "./document";
 
 export type DocumentFile = { filename: string; html: string };
@@ -17,11 +17,29 @@ const STYLE = [
   "p{white-space:pre-line;margin:0 0 8px}.note{color:#707070;font-size:13px}.num{color:#800122;font-size:13px}",
   "table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-top:1px solid #e0e0e0;text-align:left;vertical-align:top}",
   "th{width:120px;font-weight:500}",
+  "figure{margin:12px 0}img{max-width:100%;height:auto}figcaption{color:#707070;font-size:13px}.record{background:#f4f4f4;padding:12px 16px;margin:12px 0}a{color:#707070}",
 ].join("");
 
 function list(heading: string, items: string[]): string {
   if (items.length === 0) return "";
   return `<h2>${escapeHtml(heading)}</h2><ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function blockHtml(block: DocumentBlock): string {
+  const e = escapeHtml;
+  if (block.kind === "text") return `<p>${e(block.text)}</p>`;
+  if (block.src !== null && block.src.startsWith("data:image/")) {
+    const caption = block.caption ? `<figcaption>${e(block.caption)}</figcaption>` : "";
+    return `<figure><img src="${e(block.src)}" alt="${e(block.alt)}">${caption}</figure>`;
+  }
+  return `<p class="note">[이미지: ${e(block.alt)}]</p>`;
+}
+
+function recordHtml(record: DocumentRecord): string {
+  const e = escapeHtml;
+  const source = record.url ? `<a href="${e(record.url)}">${e(record.source)}</a>` : e(record.source);
+  const note = record.note ? ` · ${e(record.note)}` : "";
+  return `<div class="record"><p><strong>${e(record.label)}</strong></p><p>${e(record.text)}</p><p class="note">${source}${note}</p></div>`;
 }
 
 /** [순수] 내려받을 결과 문서(HTML 한 파일). 사용자·AI가 쓴 글은 모두 이스케이프한다. 이미지가 들어갈 수 있어 HTML이다. */
@@ -30,8 +48,11 @@ export function documentHtml(content: DocumentContent & { request: string }): st
   const rows = content.rows
     .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.note ? ` <span class="note">· ${e(row.note)}</span>` : ""}</td></tr>`)
     .join("");
-  const sections = documentSections(content.result.sections)
-    .map((s) => `<h2><span class="num">${s.number}</span> ${e(s.heading)} <span class="note">${e(s.tag)}</span></h2><p>${e(s.body)}</p>`)
+  const sections = documentSections(content.result.sections, content.result.evidence, content.images)
+    .map(
+      (s) =>
+        `<h2><span class="num">${s.number}</span> ${e(s.heading)} <span class="note">${e(s.tag)}</span></h2>${s.blocks.map(blockHtml).join("")}${s.records.map(recordHtml).join("")}`,
+    )
     .join("");
   const supplements =
     content.supplements.length === 0
@@ -55,6 +76,7 @@ export function documentHtml(content: DocumentContent & { request: string }): st
     "<h2>내 답변에서 반영한 기준</h2>",
     `<table>${rows}</table>`,
     sections,
+    content.trailing.map(recordHtml).join(""),
     supplements,
     list("AI가 가정한 내용", content.result.assumptions.map(formatAssumption)),
     list("검토가 필요한 부분", content.issues.map((issue) => issue.message)),

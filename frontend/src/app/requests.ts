@@ -1,6 +1,6 @@
 import { BACKEND_UNREACHABLE, toOutcome } from "../api/client";
 import type { ApiResult } from "../api/client";
-import { getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
+import { getAsset, getEvidence, getResult, getSession, getTaskForm, getVersion, listSessions, listTasks } from "../api/coaching";
 import { loadKey } from "./load";
 import type { Load } from "./load";
 import type { Action } from "./state";
@@ -74,6 +74,13 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         load: key,
         outdatesSessionOnFail: false,
       });
+    case "evidence":
+      return run({
+        request: () => getEvidence(load.sessionId),
+        done: (items, seq) => ({ type: "evidenceLoaded", seq, sessionId: load.sessionId, items }),
+        load: key,
+        outdatesSessionOnFail: false,
+      });
     case "version":
       return run({
         request: () => getVersion(load.sessionId, load.version),
@@ -81,5 +88,15 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
         load: key,
         outdatesSessionOnFail: false,
       });
+  }
+}
+
+/** 결과 이미지 하나를 data URL로. 화면 불러오기와 따로라 버튼을 막지 않고, 실패하면 null(알림 없이 대체 글을 보인다). */
+export async function loadAsset(assetId: string): Promise<string | null> {
+  try {
+    const outcome = toOutcome(await getAsset(assetId));
+    return outcome.ok ? outcome.data : null;
+  } catch {
+    return null;
   }
 }

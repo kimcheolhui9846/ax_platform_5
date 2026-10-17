@@ -42,8 +42,12 @@ describe("결과 버튼", () => {
 
 describe("현재 버전 저장 버튼", () => {
   it("저장 전이고 최신이면 주 버튼, 저장했으면 막는다, 낡았으면 보조 버튼", () => {
-    expect(saveButton({ saved: false }, false)).toEqual({ label: "현재 버전 저장", primary: true, done: false });
-    expect(saveButton({ saved: false }, true)).toEqual({ label: "현재 버전 저장", primary: false, done: false });
-    expect(saveButton({ saved: true }, false)).toEqual({ label: "저장한 버전이에요", primary: false, done: true });
+    expect(saveButton({ saved: false }, false, false)).toEqual({ label: "현재 버전 저장", primary: true, done: false });
+    expect(saveButton({ saved: false }, true, false)).toEqual({ label: "현재 버전 저장", primary: false, done: false });
+    expect(saveButton({ saved: true }, false, false)).toEqual({ label: "저장한 버전이에요", primary: false, done: true });
+  });
+
+  it("근거를 붙인 결과는 출처와 함께 저장", () => {
+    expect(saveButton({ saved: false }, false, true)).toEqual({ label: "출처와 함께 저장", primary: true, done: false });
   });
 });

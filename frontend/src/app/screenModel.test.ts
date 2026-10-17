@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { EvidenceItem } from "../api/types";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
@@ -68,9 +69,9 @@ describe("screenModel", () => {
     const route: Route = { name: "result", sessionId: "sess_1" };
     const session = makeSession({ next_question: null, has_result: true });
     const result = makeResult();
-    expect(screenModel(at(route, { session, result }))).toEqual({ kind: "result", task, session, result });
+    expect(screenModel(at(route, { session, result }))).toEqual({ kind: "result", task, session, result, images: {} });
     const never = makeSession({ next_question: null, has_result: false });
-    expect(screenModel(at(route, { session: never }))).toEqual({ kind: "result", task, session: never, result: null });
+    expect(screenModel(at(route, { session: never }))).toEqual({ kind: "result", task, session: never, result: null, images: {} });
   });
 
   it("결과가 있는 세션의 결과를 아직 받지 못했으면 불러오는 중, 못 받았으면 열 수 없다", () => {
@@ -99,7 +100,7 @@ describe("screenModel", () => {
     const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
     const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
-    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version });
+    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version, images: {} });
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
   });
@@ -108,7 +109,7 @@ describe("screenModel", () => {
     const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
     const unsaved = makeVersionView();
-    expect(screenModel(at(route, { session, version: unsaved }))).toEqual({ kind: "version", task, session, version: unsaved });
+    expect(screenModel(at(route, { session, version: unsaved }))).toEqual({ kind: "version", task, session, version: unsaved, images: {} });
   });
 
   it("내 세션 목록을 못 받아도 홈은 이어하기 없이 열린다(새 과제는 시작할 수 있다)", () => {
@@ -119,7 +120,7 @@ describe("screenModel", () => {
     const route: Route = { name: "version", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
     const version = makeVersionView();
-    expect(screenModel(at(route, { session, version }))).toEqual({ kind: "version", task, session, version });
+    expect(screenModel(at(route, { session, version }))).toEqual({ kind: "version", task, session, version, images: {} });
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
   });
@@ -131,10 +132,35 @@ describe("screenModel", () => {
     const base = { ...initialState(route), tasks: [makeTask()], session };
     expect(screenModel(base).kind).toBe("loading");
     const model = screenModel({ ...base, result });
-    expect(model).toEqual({ kind: "edit", task: makeTask(), session, result, section: result.result.sections[0] });
+    expect(model).toEqual({ kind: "edit", task: makeTask(), session, result, section: result.result.sections[0], images: {} });
     const missing = screenModel({ ...base, route: { ...route, order: 99 }, result });
-    expect(missing).toEqual({ kind: "result", task: makeTask(), session, result });
+    expect(missing).toEqual({ kind: "result", task: makeTask(), session, result, images: {} });
     const noResult = makeSession({ session_id: "sess_1", has_result: false });
-    expect(screenModel({ ...base, session: noResult })).toEqual({ kind: "result", task: makeTask(), session: noResult, result: null });
+    expect(screenModel({ ...base, session: noResult })).toEqual({ kind: "result", task: makeTask(), session: noResult, result: null, images: {} });
+  });
+
+  it("결과·수정·저장 완료·버전 보기 모델에는 받아 둔 이미지가 실린다", () => {
+    const assets = { a: "data:image/svg+xml;base64,AA", b: null };
+    const session = makeSession({ session_id: "sess_1", next_question: null, has_result: true });
+    const result = makeResult({ session_id: "sess_1" });
+    const shown = screenModel(at({ name: "result", sessionId: "sess_1" }, { session, result, assets }));
+    expect(shown).toMatchObject({ kind: "result", images: assets });
+  });
+
+  it("근거 검토 주소는 세션·결과·자료가 모두 있어야 그린다", () => {
+    const route: Route = { name: "evidence", sessionId: "sess_1" };
+    const session = makeSession({ session_id: "sess_1", next_question: null, has_result: true });
+    const result = makeResult({ session_id: "sess_1" });
+    const items: EvidenceItem[] = [];
+    expect(screenModel(at(route, { session, result }))).toEqual({ kind: "loading" });
+    expect(screenModel(at(route, { session, result, evidence: { sessionId: "sess_1", items } }))).toEqual({
+      kind: "evidence",
+      task,
+      session,
+      result,
+      items,
+    });
+    const noResult = makeSession({ session_id: "sess_1", next_question: null, has_result: false });
+    expect(screenModel(at(route, { session: noResult }))).toEqual({ kind: "result", task, session: noResult, result: null, images: {} });
   });
 });

@@ -9,6 +9,7 @@ export const TASKS: TaskSummary[] = [
     description: "고객과 수익 구조, 첫 실행 계획을 정리해요.",
     heading: "아이디어를 사업으로 시작하고 싶어요",
     deliverable: "사업 가설 · 실행 계획서",
+    evidence_sources: 0,
   },
   {
     task_type: "product_planning",
@@ -16,6 +17,7 @@ export const TASKS: TaskSummary[] = [
     description: "사용 장면과 핵심 기능, 제작 방향을 정리해요.",
     heading: "만들고 싶은 상품을 구체화하고 싶어요",
     deliverable: "상품 콘셉트 · 첫 제작 기획서",
+    evidence_sources: 2,
   },
   {
     task_type: "branding",
@@ -23,6 +25,7 @@ export const TASKS: TaskSummary[] = [
     description: "브랜드의 성격과 말투, 표현 방향을 정리해요.",
     heading: "내 브랜드만의 인상을 만들고 싶어요",
     deliverable: "브랜드 콘셉트 · 표현 가이드",
+    evidence_sources: 0,
   },
   {
     task_type: "marketing_content",
@@ -30,6 +33,7 @@ export const TASKS: TaskSummary[] = [
     description: "목적에 맞는 메시지를 실제 문구로 만들어요.",
     heading: "사람들에게 보여줄 홍보 글이 필요해요",
     deliverable: "게시글 · 행동 유도 문구",
+    evidence_sources: 0,
   },
 ];
 
@@ -224,6 +228,7 @@ export const RESULT: ResultView = {
       { order: 3, heading: "첫 제작 방향", kind: "suggestion", blocks: [{ type: "text", text: "수납과 사용 편의를 우선한다. 소재와 봉제 가능성을 먼저 확인한다." }] },
       { order: 4, heading: "다음 실행", kind: "action", blocks: [{ type: "text", text: "잠재 고객 다섯 명에게 시제품 사진을 보여 주고 구매 이유와 우려를 듣는다." }] },
     ],
+    evidence: [],
     assumptions: [
       { field: "price_direction", label: "가격 방향", value: "1~3만원", reason: "비슷한 소형 파우치의 가격대", requires_confirmation: true },
     ],

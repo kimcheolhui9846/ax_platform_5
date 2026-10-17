@@ -12,6 +12,7 @@ const ROUTES: [Route, string][] = [
   [{ name: "revise", sessionId: "sess_1", questionId: "q_1" }, "#/s/sess_1/question/q_1"],
   [{ name: "confirm", sessionId: "sess_1" }, "#/s/sess_1/confirm"],
   [{ name: "result", sessionId: "sess_1" }, "#/s/sess_1/result"],
+  [{ name: "evidence", sessionId: "sess_1" }, "#/s/sess_1/evidence"],
   [{ name: "work" }, "#/work"],
   [{ name: "documents" }, "#/documents"],
   [{ name: "saved", sessionId: "sess_1", version: 2 }, "#/s/sess_1/saved/2"],
@@ -94,5 +95,12 @@ describe("문구 수정 주소", () => {
     expect(parseRoute("#/s/sess_1/edit/x")).toEqual(HOME);
     expect(parseRoute("#/s/sess_1/edit/-1")).toEqual(HOME);
     expect(contextOf(route)).toBe("session:sess_1");
+  });
+});
+
+describe("근거 검토 주소", () => {
+  it("세션 묶음이다", () => {
+    expect(contextOf({ name: "evidence", sessionId: "sess_1" })).toBe("session:sess_1");
+    expect(sessionIdOf({ name: "evidence", sessionId: "sess_1" })).toBe("sess_1");
   });
 });

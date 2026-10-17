@@ -31,4 +31,7 @@ export const NOOP_HANDLERS: Handlers = {
   editSection: noop,
   submitEdit: noop,
   download: noop,
+  reviewEvidence: noop,
+  applyEvidence: noop,
+  openBeforeEvidence: noop,
 };

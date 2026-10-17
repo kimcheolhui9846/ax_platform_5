@@ -27,3 +27,7 @@ export type VersionReason = Schemas["VersionReason"];
 export type LabeledResult = Schemas["LabeledResult"];
 export type ValidationIssue = Schemas["ValidationIssue"];
 export type SessionSummary = Schemas["SessionSummary"];
+export type ImageBlock = Schemas["ImageBlock"];
+export type Block = ResultSection["blocks"][number];
+export type EvidenceRecord = Schemas["EvidenceRecord"];
+export type EvidenceItem = Schemas["EvidenceItem"];

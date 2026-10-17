@@ -27,7 +27,7 @@ export function ResultMain({ task, session, result, busy, onConfirm }: MainProps
       </section>
     );
   }
-  return <ResultDocument {...documentContent(task, result, session.result_stale)} />;
+  return <ResultDocument {...documentContent(task, result, session.result_stale, {})} />;
 }
 
 type SideProps = {
@@ -47,7 +47,7 @@ type SideProps = {
 export function ResultSide({ session, version, busy, supplements, onEditText, onRegenerate, onSave, onChangeAnswers, onContinue, onDownload }: SideProps) {
   const regenerate = regenerateAction(session.result_stale);
   const regenerateState = actionState(regenerate, busy, session.can_generate);
-  const save = saveButton(version, session.result_stale);
+  const save = saveButton(version, session.result_stale, false);
   return (
     <section className="card side-card stack" aria-label="결과 다음 할 일">
       <h2>결과를 확인해 주세요</h2>

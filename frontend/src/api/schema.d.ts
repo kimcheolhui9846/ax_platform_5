@@ -277,6 +277,46 @@ export interface paths {
         patch: operations["edit_result_section_api_v1_coaching_sessions__session_id__result_sections__order__patch"];
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Evidence
+         * @description 결과를 검토할 근거 자료(지금은 샘플). 결과가 있어야 검토할 수 있다.
+         */
+        get: operations["list_evidence_api_v1_coaching_sessions__session_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coaching/sessions/{session_id}/evidence/{source_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Evidence
+         * @description 근거 자료의 점검 문구와 출처를 결과에 붙인 새 버전(evidence). LLM을 부르지 않는다.
+         */
+        post: operations["apply_evidence_api_v1_coaching_sessions__session_id__evidence__source_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/trace": {
         parameters: {
             query?: never;
@@ -289,6 +329,26 @@ export interface paths {
          * @description 하네스 튜닝용. DEBUG=true일 때만 열린다. 닫혀 있으면 owner 검사 전에 없는 경로와 같은 404다.
          */
         get: operations["get_trace_api_v1_coaching_sessions__session_id__trace_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/coaching/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Asset
+         * @description 남의 파일은 없는 파일과 같은 404다.
+         */
+        get: operations["get_asset_api_v1_coaching_assets__asset_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -347,6 +407,62 @@ export interface components {
             detail: string;
         };
         /**
+         * EvidenceItem
+         * @description 근거 검토 화면의 자료 하나. 반영 여부는 결과의 evidence(source_id)로 안다.
+         */
+        EvidenceItem: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Publisher */
+            publisher: string;
+            /** Meta */
+            meta: string;
+            /** Summary */
+            summary: string;
+            /** Scope */
+            scope: string;
+            /** Url */
+            url: string;
+            applies_to: components["schemas"]["CardType"];
+            record: components["schemas"]["EvidenceProposalView"] | null;
+        };
+        /** EvidenceProposalView */
+        EvidenceProposalView: {
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Note */
+            note: string;
+            /** Caution */
+            caution: string;
+        };
+        /**
+         * EvidenceRecord
+         * @description 결과에 붙인 근거 검토 기록(점검 문구와 출처). 그 종류의 첫 섹션 뒤에 보이고, 자리가 없으면 문서 끝이다.
+         */
+        EvidenceRecord: {
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string;
+            /** Note */
+            note: string;
+            /** Source Title */
+            source_title: string;
+            /** Publisher */
+            publisher: string;
+            /** Url */
+            url: string;
+            section_kind: components["schemas"]["CardType"];
+            /** Section Order */
+            section_order: number | null;
+        };
+        /**
          * FieldKind
          * @enum {string}
          */
@@ -378,6 +494,29 @@ export interface components {
          */
         FlowStatus: "answered" | "current" | "upcoming" | "skipped" | "paused";
         /**
+         * ImageBlock
+         * @description 결과 섹션의 이미지 블록. 파일은 AssetStore에 있고 여기에는 그 id만 둔다.
+         */
+        ImageBlock: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image";
+            /** Asset Id */
+            asset_id: string;
+            /** Alt */
+            alt: string;
+            /** Caption */
+            caption: string;
+            origin: components["schemas"]["ImageOrigin"];
+        };
+        /**
+         * ImageOrigin
+         * @enum {string}
+         */
+        ImageOrigin: "ai_generated" | "user_upload";
+        /**
          * InfoSource
          * @enum {string}
          */
@@ -404,6 +543,8 @@ export interface components {
             sections: components["schemas"]["ResultSection"][];
             /** Assumptions */
             assumptions: components["schemas"]["LabeledAssumption"][];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRecord"][];
             /** Full Text */
             full_text: string;
             /** Content */
@@ -502,7 +643,7 @@ export interface components {
             heading: string;
             kind: components["schemas"]["CardType"];
             /** Blocks */
-            blocks: components["schemas"]["TextBlock"][];
+            blocks: (components["schemas"]["TextBlock"] | components["schemas"]["ImageBlock"])[];
         };
         /** ResultView */
         ResultView: {
@@ -665,16 +806,17 @@ export interface components {
             heading: string;
             /** Deliverable */
             deliverable: string;
+            /** Evidence Sources */
+            evidence_sources: number;
         };
         /**
          * TextBlock
-         * @description 결과 섹션의 글 블록. 이미지 블록(묶음 3b)과 type으로 구분한다.
+         * @description 결과 섹션의 글 블록. 이미지 블록과 type으로 구분한다.
          */
         TextBlock: {
             /**
-             * Type
-             * @default text
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             type: "text";
             /** Text */
@@ -742,10 +884,10 @@ export interface components {
         };
         /**
          * VersionReason
-         * @description 결과 버전이 생긴 까닭. 보완·근거 반영은 그 기능이 생길 때 더한다.
+         * @description 결과 버전이 생긴 까닭.
          * @enum {string}
          */
-        VersionReason: "first" | "regenerate" | "edit" | "supplement";
+        VersionReason: "first" | "regenerate" | "edit" | "supplement" | "evidence";
         /** VersionSummary */
         VersionSummary: {
             /** Version */
@@ -836,7 +978,7 @@ export interface operations {
                     "application/json": components["schemas"]["TaskForm"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -880,7 +1022,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -976,7 +1118,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1029,7 +1171,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1092,7 +1234,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1150,7 +1292,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1208,7 +1350,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1270,7 +1412,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1319,7 +1461,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1368,7 +1510,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1418,7 +1560,7 @@ export interface operations {
                     "application/json": components["schemas"]["VersionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1468,7 +1610,7 @@ export interface operations {
                     "application/json": components["schemas"]["VersionView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1522,7 +1664,106 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_evidence_api_v1_coaching_sessions__session_id__evidence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceItem"][];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    apply_evidence_api_v1_coaching_sessions__session_id__evidence__source_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultView"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1571,7 +1812,59 @@ export interface operations {
                     "application/json": components["schemas"]["TraceEntry"][];
                 };
             };
-            /** @description 과제·세션·결과가 없음 */
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_asset_api_v1_coaching_assets__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 이미지 바이트 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/svg+xml": string;
+                    "image/webp": string;
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;

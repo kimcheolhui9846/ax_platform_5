@@ -1,4 +1,5 @@
-import type { ResultView, SessionSummary, SessionView, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { EvidenceItem, ResultView, SessionSummary, SessionView, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { Images } from "../lib/document";
 import { contextOf, isListRoute, sessionIdOf, taskOf, toHash } from "../lib/routes";
 import type { Route } from "../lib/routes";
 
@@ -14,6 +15,8 @@ export type AppState = {
   sessionOutdated: boolean; // 결과를 만들었거나 생성이 실패해 서버 세션이 바뀌었다. 다시 받아야 한다
   result: ResultView | null;
   version: VersionView | null; // 버전 보기·저장 완료 화면의 버전
+  evidence: { sessionId: string; items: EvidenceItem[] } | null; // 근거 검토 화면의 자료
+  assets: Images; // 결과 이미지(asset_id → data URL). 화면 불러오기와 따로 받는다
   drafts: Record<string, string>; // 과제별 쓰다 만 요청 글
   inflight: Inflight | null;
   stalled: string | null; // 실패한 불러오기(loadKey). 같은 화면에서는 다시 부르지 않는다
@@ -31,6 +34,9 @@ export type Action =
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
+  | { type: "evidenceLoaded"; seq: number; sessionId: string; items: EvidenceItem[] }
+  | { type: "assetRequested"; assetId: string }
+  | { type: "assetLoaded"; assetId: string; url: string | null }
   | { type: "draftChanged"; task: string; text: string }
   | { type: "noticed"; message: string }
   | { type: "toastClosed" }
@@ -48,6 +54,8 @@ export function initialState(route: Route): AppState {
     sessionOutdated: false,
     result: null,
     version: null,
+    evidence: null,
+    assets: {},
     drafts: {},
     inflight: null,
     stalled: null,
@@ -71,6 +79,11 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, drafts: { ...state.drafts, [action.task]: action.text } };
     case "noticed":
       return { ...state, toast: action.message };
+    case "assetRequested":
+      return { ...state, assets: { ...state.assets, [action.assetId]: null } };
+    case "assetLoaded":
+      // 이미지는 id로 가려서 늦게 와도 맞는 자리에 들어간다. 다른 세션으로 떠난 뒤 온 것은 버린다
+      return action.assetId in state.assets ? { ...state, assets: { ...state.assets, [action.assetId]: action.url } } : state;
     case "toastClosed":
       return { ...state, toast: null };
     case "retried":
@@ -102,6 +115,8 @@ function navigate(state: AppState, route: Route): AppState {
     sessionOutdated: sameSession && state.sessionOutdated,
     result: state.result !== null && state.result.session_id === sessionId ? state.result : null,
     version: sameVersion(state.version, route) ? state.version : null,
+    evidence: state.evidence !== null && state.evidence.sessionId === sessionId ? state.evidence : null,
+    assets: sameSession ? state.assets : {},
   };
 }
 
@@ -147,6 +162,8 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
         toast: action.notice ?? done.toast,
       };
+    case "evidenceLoaded":
+      return { ...done, evidence: { sessionId: action.sessionId, items: action.items } };
     case "versionLoaded":
       return { ...done, version: action.version };
     case "versionSaved":

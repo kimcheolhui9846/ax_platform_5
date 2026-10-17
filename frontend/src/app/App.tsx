@@ -7,7 +7,8 @@ import { isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
-import { createRunner, startLoad } from "./requests";
+import { assetsToLoad } from "./assets";
+import { createRunner, loadAsset, startLoad } from "./requests";
 import { screenModel } from "./screenModel";
 import { initialState, isBusy, reducer } from "./state";
 import { AppView, pageTitle } from "./view";
@@ -60,6 +61,15 @@ export default function App() {
   }, [state.toast]);
 
   const model = screenModel(state);
+  // 결과 이미지는 화면 불러오기와 따로, 그릴 이미지마다 한 번씩 받는다
+  const missingAssets = assetsToLoad(model, state.assets);
+  useEffect(() => {
+    for (const assetId of missingAssets) {
+      dispatch({ type: "assetRequested", assetId });
+      void loadAsset(assetId).then((url) => dispatch({ type: "assetLoaded", assetId, url }));
+    }
+  }, [missingAssets.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const title = pageTitle(model);
   useEffect(() => {
     document.title = title;

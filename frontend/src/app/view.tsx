@@ -59,6 +59,9 @@ export type Handlers = {
   editSection: (order: number) => void;
   submitEdit: (order: number, text: string) => void;
   download: (file: DocumentFile) => void;
+  reviewEvidence: () => void;
+  applyEvidence: (sourceId: string) => void;
+  openBeforeEvidence: () => void;
 };
 
 export type ScreenParts = { main: JSX.Element; side: JSX.Element | null };
@@ -71,6 +74,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
   };
   switch (model.kind) {
     case "loading":
+      return { main: <LoadingScreen />, side: null };
+    case "evidence":
+      // 화면은 다음 작업(Task 5)에서 그린다
       return { main: <LoadingScreen />, side: null };
     case "unavailable":
       return { main: <UnavailableScreen onRetry={on.retry} onHome={on.goHome} />, side: null };

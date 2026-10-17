@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
+import type { EvidenceItem } from "../api/types";
 import { makeForm, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { initialState, isBusy, reducer } from "./state";
 import type { AppState } from "./state";
@@ -204,5 +205,54 @@ describe("reducer — 알림이 있는 결과", () => {
     });
     expect(next.toast).toBe("문구를 반영했어요.");
     expect(next.route).toEqual({ name: "result", sessionId: "sess_1" });
+  });
+});
+
+describe("reducer — 근거·이미지", () => {
+  const items = [{ source_id: "zip" }] as unknown as EvidenceItem[];
+
+  it("기다리던 요청의 근거 자료만 받는다", () => {
+    const state = waiting(initialState(result), 2);
+    expect(reducer(state, { type: "evidenceLoaded", seq: 1, sessionId: "sess_1", items }).evidence).toBeNull();
+    const done = reducer(state, { type: "evidenceLoaded", seq: 2, sessionId: "sess_1", items });
+    expect(done.evidence).toEqual({ sessionId: "sess_1", items });
+    expect(isBusy(done)).toBe(false);
+  });
+
+  it("이미지는 요청 번호 없이 id로 가려 받는다(불러오는 중은 null, 실패도 null)", () => {
+    const requested = reducer(initialState(result), { type: "assetRequested", assetId: "a" });
+    expect(requested.assets).toEqual({ a: null });
+    const loaded = reducer(requested, { type: "assetLoaded", assetId: "a", url: "data:image/png;base64,AA" });
+    expect(loaded.assets).toEqual({ a: "data:image/png;base64,AA" });
+    expect(reducer(requested, { type: "assetLoaded", assetId: "a", url: null }).assets).toEqual({ a: null });
+  });
+
+  it("요청하지 않았거나 세션을 떠나 비워진 뒤 온 이미지는 버린다", () => {
+    const state = initialState(result);
+    expect(reducer(state, { type: "assetLoaded", assetId: "a", url: "data:x" })).toBe(state);
+  });
+
+  it("다른 세션으로 가면 이미지와 근거 자료를 비우고, 같은 세션 안에서는 둔다", () => {
+    const session = makeSession({ session_id: "sess_1" });
+    const base: AppState = { ...initialState(result), session, assets: { a: "data:x" }, evidence: { sessionId: "sess_1", items } };
+    const same = reducer(base, { type: "navigated", route: { name: "evidence", sessionId: "sess_1" } });
+    expect(same.assets).toEqual({ a: "data:x" });
+    expect(same.evidence).toEqual({ sessionId: "sess_1", items });
+    const other = reducer(base, { type: "navigated", route: { name: "result", sessionId: "sess_2" } });
+    expect(other.assets).toEqual({});
+    expect(other.evidence).toBeNull();
+  });
+
+  it("결과를 받아도 근거 자료는 건드리지 않는다", () => {
+    const base: AppState = { ...waiting(initialState(result), 1), evidence: { sessionId: "sess_1", items } };
+    const next = reducer(base, {
+      type: "resultLoaded",
+      seq: 1,
+      result: makeResult({ session_id: "sess_1" }),
+      next: null,
+      outdatesSession: false,
+      notice: null,
+    });
+    expect(next.evidence).toEqual({ sessionId: "sess_1", items });
   });
 });

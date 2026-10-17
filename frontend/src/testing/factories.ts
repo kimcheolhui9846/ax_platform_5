@@ -45,6 +45,7 @@ export function makeTask(overrides: Partial<TaskSummary> = {}): TaskSummary {
     description: "사용 장면과 핵심 기능, 제작 방향을 정리해요.",
     heading: "만들고 싶은 상품을 구체화하고 싶어요",
     deliverable: "상품 콘셉트 · 첫 제작 기획서",
+    evidence_sources: 0,
     ...overrides,
   };
 }
@@ -125,6 +126,7 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
     result: {
       sections: [{ order: 1, heading: "상품 콘셉트", kind: "diagnosis", blocks: [{ type: "text", text: "집들이 선물용 수제 향초." }] }],
       assumptions: [],
+      evidence: [],
       full_text: "상품 콘셉트",
       content: {},
       generated_at: "2026-10-16T09:00:00Z",

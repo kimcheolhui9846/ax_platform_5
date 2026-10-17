@@ -4,7 +4,7 @@ import { documentSections } from "../lib/document";
 import { CriteriaBox } from "./CriteriaBox";
 
 /** 결과 문서(텍스트). 섹션은 순서대로 번호를 매기고, AI 가정과 검토할 부분을 따로 둔다. */
-export function ResultDocument({ title, kicker, rows, result, issues, supplements }: DocumentContent) {
+export function ResultDocument({ title, kicker, rows, result, issues, supplements, images }: DocumentContent) {
   const { assumptions } = result;
   return (
     <article className="card document stack">
@@ -13,14 +13,22 @@ export function ResultDocument({ title, kicker, rows, result, issues, supplement
         <h1>{title}</h1>
       </div>
       <CriteriaBox rows={rows} />
-      {documentSections(result.sections).map((section) => (
+      {documentSections(result.sections, result.evidence, images).map((section) => (
         <section key={section.key} className="document-section">
           <h2 className="section-heading">
             <span className="section-number">{section.number}</span>
             <span>{section.heading}</span>
             <span className="section-tag">{section.tag}</span>
           </h2>
-          <p>{section.body}</p>
+          {section.blocks.map((block) =>
+            block.kind === "text" ? (
+              <p key={block.key}>{block.text}</p>
+            ) : block.src ? (
+              <img key={block.key} src={block.src} alt={block.alt} />
+            ) : (
+              <p key={block.key} className="small muted">[이미지: {block.alt}]</p>
+            ),
+          )}
         </section>
       ))}
       {supplements.length > 0 && (

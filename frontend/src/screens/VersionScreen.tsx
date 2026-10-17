@@ -18,7 +18,7 @@ export function VersionMain({ task, version, stale, onCurrent }: MainProps) {
           현재 버전으로
         </button>
       </div>
-      <ResultDocument {...documentContent(task, version, stale)} />
+      <ResultDocument {...documentContent(task, version, stale, {})} />
     </div>
   );
 }

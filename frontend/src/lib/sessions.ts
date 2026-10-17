@@ -6,6 +6,7 @@ const REASON_LABEL: Record<VersionReason, string> = {
   regenerate: "다시 만든 초안",
   edit: "문구 수정",
   supplement: "보완 정보 반영",
+  evidence: "근거 검토 반영",
 };
 
 /** "V2 · 다시 만든 초안" */

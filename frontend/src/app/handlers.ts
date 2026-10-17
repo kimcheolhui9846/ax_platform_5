@@ -1,5 +1,6 @@
 import type { ApiResult } from "../api/client";
 import {
+  applyEvidence as applyEvidenceRequest,
   continueSession,
   createSession,
   editResultSection,
@@ -12,6 +13,7 @@ import {
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
 import type { DocumentFile } from "../lib/documentHtml";
+import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
@@ -175,6 +177,31 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
         load: null,
         outdatesSessionOnFail: false,
       });
+    },
+    reviewEvidence: () => {
+      if (session) go({ name: "evidence", sessionId: session.session_id });
+    },
+    applyEvidence: (sourceId) => {
+      if (!session) return;
+      const sessionId = session.session_id;
+      void run({
+        request: () => applyEvidenceRequest(sessionId, sourceId),
+        // 근거 반영은 세션(답·보완 정보·최신 여부)을 바꾸지 않는다
+        done: (result, seq) => ({
+          type: "resultLoaded",
+          seq,
+          result,
+          next: { name: "result", sessionId },
+          outdatesSession: false,
+          notice: EVIDENCE_APPLIED_NOTICE,
+        }),
+        load: null,
+        outdatesSessionOnFail: false,
+      });
+    },
+    openBeforeEvidence: () => {
+      const before = state.result ? versionBeforeEvidence(state.result.version) : null;
+      if (session && before !== null) go({ name: "version", sessionId: session.session_id, version: before });
     },
     download: (file) => {
       saveFile(file);

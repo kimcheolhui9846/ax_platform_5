@@ -174,6 +174,8 @@ describe("ResultDocument", () => {
         result={result.result}
         issues={[{ rule: "r", message: "근거 없는 숫자가 있어요.", severity: "warning" }]}
         supplements={[]}
+        images={{}}
+        trailing={[]}
       />,
     );
     expect(html).toContain("상품기획 초안");
@@ -266,7 +268,7 @@ describe("SupplementForm", () => {
 
 describe("ResultDocument — 보완 정보", () => {
   it("반영한 보완 정보는 검증 전으로 따로 보인다", () => {
-    const content = { ...documentContent(makeTask(), makeResult(), false), supplements: [{ label: "소재", value: "면" }] };
+    const content = { ...documentContent(makeTask(), makeResult(), false, {}), supplements: [{ label: "소재", value: "면" }] };
     const html = renderToString(<ResultDocument {...content} />);
     expect(html).toContain("보완 정보 · 사용자 입력 / 검증 전");
     expect(html).toContain("<span>소재</span><span>면</span>");
