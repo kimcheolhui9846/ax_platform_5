@@ -239,7 +239,6 @@ export const RESULT: ResultView = {
   },
 };
 
-/** 상품기획 초안 V2에서 다음 과제로 가져온 기준. */
 /** 사업계획 V2에서 상품기획으로 이어 온 기준(백엔드 build_context가 만드는 모양: 대상 과제의 필드·라벨). */
 export const CONTEXT: SessionContext = {
   session_id: "sess_preview_plan",
