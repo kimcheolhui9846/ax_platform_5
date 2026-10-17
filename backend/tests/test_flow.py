@@ -2,11 +2,12 @@
 from app.core.state import Answer, AnswerType, CoachingMode
 from app.harness.flow import FlowStatus, plan_flow
 
-ANSWERED, CURRENT, UPCOMING, SKIPPED = (
+ANSWERED, CURRENT, UPCOMING, SKIPPED, PAUSED = (
     FlowStatus.ANSWERED,
     FlowStatus.CURRENT,
     FlowStatus.UPCOMING,
     FlowStatus.SKIPPED,
+    FlowStatus.PAUSED,
 )
 
 
@@ -104,3 +105,21 @@ def test_questions_left_counts_down(harness, reply):
     assert harness.questions_left(state) == 3
     reply(harness, state, AnswerType.FREE_TEXT, value="30대 직장인")
     assert harness.questions_left(state) == 2
+
+
+def test_ladder_field_paused_by_an_early_result_stays_counted_and_comes_back(harness, reply):
+    state = harness.start("향초")  # 스탠다드 상한 3
+    reply(harness, state, AnswerType.EASIER)
+    harness.generate(state)  # 사다리 질문을 둔 채 결과를 먼저 만든다(걸린 질문은 내려간다)
+    assert state.pending_question is None
+
+    items = flow_of(harness, state)
+
+    # 멈춘 필드는 이미 상한에 셌으므로 '예정' 자리를 쓰지 않는다
+    assert shape(items) == [("customer", PAUSED), ("problem", UPCOMING), ("tone", UPCOMING)]
+    paused = items[0]
+    assert paused.answer is None
+    assert paused.question.question_id == state.asked_questions[0].question.question_id
+
+    harness.resume(state)
+    assert state.pending_question.field == "customer"  # 이어 가면 다시 묻는다

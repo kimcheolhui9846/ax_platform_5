@@ -2,7 +2,7 @@ import pytest
 
 from app.core.state import AnswerType, AskedQuestion, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.base import counted_fields
-from app.harness.errors import HarnessError
+from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.policy import LadderStep
 
 
@@ -184,3 +184,17 @@ def test_original_needs_a_ladder_question(harness):
         harness.show_original(state)
 
     assert state.model_dump(exclude={"trace"}) == before
+
+
+def test_original_after_a_failed_generate_returns_to_clarifying(harness, provider, reply):
+    state = harness.start("향초")
+    reply(harness, state, AnswerType.EASIER)
+    provider.fail_stages.add("generate")
+    with pytest.raises(GenerationFailed):
+        harness.generate(state)
+    assert state.status is SessionStatus.FAILED
+
+    harness.show_original(state)  # 질문을 다시 거므로 이어 가기처럼 FAILED를 푼다
+
+    assert state.status is SessionStatus.CLARIFYING
+    assert state.pending_question.level == 0
