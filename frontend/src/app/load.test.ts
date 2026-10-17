@@ -124,7 +124,7 @@ describe("needsLoad — 이어가기 미리보기", () => {
   });
 
   it("이미 받았거나 출처가 없으면 부르지 않는다", () => {
-    expect(needsLoad(at(route, { form, carry: { key: "branding:s1:2", context: makeContext() } }))).toBeNull();
+    expect(needsLoad(at(route, { form, carry: { task: "branding", key: "branding:s1:2", context: makeContext() } }))).toBeNull();
     expect(needsLoad(at({ name: "mode", task: "branding", from: null }, { form }))).toBeNull();
   });
 });

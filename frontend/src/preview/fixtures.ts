@@ -1,5 +1,6 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { EvidenceItem, FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { EvidenceItem, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import { sectionText } from "../lib/document";
 import type { EditableFlowItem } from "../lib/flowView";
 
 export const TASKS: TaskSummary[] = [
@@ -237,6 +238,16 @@ export const RESULT: ResultView = {
     content: {},
     generated_at: "2026-10-16T09:00:00Z",
   },
+};
+
+/** 상품기획 초안 V2에서 다음 과제로 가져온 기준. */
+export const CONTEXT: SessionContext = {
+  session_id: "sess_preview",
+  task_type: PRODUCT.task_type,
+  version: 2,
+  title: `${PRODUCT.title} 초안 V2`,
+  summary: sectionText(RESULT.result.sections[0]),
+  items: [{ field: "product_idea", label: "상품과 고객", value: "한글을 활용한 파우치" }],
 };
 
 /** 미확인 정보 두 개를 입력했고 아직 초안에 반영하지 않았다. */

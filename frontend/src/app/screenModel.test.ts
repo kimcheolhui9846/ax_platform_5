@@ -28,8 +28,8 @@ describe("screenModel", () => {
   it("요청·모드는 양식과 쓰다 만 글로 그린다", () => {
     const form = makeForm();
     const state = at({ name: "mode", task: "product_planning", from: null }, { form, drafts: { product_planning: "수제 향초" } });
-    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초", context: null });
-    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form }))).toEqual({ kind: "request", task, form, draft: "", context: null });
+    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false });
+    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form }))).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: false });
   });
 
   it("데이터가 모자라면 불러오는 중이고, 그 불러오기가 실패했으면 열 수 없다", () => {
@@ -100,7 +100,7 @@ describe("screenModel", () => {
     const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
     const session = makeSession({ next_question: null, has_result: true });
     const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
-    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version, images: {} });
+    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version, images: {}, next: null });
     expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
     expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
   });
@@ -203,6 +203,16 @@ describe("이미지를 받아 둔 상태", () => {
   });
 });
 
+describe("screenModel — 저장 완료의 다음 과제", () => {
+  it("과제 순서의 다음 과제를 싣는다", () => {
+    const session = makeSession({ session_id: "sess_1", next_question: null, has_result: true });
+    const saved = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
+    const branding = makeTask({ task_type: "branding", title: "브랜딩" });
+    const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
+    expect(screenModel(at(route, { session, version: saved, tasks: [task, branding] }))).toMatchObject({ kind: "saved", next: branding });
+  });
+});
+
 describe("screenModel — 이어가기", () => {
   const from = { sessionId: "s1", version: 2 };
   const form = makeForm();
@@ -211,13 +221,22 @@ describe("screenModel — 이어가기", () => {
   it("출처가 있으면 미리보기가 올 때까지 loading, 맞으면 context를 싣는다", () => {
     const route: Route = { name: "request", task: "product_planning", from };
     expect(screenModel(at(route, { form }))).toEqual({ kind: "loading" });
-    const carry = { key: "product_planning:s1:2", context };
-    expect(screenModel(at(route, { form, carry }))).toEqual({ kind: "request", task, form, draft: "", context });
-    expect(screenModel(at(route, { form, carry: { key: "product_planning:other:1", context } }))).toEqual({ kind: "loading" });
+    const carry = { task: "product_planning", key: "product_planning:s1:2", context };
+    expect(screenModel(at(route, { form, carry }))).toEqual({ kind: "request", task, form, draft: "", context, carryFailed: false });
+    expect(screenModel(at(route, { form, carry: { task: "product_planning", key: "product_planning:other:1", context } }))).toEqual({ kind: "loading" });
+  });
+
+  it("미리보기를 못 받았으면 context 없이 계속할 수 있게 요청·모드 화면을 연다", () => {
+    const failed = { form, stalled: "carry:product_planning:s1:2" };
+    const request = screenModel(at({ name: "request", task: "product_planning", from }, failed));
+    expect(request).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: true });
+    expect(screenModel(at({ name: "mode", task: "product_planning", from }, failed))).toMatchObject({ kind: "mode", context: null, carryFailed: true });
+    // 다른 출처의 실패는 이 화면과 상관없다
+    expect(screenModel(at({ name: "request", task: "product_planning", from }, { form, stalled: "carry:product_planning:other:1" }))).toEqual({ kind: "unavailable" });
   });
 
   it("출처가 없으면 context는 null", () => {
-    const model = screenModel(at({ name: "mode", task: "product_planning", from: null }, { form, carry: { key: "x", context } }));
+    const model = screenModel(at({ name: "mode", task: "product_planning", from: null }, { form, carry: { task: "product_planning", key: "x", context } }));
     expect(model).toMatchObject({ kind: "mode", context: null });
   });
 });

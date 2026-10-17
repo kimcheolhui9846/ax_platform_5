@@ -70,7 +70,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
     case "carry":
       return run({
         request: () => previewContext(load.task, load.from.sessionId, load.from.version),
-        done: (context, seq) => ({ type: "carryLoaded", seq, key: carryKey(load.task, load.from), context }),
+        done: (context, seq) => ({ type: "carryLoaded", seq, task: load.task, key: carryKey(load.task, load.from), context }),
         ...PLAIN,
         load: key,
       });

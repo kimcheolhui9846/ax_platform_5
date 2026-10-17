@@ -141,6 +141,10 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             task={model.task}
             form={model.form}
             draft={model.draft}
+            context={model.context}
+            carryFailed={model.carryFailed}
+            busy={busy}
+            onExcludeContext={() => on.dropCarry(task)}
             onChange={(text) => on.changeDraft(task, text)}
             onSubmit={() => on.submitRequest(task)}
           />
@@ -155,6 +159,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <ModeScreen
             form={model.form}
             draft={model.draft}
+            context={model.context}
+            carryFailed={model.carryFailed}
+            onExcludeContext={() => on.dropCarry(task)}
             busy={busy}
             onPick={(mode) => on.pickMode(task, mode)}
             onEditRequest={() => on.editRequest(task)}
@@ -205,6 +212,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             onAct={(action) => (action === "generate" ? on.generate() : on.showResult())}
             onChangeAnswers={editable ? () => on.edit(editable) : null}
             onBackToQuestion={model.session.next_question ? on.backToQuestions : null}
+            onClearContext={on.clearContext}
           />
         ),
         side: flowSide(model.session, true, busy, on),
@@ -256,6 +264,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <SavedMain
             task={model.task}
             version={model.version}
+            next={savedNext(model, on)}
             onDocuments={() => on.navigate("documents")}
             onOpen={() => on.openVersion(model.session.session_id, model.version.version.version)}
             onDownload={download}
@@ -293,6 +302,14 @@ function flowSide(session: SessionView, atConfirm: boolean, busy: boolean, on: H
       onPrevious={previous ? () => on.edit(previous) : null}
     />
   );
+}
+
+/** 저장 완료의 '이 결과로 ○○ 시작': 다음 과제가 없으면 없다. */
+function savedNext(model: Extract<ScreenModel, { kind: "saved" }>, on: Handlers) {
+  const next = model.next;
+  if (next === null) return null;
+  const from = { sessionId: model.session.session_id, version: model.version.version.version };
+  return { title: next.title, onStart: () => on.startNext(next.task_type, from) };
 }
 
 /** 보완 패널에 넘길 값: 지금 입력과 미반영 여부는 세션, 반영한 값은 지금 결과의 것이다. */

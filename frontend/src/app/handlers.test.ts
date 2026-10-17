@@ -16,7 +16,7 @@ vi.mock("../api/coaching", () => ({
 
 import { applyEvidence, clearContext, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
-import { HOME } from "../lib/routes";
+import { HOME, carryScreenOf } from "../lib/routes";
 import type { DocumentFile } from "../lib/documentHtml";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
 import { CONTEXT_CLEARED_NOTICE, DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
@@ -36,6 +36,7 @@ function setup(patch: Partial<AppState> = {}) {
   };
   const on = makeHandlers({
     state: { ...initialState(HOME), ...patch },
+    carryScreen: carryScreenOf(patch.route ?? HOME),
     run,
     dispatch: (action) => actions.push(action),
     saveDraft: (task, text) => saved.push([task, text]),

@@ -295,12 +295,12 @@ describe("이어가기 미리보기", () => {
   it("기다리던 응답이 carry를 둔다", () => {
     const context = makeContext();
     const state = waiting(initialState(request), 1, "carry:branding:s1:2");
-    expect(reducer(state, { type: "carryLoaded", seq: 1, key: "branding:s1:2", context }).carry).toEqual({ key: "branding:s1:2", context });
-    expect(reducer(state, { type: "carryLoaded", seq: 9, key: "branding:s1:2", context }).carry).toBeNull();
+    expect(reducer(state, { type: "carryLoaded", seq: 1, task: "branding", key: "branding:s1:2", context }).carry).toEqual({ task: "branding", key: "branding:s1:2", context });
+    expect(reducer(state, { type: "carryLoaded", seq: 9, task: "branding", key: "branding:s1:2", context }).carry).toBeNull();
   });
 
   it("같은 과제의 요청↔모드 이동은 두고, 과제가 바뀌면 비운다", () => {
-    const state: AppState = { ...initialState(request), carry: { key: "branding:s1:2", context: makeContext() } };
+    const state: AppState = { ...initialState(request), carry: { task: "branding", key: "branding:s1:2", context: makeContext() } };
     const mode = reducer(state, { type: "navigated", route: { name: "mode", task: "branding", from: request.from } });
     expect(mode.carry).not.toBeNull();
     expect(reducer(state, { type: "navigated", route: { name: "request", task: "marketing_content", from: null } }).carry).toBeNull();

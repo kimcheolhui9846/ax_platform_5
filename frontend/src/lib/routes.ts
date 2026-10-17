@@ -161,3 +161,11 @@ export function sessionIdOf(route: Route): string | null {
 export function carryOf(route: Route): CarrySource | null {
   return route.name === "request" || route.name === "mode" ? route.from : null;
 }
+
+/** 요청·모드 화면에 있다는 사실과 그 화면의 과제·이어 가는 출처. 다른 화면이면 null이다. */
+export type CarryScreen = { screen: "request" | "mode"; task: string; from: CarrySource | null };
+
+/** [순수] 지금 주소가 요청·모드 화면이면 그 화면을 이동할 때 필요한 값만 꺼낸다. */
+export function carryScreenOf(route: Route): CarryScreen | null {
+  return route.name === "request" || route.name === "mode" ? { screen: route.name, task: route.task, from: route.from } : null;
+}

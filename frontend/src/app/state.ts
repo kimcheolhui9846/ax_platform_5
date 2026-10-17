@@ -15,7 +15,7 @@ export type AppState = {
   sessionOutdated: boolean; // 결과를 만들었거나 생성이 실패해 서버 세션이 바뀌었다. 다시 받아야 한다
   result: ResultView | null;
   version: VersionView | null; // 버전 보기·저장 완료 화면의 버전
-  carry: { key: string; context: SessionContext } | null; // 이어 갈 이전 작업에서 가져올 내용 미리보기(요청·모드 화면)
+  carry: { task: string; key: string; context: SessionContext } | null; // 이어 갈 이전 작업에서 가져올 내용 미리보기(요청·모드 화면)
   evidence: { sessionId: string; items: EvidenceItem[] } | null; // 근거 검토 화면의 자료
   assets: Images; // 결과 이미지(asset_id → data URL). 화면 불러오기와 따로 받는다
   drafts: Record<string, string>; // 과제별 쓰다 만 요청 글
@@ -35,7 +35,7 @@ export type Action =
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
-  | { type: "carryLoaded"; seq: number; key: string; context: SessionContext }
+  | { type: "carryLoaded"; seq: number; task: string; key: string; context: SessionContext }
   | { type: "evidenceLoaded"; seq: number; sessionId: string; items: EvidenceItem[] }
   | { type: "assetRequested"; assetId: string }
   | { type: "assetLoaded"; assetId: string; url: string | null }
@@ -127,7 +127,7 @@ function navigate(state: AppState, route: Route): AppState {
 /** 같은 과제의 요청·모드 화면으로 옮기면 미리보기를 둔다. */
 function keepCarry(carry: AppState["carry"], route: Route): AppState["carry"] {
   const task = taskOf(route);
-  return carry !== null && task !== null && carry.key.startsWith(`${task}:`) ? carry : null;
+  return carry !== null && carry.task === task ? carry : null;
 }
 
 /** 이동한 주소가 지금 들고 있는 버전을 보는 주소인지. */
@@ -174,7 +174,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         toast: action.notice ?? done.toast,
       };
     case "carryLoaded":
-      return { ...done, carry: { key: action.key, context: action.context } };
+      return { ...done, carry: { task: action.task, key: action.key, context: action.context } };
     case "evidenceLoaded":
       return { ...done, evidence: { sessionId: action.sessionId, items: action.items } };
     case "versionLoaded":

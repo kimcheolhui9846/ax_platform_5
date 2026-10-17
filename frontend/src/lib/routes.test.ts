@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HOME, carryOf, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
+import { HOME, carryOf, carryScreenOf, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
 import type { Route } from "./routes";
 
 const ROUTES: [Route, string][] = [
@@ -8,6 +8,9 @@ const ROUTES: [Route, string][] = [
   [{ name: "guide" }, "#/guide"],
   [{ name: "request", task: "product_planning", from: null }, "#/product_planning/request"],
   [{ name: "mode", task: "product_planning", from: null }, "#/product_planning/mode"],
+  [{ name: "request", task: "branding", from: { sessionId: "sess_1", version: 2 } }, "#/branding/request/from/sess_1/2"],
+  [{ name: "mode", task: "branding", from: { sessionId: "sess_1", version: 2 } }, "#/branding/mode/from/sess_1/2"],
+  [{ name: "request", task: "branding", from: { sessionId: "a/b", version: 3 } }, "#/branding/request/from/a%2Fb/3"],
   [{ name: "question", sessionId: "sess_1" }, "#/s/sess_1/question"],
   [{ name: "revise", sessionId: "sess_1", questionId: "q_1" }, "#/s/sess_1/question/q_1"],
   [{ name: "confirm", sessionId: "sess_1" }, "#/s/sess_1/confirm"],
@@ -127,5 +130,7 @@ describe("이어가기 주소", () => {
     expect(contextOf({ name: "request", task: "branding", from })).toBe("task:branding");
     expect(carryOf({ name: "mode", task: "branding", from })).toEqual(from);
     expect(carryOf({ name: "home" })).toBeNull();
+    expect(carryScreenOf({ name: "mode", task: "branding", from })).toEqual({ screen: "mode", task: "branding", from });
+    expect(carryScreenOf({ name: "home" })).toBeNull();
   });
 });

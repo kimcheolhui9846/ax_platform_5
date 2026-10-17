@@ -15,9 +15,8 @@ import {
 import type { AnswerBody, SessionView } from "../api/types";
 import type { DocumentFile } from "../lib/documentHtml";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
-import type { CarrySource } from "../lib/carry";
-import { HOME, carryOf } from "../lib/routes";
-import type { Route } from "../lib/routes";
+import { HOME } from "../lib/routes";
+import type { CarryScreen, Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
 import { PLAIN } from "./requests";
 import type { Runner } from "./requests";
@@ -39,7 +38,9 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "route" | "session" | "drafts" | "result">;
+  state: Pick<AppState, "session" | "drafts" | "result">;
+  /** 요청·모드 화면이면 그 화면(과제·이어 가는 출처). 아니면 null. */
+  carryScreen: CarryScreen | null;
   run: Runner;
   dispatch: (action: Action) => void;
   saveDraft: (task: string, text: string) => void;
@@ -47,8 +48,9 @@ type Deps = {
 };
 
 /** 화면 버튼 → 화면 이동(dispatch) 또는 API 요청(run). 상태는 리듀서만 바꾼다. */
-export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps): Handlers {
+export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, saveFile }: Deps): Handlers {
   const session = state.session;
+  const from = carryScreen?.from ?? null;
   const go = (route: Route) => dispatch({ type: "navigated", route });
 
   /** 세션을 바꾸는 요청. 응답 세션의 다음 화면(질문 또는 답변 확인)으로 간다. */
@@ -95,13 +97,12 @@ export function makeHandlers({ state, run, dispatch, saveDraft, saveFile }: Deps
       dispatch({ type: "draftChanged", task, text });
       saveDraft(task, text);
     },
-    submitRequest: (task) => go({ name: "mode", task, from: carryOf(state.route) }),
-    editRequest: (task) => go({ name: "request", task, from: carryOf(state.route) }),
-    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, carryOf(state.route))),
-    startNext: (task, from: CarrySource) => go({ name: "request", task, from }),
+    submitRequest: (task) => go({ name: "mode", task, from }),
+    editRequest: (task) => go({ name: "request", task, from }),
+    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, from)),
+    startNext: (task, source) => go({ name: "request", task, from: source }),
     dropCarry: (task) => {
-      const route = state.route;
-      if ((route.name === "request" || route.name === "mode") && route.task === task) go({ ...route, from: null });
+      if (carryScreen !== null && carryScreen.task === task) go({ name: carryScreen.screen, task, from: null });
     },
     clearContext: () => {
       if (!session) return;

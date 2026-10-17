@@ -13,7 +13,7 @@ describe("documentFileOf", () => {
     expect(file?.html).toContain("한글 파우치");
 
     const saved = makeVersionView({ version: { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate", saved: true } });
-    expect(documentFileOf({ kind: "saved", task, session, version: saved, images: {} })?.filename).toBe("AX_product_planning_V2.html");
+    expect(documentFileOf({ kind: "saved", task, session, version: saved, images: {}, next: null })?.filename).toBe("AX_product_planning_V2.html");
   });
 
   it("지금 버전이라도 답이 바뀌어 결과가 낡았으면 최신 아님을 붙인다", () => {

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { STALE_NOTICE, STALE_SAVE_HINT } from "../lib/actions";
 import { HOME } from "../lib/routes";
 import { NOOP_HANDLERS } from "../preview/handlers";
-import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
+import { makeContext, makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import type { ScreenModel } from "./screenModel";
 import { AppView, pageTitle, projectOf, renderScreen } from "./view";
 
@@ -35,20 +35,20 @@ describe("renderScreen", () => {
   });
 
   it("요청은 입력창과 예시", () => {
-    const { main } = draw({ kind: "request", task, form, draft: "", context: null });
+    const { main } = draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false });
     expect(main).toContain("상품기획에서 어떤 도움이 필요한가요?");
     expect(main).toContain('placeholder="예) 집들이 선물용 수제 향초"');
     expect(main).toContain("이 문장 넣기");
   });
 
   it("모드는 보낸 요청과 세 모드(질문 수 없이), 요청이 없으면 요청으로 안내", () => {
-    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초", context: null });
+    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false });
     expect(main).toContain("수제 향초");
     expect(main).toContain("스탠다드 코칭 시작");
     expect(main).toContain("꼭 필요한 질문으로 방향을 잡고");
     expect(main).not.toContain("최대 10개");
-    expect(draw({ kind: "mode", task, form, draft: " ", context: null }).main).toContain("먼저 요청을 보내 주세요");
-    expect(draw({ kind: "mode", task, form, draft: "x", context: null }, true).main).toContain("코칭을 준비하는 중…");
+    expect(draw({ kind: "mode", task, form, draft: " ", context: null, carryFailed: false }).main).toContain("먼저 요청을 보내 주세요");
+    expect(draw({ kind: "mode", task, form, draft: "x", context: null, carryFailed: false }, true).main).toContain("코칭을 준비하는 중…");
   });
 
   it("질문은 질문 카드와 흐름 패널", () => {
@@ -188,7 +188,7 @@ describe("renderScreen", () => {
 
   it("저장 완료는 결과물·다시 보기·내려받기", () => {
     const session = makeSession({ next_question: null, has_result: true });
-    const { main, side } = draw({ kind: "saved", task, session, version: makeVersionView(), images: {} });
+    const { main, side } = draw({ kind: "saved", task, session, version: makeVersionView(), images: {}, next: null });
     expect(main).toContain("✓ 저장 완료");
     expect(main).toContain("상품기획 초안을 저장했어요.");
     expect(main).toContain("결과물 목록 보기");
@@ -258,9 +258,9 @@ describe("AppView", () => {
 describe("projectOf·pageTitle", () => {
   it("과제 화면은 과제 이름", () => {
     expect(projectOf({ kind: "home", tasks: [], sessions: [] })).toBeNull();
-    expect(projectOf({ kind: "request", task, form, draft: "", context: null })).toBe("상품기획");
+    expect(projectOf({ kind: "request", task, form, draft: "", context: null, carryFailed: false })).toBe("상품기획");
     expect(pageTitle({ kind: "guide" })).toBe("창작자 AX");
-    expect(pageTitle({ kind: "request", task, form, draft: "", context: null })).toBe("창작자 AX · 상품기획");
+    expect(pageTitle({ kind: "request", task, form, draft: "", context: null, carryFailed: false })).toBe("창작자 AX · 상품기획");
   });
 });
 
@@ -302,5 +302,76 @@ describe("renderScreen — 근거 검토", () => {
     const { main, side } = draw({ kind: "evidence", task, session: makeSession({ has_result: true }), result: makeResult(), items: [] });
     expect(main).toContain('aria-label="근거 검토"');
     expect(side).toContain("결과에 반영할 내용");
+  });
+});
+
+describe("이어가기 화면", () => {
+  const context = makeContext();
+
+  it("요청은 입력 위에, 없으면 상자가 없다", () => {
+    const withBox = draw({ kind: "request", task, form, draft: "", context, carryFailed: false }).main;
+    expect(withBox).toContain("이전 작업에서 가져온 기준");
+    expect(withBox.indexOf("이전 작업에서 가져온 기준")).toBeLessThan(withBox.indexOf("내 질문 · 의견"));
+    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false }).main).not.toContain("가져온 기준");
+  });
+
+  it("모드는 내가 보낸 요청 아래에 상자", () => {
+    const main = draw({ kind: "mode", task, form, draft: "수제 향초", context, carryFailed: false }).main;
+    expect(main.indexOf("내가 보낸 요청")).toBeLessThan(main.indexOf("이전 작업에서 가져온 기준"));
+    expect(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false }).main).not.toContain("가져온 기준");
+  });
+
+  it("미리보기를 못 받았으면 안내와 가져오지 않고 계속 버튼", () => {
+    for (const kind of ["request", "mode"] as const) {
+      const main = draw({ kind, task, form, draft: "수제 향초", context: null, carryFailed: true }).main;
+      expect(main).toContain("이전 작업을 불러오지 못했어요. 가져오지 않고 계속할 수 있어요.");
+      expect(main).toContain("가져오지 않고 계속");
+    }
+    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false }).main).not.toContain("불러오지 못했어요");
+  });
+
+  it("제외 버튼은 요청·모드는 dropCarry, 확인은 clearContext로 이어진다", () => {
+    const on = { ...NOOP_HANDLERS, dropCarry: () => {}, clearContext: () => {} };
+    const request = renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: true }, false, on).main as ReactElement<{ onExcludeContext: () => void }>;
+    expect(request.props.onExcludeContext).toBeTypeOf("function");
+    const calls: string[] = [];
+    const spy = { ...NOOP_HANDLERS, dropCarry: (t: string) => calls.push(`drop:${t}`), clearContext: () => calls.push("clear") };
+    (renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: false }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
+    (renderScreen({ kind: "mode", task, form, draft: "x", context, carryFailed: false }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
+    const confirm = renderScreen({ kind: "confirm", task, session: makeSession({ context }) }, false, spy).main as ReactElement<{ onClearContext: () => void }>;
+    expect(confirm.props.onClearContext).toBe(spy.clearContext);
+    confirm.props.onClearContext();
+    expect(calls).toEqual(["drop:product_planning", "drop:product_planning", "clear"]);
+  });
+
+  it("답변 확인은 session.context가 있을 때만 기준 상자 위에 상자", () => {
+    const main = draw({ kind: "confirm", task, session: makeSession({ context }) }).main;
+    expect(main).toContain("이전 작업에서 가져온 기준");
+    expect(draw({ kind: "confirm", task, session: makeSession() }).main).not.toContain("가져온 기준");
+  });
+
+  it("저장 완료는 다음 과제가 있으면 시작 버튼이 주 버튼이고 startNext로 이어진다", () => {
+    const session = makeSession({ session_id: "sess_1", next_question: null, has_result: true });
+    const version = makeVersionView();
+    const branding = makeTask({ task_type: "branding", title: "브랜딩" });
+    const model: ScreenModel = { kind: "saved", task, session, version, images: {}, next: branding };
+    const main = draw(model).main;
+    expect(main).toContain("이 결과로 브랜딩 시작");
+    expect(main).toContain("다음 작업에는 현재 결과의 핵심 내용과 보완 정보를 전달해요. 가져온 내용은 제외할 수 있습니다.");
+    expect(main).toMatch(/btn primary[^>]*>이 결과로 브랜딩 시작/);
+    expect(main).not.toMatch(/btn primary[^>]*>결과물 목록 보기/);
+    const calls: unknown[][] = [];
+    const spy = { ...NOOP_HANDLERS, startNext: (...args: unknown[]) => calls.push(args) };
+    const element = renderScreen(model, false, spy).main as ReactElement<{ next: { onStart: () => void } }>;
+    element.props.next.onStart();
+    expect(calls).toEqual([["branding", { sessionId: "sess_1", version: version.version.version }]]);
+  });
+
+  it("다음 과제가 없으면 지금 모습", () => {
+    const session = makeSession({ next_question: null, has_result: true });
+    const main = draw({ kind: "saved", task, session, version: makeVersionView(), images: {}, next: null }).main;
+    expect(main).not.toContain("시작</button>");
+    expect(main).toMatch(/btn primary[^>]*>결과물 목록 보기/);
+    expect(main).not.toContain("다음 작업에는");
   });
 });

@@ -8,8 +8,10 @@ import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
 import { FailedMain, FailedSide, GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
-import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
+import { makeContext, makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
+import { ContextBox } from "./ContextBox";
+import { CarryFailedNotice } from "./CarryFailedNotice";
 import { CriteriaBox } from "./CriteriaBox";
 import { FlowPanel } from "./FlowPanel";
 import { FlowSummary } from "./FlowSummary";
@@ -419,5 +421,36 @@ describe("생성 실패 화면", () => {
     const html = renderToString(<FailedSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
     expect(html).toContain("유지된 답변");
     expect(html).toContain("부모");
+  });
+});
+
+describe("ContextBox", () => {
+  const html = (context = makeContext(), busy = false) => renderToString(<ContextBox context={context} busy={busy} onExclude={noop} />);
+
+  it("라벨·제목·요약·항목 한 줄·제외 버튼", () => {
+    const rendered = html(makeContext({ items: [
+      { field: "a", label: "상품", value: "향초" },
+      { field: "b", label: "고객", value: "집들이" },
+    ] }));
+    expect(rendered).toContain("이전 작업에서 가져온 기준");
+    expect(rendered).toContain("사업계획");
+    expect(rendered).toContain("가져올 내용 요약");
+    expect(rendered).toContain("상품: 향초 · 고객: 집들이");
+    expect(rendered).toContain("가져온 내용 제외");
+    expect(rendered).not.toContain("disabled");
+  });
+
+  it("항목이 없으면 항목 줄이 없고, 처리 중이면 제외를 막는다", () => {
+    expect(html(makeContext({ items: [] }))).not.toContain("small muted\"></p>");
+    expect(html(makeContext({ items: [], summary: "" }))).not.toContain("small muted");
+    expect(html(makeContext(), true)).toContain('disabled=""');
+  });
+});
+
+describe("CarryFailedNotice", () => {
+  it("안내와 가져오지 않고 계속 버튼", () => {
+    const rendered = renderToString(<CarryFailedNotice busy={false} onContinue={noop} />);
+    expect(rendered).toContain("이전 작업을 불러오지 못했어요. 가져오지 않고 계속할 수 있어요.");
+    expect(rendered).toContain("가져오지 않고 계속");
   });
 });

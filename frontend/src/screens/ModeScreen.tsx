@@ -1,16 +1,21 @@
-import type { CoachingMode, TaskForm } from "../api/types";
+import type { CoachingMode, SessionContext, TaskForm } from "../api/types";
+import { CarryFailedNotice } from "../components/CarryFailedNotice";
+import { ContextBox } from "../components/ContextBox";
 import { MODE_COPY, RECOMMENDED_MODE } from "../lib/modes";
 
 type Props = {
   form: TaskForm;
   draft: string;
+  context: SessionContext | null;
+  carryFailed: boolean;
+  onExcludeContext: () => void;
   busy: boolean;
   onPick: (mode: CoachingMode) => void;
   onEditRequest: () => void;
 };
 
 /** 02 코칭 모드 선택. 모드를 고르는 순간 세션을 만든다(질문 상한은 모드마다 다르다). */
-export function ModeScreen({ form, draft, busy, onPick, onEditRequest }: Props) {
+export function ModeScreen({ form, draft, context, carryFailed, onExcludeContext, busy, onPick, onEditRequest }: Props) {
   if (!draft.trim()) {
     return (
       <section className="mode-view stack">
@@ -33,6 +38,8 @@ export function ModeScreen({ form, draft, busy, onPick, onEditRequest }: Props) 
         <p className="muted">내가 보낸 요청</p>
         <p className="bodycopy">{draft}</p>
       </div>
+      {carryFailed && <CarryFailedNotice busy={busy} onContinue={onExcludeContext} />}
+      {context && <ContextBox context={context} busy={busy} onExclude={onExcludeContext} />}
       <div className="mode-grid">
         {form.modes.map(({ mode }) => {
           const copy = MODE_COPY[mode];
