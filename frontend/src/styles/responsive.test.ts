@@ -6,11 +6,21 @@ import { AppShell } from "../layout/AppShell";
 
 const sheets = import.meta.glob("./*.css", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
+const LAYOUT_MEDIA = /@media[^{]*\b(width|height|aspect-ratio|orientation)\b/;
+
 describe("반응형 배치", () => {
-  // 창 폭(@media)이 아니라 뼈대 폭(@container)으로 바뀌어야 미리보기의 390px 프레임이 스스로 모바일 배치가 된다.
+  it("배치용 @media는 거르고 움직임 줄이기 설정은 허용한다", () => {
+    expect(LAYOUT_MEDIA.test("@media (max-width: 700px) { a { b: c } }")).toBe(true);
+    expect(LAYOUT_MEDIA.test("@media (prefers-reduced-motion: reduce) { a { b: c } }")).toBe(false);
+    expect(LAYOUT_MEDIA.test("@media screen and (max-width: 700px) { a { b: c } }")).toBe(true);
+    expect(LAYOUT_MEDIA.test("@media (prefers-reduced-motion: reduce) and (max-width: 700px) { a { b: c } }")).toBe(true);
+  });
+
+  // 배치는 창 폭(@media)이 아니라 뼈대 폭(@container)으로 바뀌어야 미리보기의 390px 프레임이 스스로 모바일 배치가 된다.
+  // 사용자 설정 질의(prefers-reduced-motion)는 배치 질의가 아니라서 허용한다.
   it("배치 규칙은 창 폭이 아니라 뼈대 폭을 기준으로 한다", () => {
     const offenders = Object.entries(sheets)
-      .filter(([, css]) => /@media\s*\(/.test(css))
+      .filter(([, css]) => LAYOUT_MEDIA.test(css))
       .map(([name]) => name);
     expect(offenders).toEqual([]);
     expect(sheets["./layout.css"]).toContain("@container app (max-width: 1099px)");
@@ -53,6 +63,7 @@ describe("반응형 배치", () => {
     expect(css).toMatch(/\.notice\s*>\s*\.btn\s*\{[^}]*align-self:\s*flex-start/);
     const narrow = css.slice(css.indexOf("@container app (max-width: 719px)"));
     expect(narrow).toMatch(/\.mode-view\s*>\s*\.row\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(narrow).toMatch(/\.state-actions\s*\{[^}]*align-self:\s*stretch/);
   });
 
   it("뼈대가 스스로 폭 기준 컨테이너를 만든다", () => {

@@ -211,8 +211,8 @@ class ValidationReport(ContractModel):
 
 
 def image_target(sections: Sequence[ResultSection]) -> ResultSection | None:
-    """[순수] 이미지를 붙일 대표 섹션: 첫 제안(suggestion) 섹션, 없으면 첫 섹션. 섹션이 없으면 None."""
-    return next((s for s in sections if s.kind is CardType.SUGGESTION), sections[0] if sections else None)
+    """[순수] 이미지를 붙일 대표 섹션: 첫 섹션(가장 앞 order, 디자인의 이미지 자리). 섹션이 없으면 None."""
+    return min(sections, key=lambda s: s.order, default=None)
 
 
 def with_image(result: GenerationResult, order: int, block: ImageBlock) -> GenerationResult:

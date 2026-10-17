@@ -23,6 +23,21 @@ const ok = <T>(data: T) => ({ data, response: new Response(null, { status: 200 }
 const jsonHeaders = { "content-type": "application/json" };
 
 describe("createRunner", () => {
+  it("생성 요청이면 requested에 generating을 싣는다", async () => {
+    const actions: Action[] = [];
+    const run = createRunner((action) => actions.push(action));
+    const session = makeSession();
+    await run({
+      request: async () => ok(session),
+      done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
+      load: null,
+      generating: true,
+      failedRoute: null,
+      outdatesSessionOnFail: true,
+    });
+    expect(actions[0]).toEqual({ type: "requested", seq: 1, load: null, generating: true });
+  });
+
   it("요청마다 번호를 붙여 시작과 성공을 알린다", async () => {
     const actions: Action[] = [];
     const run = createRunner((action) => actions.push(action));
@@ -31,6 +46,8 @@ describe("createRunner", () => {
       request: async () => ok(session),
       done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
       load: "session:sess_1",
+      generating: false,
+      failedRoute: null,
       outdatesSessionOnFail: false,
     };
 
@@ -38,9 +55,9 @@ describe("createRunner", () => {
     await run({ ...call, load: null });
 
     expect(actions).toEqual([
-      { type: "requested", seq: 1, load: "session:sess_1" },
+      { type: "requested", seq: 1, load: "session:sess_1", generating: false },
       { type: "sessionLoaded", seq: 1, session, next: null, notice: null },
-      { type: "requested", seq: 2, load: null },
+      { type: "requested", seq: 2, load: null, generating: false },
       { type: "sessionLoaded", seq: 2, session, next: null, notice: null },
     ]);
   });
@@ -55,9 +72,17 @@ describe("createRunner", () => {
       }),
       done: () => ({ type: "toastClosed" }),
       load: null,
+      generating: false,
+      failedRoute: { name: "failed", sessionId: "sess_1" },
       outdatesSessionOnFail: true,
     });
-    expect(actions[1]).toEqual({ type: "failed", seq: 1, message: "결과를 만들지 못했습니다.", outdatesSession: true });
+    expect(actions[1]).toEqual({
+      type: "failed",
+      seq: 1,
+      message: "결과를 만들지 못했습니다.",
+      outdatesSession: true,
+      next: { name: "failed", sessionId: "sess_1" },
+    });
   });
 
   it("연결 예외는 백엔드 미연결이다", async () => {
@@ -69,9 +94,17 @@ describe("createRunner", () => {
       },
       done: () => ({ type: "toastClosed" }),
       load: "tasks",
+      generating: false,
+      failedRoute: { name: "failed", sessionId: "sess_1" },
       outdatesSessionOnFail: true,
     });
-    expect(actions[1]).toEqual({ type: "failed", seq: 1, message: BACKEND_UNREACHABLE, outdatesSession: false });
+    expect(actions[1]).toEqual({
+      type: "failed",
+      seq: 1,
+      message: BACKEND_UNREACHABLE,
+      outdatesSession: false,
+      next: { name: "failed", sessionId: "sess_1" },
+    });
   });
 });
 
@@ -92,7 +125,7 @@ describe("startLoad", () => {
     await startLoad(run, { kind: "result", sessionId: "sess_1" });
 
     expect(calls.map((c) => c.load)).toEqual(["tasks", "form:branding", "session:sess_1", "result:sess_1"]);
-    expect(calls.every((c) => !c.outdatesSessionOnFail)).toBe(true);
+    expect(calls.every((c) => !c.outdatesSessionOnFail && !c.generating)).toBe(true);
 
     for (const call of calls) await call.request();
     expect(listTasks).toHaveBeenCalled();

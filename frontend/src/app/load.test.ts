@@ -65,7 +65,7 @@ describe("needsLoad", () => {
 
   it("기다리는 요청이 있거나 같은 불러오기가 실패했으면 부르지 않는다", () => {
     const question: Route = { name: "question", sessionId: "sess_1" };
-    expect(needsLoad(at(question, { inflight: { seq: 1, load: null } }))).toBeNull();
+    expect(needsLoad(at(question, { inflight: { seq: 1, load: null, generating: false } }))).toBeNull();
     expect(needsLoad(at(question, { stalled: "session:sess_1" }))).toBeNull();
     expect(needsLoad(at(question, { stalled: "form:branding" }))).toEqual({ kind: "session", sessionId: "sess_1" });
   });

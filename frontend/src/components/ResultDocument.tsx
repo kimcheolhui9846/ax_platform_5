@@ -12,15 +12,23 @@ function Blocks({ blocks }: { blocks: DocumentBlock[] }) {
         block.kind === "text" ? (
           <p key={block.key}>{block.text}</p>
         ) : (
-          <figure key={block.key} className="doc-figure">
+          <figure key={block.key} className="document-image">
             {block.src !== null ? (
-              <img src={block.src} alt={block.alt} />
+              <div className="image-slot">
+                <img src={block.src} alt={block.alt} />
+              </div>
             ) : (
-              <div className="doc-figure-missing" role="img" aria-label={block.alt}>
-                {block.alt}
+              <div className="image-slot" role="img" aria-label={block.alt}>
+                <span className="image-symbol" aria-hidden="true">
+                  ▧
+                </span>
+                <span className="small muted">이미지를 불러오는 중이거나 불러오지 못했어요</span>
               </div>
             )}
-            {block.caption && <figcaption className="small muted">{block.caption}</figcaption>}
+            <figcaption>
+              <h3>{block.alt}</h3>
+              {block.caption && <p>{block.caption}</p>}
+            </figcaption>
           </figure>
         ),
       )}

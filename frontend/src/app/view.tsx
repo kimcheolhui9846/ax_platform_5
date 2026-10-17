@@ -17,6 +17,7 @@ import { versionIsStale } from "../lib/sessions";
 import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
 import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
+import { FailedMain, FailedSide, GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { DocumentsScreen } from "../screens/DocumentsScreen";
 import { EditMain, EditSide } from "../screens/EditScreen";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
@@ -75,6 +76,22 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     if (file) on.download(file);
   };
   switch (model.kind) {
+    case "generating":
+      return { main: <GeneratingMain />, side: <GeneratingSide flow={model.session.flow} /> };
+    case "failed":
+      return {
+        main: (
+          <FailedMain
+            hasResult={model.session.has_result}
+            busy={busy}
+            canGenerate={model.session.can_generate}
+            onRetry={on.generate}
+            onConfirm={on.confirm}
+            onShowResult={on.showResult}
+          />
+        ),
+        side: <FailedSide flow={model.session.flow} />,
+      };
     case "loading":
       return { main: <LoadingScreen />, side: null };
     case "evidence":
@@ -192,7 +209,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     case "result": {
       const editable = firstEditable(model.session.flow);
       return {
-        main: <ResultMain task={model.task} session={model.session} result={model.result} images={model.images} busy={busy} onConfirm={on.confirm} />,
+        main: <ResultMain task={model.task} session={model.session} result={model.result} images={model.images} busy={busy} onConfirm={on.confirm} onRegenerate={on.generate} />,
         side:
           model.result === null ? null : (
             <ResultSide

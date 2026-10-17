@@ -141,6 +141,8 @@ describe("makeHandlers — 요청", () => {
     for (const call of calls) {
       expect(call.done(done, 1)).toMatchObject({ type: "sessionLoaded", next: { name: "confirm", sessionId: "sess_1" } });
       expect(call.load).toBeNull();
+      expect(call.generating).toBe(false);
+      expect(call.failedRoute).toBeNull();
       expect(call.outdatesSessionOnFail).toBe(false);
     }
   });
@@ -150,6 +152,8 @@ describe("makeHandlers — 요청", () => {
     on.generate();
     await calls[0].request();
     expect(generateResult).toHaveBeenCalledWith("sess_1");
+    expect(calls[0].generating).toBe(true);
+    expect(calls[0].failedRoute).toEqual({ name: "failed", sessionId: "sess_1" });
     expect(calls[0].outdatesSessionOnFail).toBe(true);
     expect(calls[0].done(makeResult(), 5)).toEqual({
       type: "resultLoaded",
@@ -245,6 +249,8 @@ describe("makeHandlers — 보완·문구 수정", () => {
       outdatesSession: true,
       notice: SUPPLEMENTS_APPLIED_NOTICE,
     });
+    expect(calls[0].generating).toBe(true);
+    expect(calls[0].failedRoute).toEqual({ name: "failed", sessionId: "sess_1" });
     expect(calls[0].outdatesSessionOnFail).toBe(true);
   });
 
@@ -298,6 +304,8 @@ describe("makeHandlers — 근거 검토", () => {
       notice: EVIDENCE_APPLIED_NOTICE,
     });
     expect(calls[0].load).toBeNull();
+    expect(calls[0].generating).toBe(false);
+    expect(calls[0].failedRoute).toBeNull();
     expect(calls[0].outdatesSessionOnFail).toBe(false);
   });
 

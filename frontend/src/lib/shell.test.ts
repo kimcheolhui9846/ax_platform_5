@@ -84,6 +84,8 @@ describe("railActive", () => {
     expect(railActive({ name: "guide" })).toBe("home");
     expect(railActive({ name: "request", task: "t" })).toBe("work");
     expect(railActive({ name: "confirm", sessionId: "s" })).toBe("work");
+    expect(railActive({ name: "failed", sessionId: "s" })).toBe("work");
+    expect(routePhase({ name: "failed", sessionId: "s" })).toBe(routePhase({ name: "confirm", sessionId: "s" }));
     expect(railActive({ name: "result", sessionId: "s" })).toBe("documents");
     expect(railActive({ name: "evidence", sessionId: "s" })).toBe("documents");
   });

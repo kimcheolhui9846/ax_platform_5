@@ -6,6 +6,7 @@ import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
 import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
+import { FailedMain, FailedSide, GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
 import { makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
 import { Composer } from "./Composer";
@@ -317,17 +318,17 @@ describe("ResultDocument 이미지·근거 기록", () => {
     },
   };
 
-  it("불러온 이미지는 대체 글과 설명을 달아 그린다", () => {
+  it("이미지 상자는 왼쪽 이미지, 오른쪽 제목(대체 글)과 설명이다", () => {
     const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, { a: "data:image/svg+xml;base64,AA" })} />);
-    expect(html).toContain('<img src="data:image/svg+xml;base64,AA" alt="제작 방향 참고 이미지"');
-    expect(html).toContain("<figcaption");
-    expect(html).toContain("AI 참고 이미지");
+    expect(html).toContain('<figure class="document-image">');
+    expect(html).toContain('<div class="image-slot"><img src="data:image/svg+xml;base64,AA" alt="제작 방향 참고 이미지"/></div>');
+    expect(html).toContain("<figcaption><h3>제작 방향 참고 이미지</h3><p>AI 참고 이미지</p></figcaption>");
   });
 
-  it("아직 못 불러온 이미지는 대체 글 상자로 둔다", () => {
+  it("아직 못 불러온 이미지는 자리 상자에 대체 글을 둔다", () => {
     const html = renderToString(<ResultDocument {...documentContent(makeTask(), shown, false, {})} />);
     expect(html).not.toContain("<img");
-    expect(html).toContain('role="img" aria-label="제작 방향 참고 이미지"');
+    expect(html).toContain('<div class="image-slot" role="img" aria-label="제작 방향 참고 이미지"><span class="image-symbol" aria-hidden="true">▧</span>');
   });
 
   it("근거 기록은 섹션 뒤에 출처 링크(새 창)와 함께 둔다", () => {
@@ -359,5 +360,64 @@ describe("근거 검토 화면", () => {
     expect(side(new Set())).not.toContain("시장 배경 반영");
     expect(side(new Set(["zip"]))).toContain("반영했어요</button>");
     expect(side(new Set(["zip"]))).toContain("검토 기록 유지하고 돌아가기");
+  });
+});
+
+describe("생성 중 화면", () => {
+  it("본문은 진행 상태를 알리고 취소 버튼이 없다", () => {
+    const html = renderToString(<GeneratingMain />);
+    expect(html).not.toContain("aria-busy");
+    expect(html).toMatch(/<h1[^>]*tabindex="-1"[^>]*>답변을 바탕으로/);
+    expect(html).toContain("초안 생성 중");
+    expect(html).toContain("답변을 바탕으로 초안을 정리하고 있어요");
+    expect(html).toContain('role="status"');
+    expect(html).not.toContain("생성 취소");
+    expect(html).not.toContain("<button");
+  });
+
+  it("옆 패널은 정리할 기준과 흐름 요약을 그린다", () => {
+    const html = renderToString(<GeneratingSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
+    expect(html).toContain("정리할 기준");
+    expect(html).toContain("부모");
+  });
+});
+
+describe("생성 실패 화면", () => {
+  const props = { hasResult: false, busy: false, canGenerate: true, onRetry: noop, onConfirm: noop, onShowResult: noop };
+
+  it("본문은 실패를 알리고 다시 시도·입력 확인을 준다", () => {
+    const html = renderToString(<FailedMain {...props} />);
+    expect(html).toContain("초안 생성 실패");
+    expect(html).toContain("초안을 만들지 못했어요");
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("생성을 완료하지 못했어요. 입력한 내용은 유지되어 있으니 다시 시도해 주세요.");
+    expect(html).toContain("다시 시도하기");
+    expect(html).toContain("입력 내용 확인");
+    expect(html).toContain("입력 내용과 저장한 결과는 삭제되지 않았어요.");
+    expect(html).not.toContain("이전 결과 보기");
+    expect(html).not.toContain("disabled");
+  });
+
+  it("이전 결과가 있을 때만 이전 결과 보기를 둔다", () => {
+    expect(renderToString(<FailedMain {...props} hasResult />)).toContain("이전 결과 보기");
+  });
+
+  it("만들 수 없거나 요청 중이면 다시 시도하기가 막힌다", () => {
+    const retry = (html: string) => /<button[^>]*disabled[^>]*>다시 시도하기/.test(html);
+    expect(retry(renderToString(<FailedMain {...props} canGenerate={false} />))).toBe(true);
+    expect(retry(renderToString(<FailedMain {...props} busy />))).toBe(true);
+    expect(retry(renderToString(<FailedMain {...props} />))).toBe(false);
+  });
+
+  it("만들 수 없어서 막혔을 때만 이유를 알린다", () => {
+    const reason = "지금은 다시 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.";
+    expect(renderToString(<FailedMain {...props} canGenerate={false} />)).toContain(reason);
+    expect(renderToString(<FailedMain {...props} />)).not.toContain(reason);
+  });
+
+  it("옆 패널은 유지된 답변과 흐름 요약을 그린다", () => {
+    const html = renderToString(<FailedSide flow={[makeFlowItem({ label: "사용자", status: "answered", answer: "부모" })]} />);
+    expect(html).toContain("유지된 답변");
+    expect(html).toContain("부모");
   });
 });

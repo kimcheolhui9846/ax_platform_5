@@ -369,18 +369,18 @@ export const RESULT_EVIDENCE: ResultView = {
   },
 };
 
-/** 이미지 블록이 있는 결과(브랜딩처럼 이미지를 켠 과제의 모습). 둘째 섹션 끝에 이미지 한 장. */
+/** 이미지 블록이 있는 결과(브랜딩처럼 이미지를 켠 과제의 모습). 첫 섹션 끝에 이미지 한 장. */
 export const RESULT_IMAGE: ResultView = {
   ...RESULT,
   result: {
     ...RESULT.result,
     sections: RESULT.result.sections.map((s) =>
-      s.order === 2
+      s.order === 1
         ? {
             ...s,
             blocks: [
               ...s.blocks,
-              { type: "image", asset_id: PREVIEW_IMAGE_ID, alt: "핵심 기능 참고 이미지", caption: "AI가 만든 참고 이미지예요. 실제 결과물과 다를 수 있어요.", origin: "ai_generated" },
+              { type: "image", asset_id: PREVIEW_IMAGE_ID, alt: "상품 콘셉트 참고 이미지", caption: "AI가 만든 참고 이미지예요. 실제 결과물과 다를 수 있어요.", origin: "ai_generated" },
             ],
           }
         : s,

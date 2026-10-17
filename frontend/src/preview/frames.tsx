@@ -68,6 +68,7 @@ const request: Route = { name: "request", task: PRODUCT.task_type };
 const mode: Route = { name: "mode", task: PRODUCT.task_type };
 const question: Route = { name: "question", sessionId: SESSION_ID };
 const confirm: Route = { name: "confirm", sessionId: SESSION_ID };
+const failed: Route = { name: "failed", sessionId: SESSION_ID };
 const result: Route = { name: "result", sessionId: SESSION_ID };
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
@@ -91,8 +92,13 @@ export const FRAMES: Frame[] = [
     { kind: "revise", task: PRODUCT, session: SESSION_QUESTION, item: ANSWERED_USER },
   ),
   frame("confirm", "03 답변 의미 확인", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }),
-  frame("confirm-generating", "답변 확인 · 초안 만드는 중", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }, true),
-  frame("confirm-failed", "답변 확인 · 생성 실패", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_FAILED }),
+  frame("generating", "초안 생성 중", confirm, { kind: "generating", task: PRODUCT, session: SESSION_READY }, true),
+  frame("failed", "초안 생성 실패", failed, { kind: "failed", task: PRODUCT, session: SESSION_FAILED }),
+  frame("failed-with-result", "생성 실패 · 이전 결과 있음", failed, {
+    kind: "failed",
+    task: PRODUCT,
+    session: { ...SESSION_FAILED, has_result: true },
+  }),
   frame("result", "결과 문서", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT, images: {} }),
   frame("result-stale", "결과 · 최신 아님", result, { kind: "result", task: PRODUCT, session: SESSION_STALE, result: { ...RESULT, stale: true }, images: {} }),
   frame("result-supplement", "결과 · 미확인 정보 입력(미반영)", result, {

@@ -34,13 +34,13 @@ export function ModeScreen({ form, draft, busy, onPick, onEditRequest }: Props) 
         <p className="bodycopy">{draft}</p>
       </div>
       <div className="mode-grid">
-        {form.modes.map(({ mode, question_cap }) => {
+        {form.modes.map(({ mode }) => {
           const copy = MODE_COPY[mode];
           return (
             <article key={mode} className="card mode-card stack">
               <h2>{copy.name}</h2>
               <p className="bodycopy">{copy.headline}</p>
-              <p className="muted">{copy.detail(question_cap)}</p>
+              <p className="muted">{copy.detail}</p>
               <button
                 type="button"
                 className={mode === RECOMMENDED_MODE ? "btn primary full" : "btn full"}

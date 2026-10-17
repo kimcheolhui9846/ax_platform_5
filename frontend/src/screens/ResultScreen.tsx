@@ -1,8 +1,9 @@
+import { useId } from "react";
 import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { ResultDocument } from "../components/ResultDocument";
 import { SupplementPanel } from "../components/SupplementPanel";
-import { STALE_NOTICE, actionState, regenerateAction, saveButton } from "../lib/actions";
+import { STALE_BANNER, STALE_SAVE_HINT, REGENERATE_ACTION, actionState, saveButton } from "../lib/actions";
 import { documentContent } from "../lib/document";
 import type { Images } from "../lib/document";
 import type { SupplementProps } from "./EditScreen";
@@ -14,10 +15,28 @@ type MainProps = {
   images: Images;
   busy: boolean;
   onConfirm: () => void;
+  onRegenerate: () => void;
 };
 
+type BannerProps = { busy: boolean; canGenerate: boolean; onRegenerate: () => void };
+
+/** 결과가 최신이 아님(답·보완 정보가 바뀜). 아래 문서는 바뀌기 전 결과다. */
+export function StaleBanner({ busy, canGenerate, onRegenerate }: BannerProps) {
+  return (
+    <section className="stale-banner" role="status">
+      <div className="stack8">
+        <h2>{STALE_BANNER.title}</h2>
+        <p>{STALE_BANNER.text}</p>
+      </div>
+      <button type="button" className="btn primary" disabled={busy || !canGenerate} onClick={onRegenerate}>
+        {STALE_BANNER.action}
+      </button>
+    </section>
+  );
+}
+
 /** 결과 문서. 아직 결과가 없으면 답변 확인으로 안내한다. */
-export function ResultMain({ task, session, result, images, busy, onConfirm }: MainProps) {
+export function ResultMain({ task, session, result, images, busy, onConfirm, onRegenerate }: MainProps) {
   if (result === null) {
     return (
       <section className="card confirm stack">
@@ -29,7 +48,14 @@ export function ResultMain({ task, session, result, images, busy, onConfirm }: M
       </section>
     );
   }
-  return <ResultDocument {...documentContent(task, result, session.result_stale, images)} />;
+  const document = <ResultDocument {...documentContent(task, result, session.result_stale, images)} />;
+  if (!session.result_stale) return document;
+  return (
+    <div className="stack">
+      <StaleBanner busy={busy} canGenerate={session.can_generate} onRegenerate={onRegenerate} />
+      {document}
+    </div>
+  );
 }
 
 type SideProps = {
@@ -66,13 +92,14 @@ export function ResultSide({
   onContinue,
   onDownload,
 }: SideProps) {
-  const regenerate = regenerateAction(session.result_stale);
-  const regenerateState = actionState(regenerate, busy, session.can_generate);
+  const hintId = useId();
+  const stale = session.result_stale;
+  const regenerateState = actionState(REGENERATE_ACTION, busy, session.can_generate);
+  const hinted = stale ? hintId : undefined;
   const save = saveButton(version, session.result_stale, withSources);
   return (
     <section className="card side-card stack" aria-label="결과 다음 할 일">
       <h2>{heading}</h2>
-      {session.result_stale && <p className="notice small">{STALE_NOTICE}</p>}
       {session.error && (
         <p className="error" role="alert">
           {session.error}
@@ -86,15 +113,18 @@ export function ResultSide({
             {evidence.label}
           </button>
         )}
+        {!stale && (
+          <button type="button" className="btn full" disabled={regenerateState.disabled} onClick={onRegenerate}>
+            {regenerateState.label}
+          </button>
+        )}
         <button
           type="button"
-          className={regenerate.primary ? "btn primary full" : "btn full"}
-          disabled={regenerateState.disabled}
-          onClick={onRegenerate}
+          className={save.primary ? "btn primary full" : "btn full"}
+          disabled={busy || save.disabled}
+          aria-describedby={hinted}
+          onClick={onSave}
         >
-          {regenerateState.label}
-        </button>
-        <button type="button" className={save.primary ? "btn primary full" : "btn full"} disabled={busy || save.done} onClick={onSave}>
           {save.label}
         </button>
         {onEditText && (
@@ -115,10 +145,15 @@ export function ResultSide({
         <button type="button" className="btn full" disabled={busy} onClick={onContinue}>
           질문 이어 가기
         </button>
-        <button type="button" className="btn full" disabled={busy} onClick={onDownload}>
+        <button type="button" className="btn full" disabled={busy || stale} aria-describedby={hinted} onClick={onDownload}>
           문서 내려받기
         </button>
       </div>
+      {stale && (
+        <p id={hintId} className="small muted">
+          {STALE_SAVE_HINT}
+        </p>
+      )}
       <p className="small muted">AI 제안과 외부 사실은 따로 검토가 필요해요.</p>
     </section>
   );
