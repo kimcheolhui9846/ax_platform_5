@@ -159,13 +159,19 @@ describe("FlowSummary·CriteriaBox", () => {
 
 describe("ResultDocument", () => {
   it("제목·기준·번호 매긴 섹션·가정·검토 항목", () => {
-    const result = makeResult({
-      validation: { issues: [{ rule: "r", message: "근거 없는 숫자가 있어요.", severity: "warning" }], passed: true },
-    });
+    const result = makeResult();
     result.result.assumptions = [{ field: "price", label: "가격 방향", value: "1~3만원", reason: "", requires_confirmation: true }];
-    const html = renderToString(<ResultDocument result={result} title="상품기획 초안" kicker="상품 콘셉트 · 첫 제작 기획서" rows={[]} />);
+    const html = renderToString(
+      <ResultDocument
+        title="상품기획 초안"
+        kicker="V1 · 첫 초안 / 상품 콘셉트 · 첫 제작 기획서"
+        rows={[]}
+        result={result.result}
+        issues={[{ rule: "r", message: "근거 없는 숫자가 있어요.", severity: "warning" }]}
+      />,
+    );
     expect(html).toContain("상품기획 초안");
-    expect(html).toContain("상품 콘셉트 · 첫 제작 기획서");
+    expect(html).toContain("V1 · 첫 초안 / 상품 콘셉트 · 첫 제작 기획서");
     expect(html).toContain('<span class="section-number">01</span>');
     expect(html).toContain("진단");
     expect(html).toContain("가격 방향: 1~3만원 (확인 필요)");

@@ -82,4 +82,6 @@
   --summary-label-width: 88px;
   --mode-card-height: 320px;
   --current-mark: 3px;
+  --list-action-width: 264px;
+  --saved-action-basis: 240px;
 }

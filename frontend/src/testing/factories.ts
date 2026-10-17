@@ -1,5 +1,14 @@
 // 테스트에서 쓰는 API 값. 생성된 타입을 쓰므로 계약이 바뀌면 여기서 먼저 깨진다.
-import type { FlowItem, Question, ResultView, SessionView, TaskForm, TaskSummary } from "../api/types";
+import type {
+  FlowItem,
+  Question,
+  ResultView,
+  SessionSummary,
+  SessionView,
+  TaskForm,
+  TaskSummary,
+  VersionView,
+} from "../api/types";
 
 export function makeQuestion(overrides: Partial<Question> = {}): Question {
   return {
@@ -96,6 +105,19 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
     session_id: "sess_1",
     status: "completed",
     stale: false,
+    version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: false },
+    summary: [
+      {
+        field: "product_idea",
+        label: "상품 아이디어",
+        value: "수제 향초",
+        source: "user_free_text",
+        source_label: "직접 입력",
+        confidence: 1,
+        is_assumption: false,
+      },
+    ],
+    unknowns: [],
     validation: { issues: [], passed: true },
     result: {
       cards: [{ card_type: "diagnosis", order: 1, title: "상품 콘셉트", body: "집들이 선물용 수제 향초." }],
@@ -104,6 +126,37 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
       content: {},
       generated_at: "2026-10-16T09:00:00Z",
     },
+    ...overrides,
+  };
+}
+
+export function makeSessionSummary(overrides: Partial<SessionSummary> = {}): SessionSummary {
+  return {
+    session_id: "sess_1",
+    task_type: "product_planning",
+    title: "상품기획",
+    raw_input: "수제 향초",
+    mode: "standard",
+    has_question: true,
+    has_result: false,
+    result_stale: false,
+    latest_version: null,
+    saved_versions: [],
+    updated_at: "2026-10-16T09:00:00Z",
+    ...overrides,
+  };
+}
+
+export function makeVersionView(overrides: Partial<VersionView> = {}): VersionView {
+  const result = makeResult();
+  return {
+    session_id: "sess_1",
+    version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: false },
+    latest: true,
+    result: result.result,
+    validation: result.validation,
+    summary: result.summary,
+    unknowns: [],
     ...overrides,
   };
 }

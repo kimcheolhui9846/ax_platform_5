@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contract import ContractModel
-from app.core.results import ResultCard, ValidationReport
+from app.core.results import ResultCard, ValidationReport, VersionReason
 from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
@@ -139,9 +139,47 @@ class LabeledResult(ContractModel):
     generated_at: datetime
 
 
+class VersionSummary(ContractModel):
+    version: int
+    created_at: datetime
+    reason: VersionReason
+    saved: bool
+
+
 class ResultView(ContractModel):
     session_id: str
     status: SessionStatus
     result: LabeledResult
     validation: ValidationReport | None
     stale: bool
+    version: VersionSummary  # 지금 결과의 버전
+    summary: list[SummaryItem]  # 이 결과를 만든 기준(그 버전의 사실·가정)
+    unknowns: list[UnknownItem]  # 그 버전에서 미정이던 필드
+
+
+class VersionView(ContractModel):
+    """지난 버전(또는 지금 버전) 보기. 보기 전용이다."""
+
+    session_id: str
+    version: VersionSummary
+    latest: bool  # 지금 결과(마지막 버전)인지
+    result: LabeledResult
+    validation: ValidationReport | None
+    summary: list[SummaryItem]
+    unknowns: list[UnknownItem]
+
+
+class SessionSummary(ContractModel):
+    """내 작업·결과물 목록의 세션 하나."""
+
+    session_id: str
+    task_type: str
+    title: str  # 과제 이름
+    raw_input: str
+    mode: CoachingMode
+    has_question: bool  # 걸린 질문이 있다(이어서 답할 수 있다)
+    has_result: bool
+    result_stale: bool
+    latest_version: int | None  # 결과가 없으면 None
+    saved_versions: list[VersionSummary]  # 저장 표시한 버전(결과물 목록에 모인다)
+    updated_at: datetime

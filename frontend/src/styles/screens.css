@@ -70,6 +70,25 @@
 .section-tag { font-size: var(--text-note); font-weight: var(--font-medium); color: var(--color-muted); }
 .review-needed { color: var(--color-error); }
 
+/* 홈 카드의 이어하기·새로 시작 */
+.task-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); margin-top: auto; }
+.task-actions .textbtn { align-self: center; }
+.recent { display: flex; align-items: center; gap: var(--space-6); }
+.recent .btn { width: var(--list-action-width); }
+
+/* 내 작업·결과물 */
+.list { gap: var(--space-6); }
+.listitem { display: flex; align-items: center; gap: var(--space-6); }
+.listitem h2 { font-size: var(--text-lg); line-height: var(--text-lg-line); }
+.listitem .btn { width: var(--list-action-width); }
+.empty { align-items: center; text-align: center; padding: var(--space-8); }
+
+/* 저장 완료·버전 보기 */
+.saved { padding: var(--space-8); gap: var(--space-6); }
+.saved-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.saved-actions .btn { flex: 1 1 var(--saved-action-basis); }
+.version-notice { display: flex; align-items: center; gap: var(--space-3); }
+
 /* 흐름 안내 */
 .guide { gap: var(--space-6); }
 .guide > .btn { align-self: flex-start; }
@@ -89,4 +108,7 @@
   .help-row .btn { flex: none; width: 100%; }
   .composer .row { flex-wrap: wrap; }
   .composer .send { width: 100%; }
+  .listitem, .recent { flex-direction: column; align-items: stretch; gap: var(--space-4); }
+  .listitem .btn, .recent .btn { width: 100%; }
+  .version-notice { flex-wrap: wrap; }
 }

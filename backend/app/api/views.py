@@ -7,6 +7,7 @@ from app.core.state import (
     Assumption,
     CoachingMode,
     InfoItem,
+    ResultVersion,
     SessionState,
     SessionStatus,
     source_label,
@@ -21,11 +22,14 @@ from app.schemas.coaching import (
     ModeInfo,
     Progress,
     ResultView,
+    SessionSummary,
     SessionView,
     SummaryItem,
     TaskForm,
     TaskSummary,
     UnknownItem,
+    VersionSummary,
+    VersionView,
 )
 
 
@@ -130,13 +134,61 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
     )
 
 
-def to_result_view(state: SessionState, labels: Mapping[str, str]) -> ResultView:
-    if state.result is None:
+def version_summary(version: ResultVersion) -> VersionSummary:
+    return VersionSummary(
+        version=version.version, created_at=version.created_at, reason=version.reason, saved=version.saved
+    )
+
+
+def field_labels(fields: Sequence[FieldPolicy]) -> dict[str, str]:
+    """[순수] 필드 이름 → 화면용 라벨."""
+    return {f.name: f.label for f in fields}
+
+
+def to_result_view(state: SessionState, fields: Sequence[FieldPolicy]) -> ResultView:
+    """[순수] 지금 결과. 기준(summary·unknowns)은 지금 세션이 아니라 이 결과를 만든 버전의 것이다."""
+    if state.result is None or not state.versions:
         raise ValueError("생성된 결과가 없는 세션입니다.")
+    latest = state.versions[-1]
+    labels = field_labels(fields)
     return ResultView(
         session_id=state.session_id,
         status=state.status,
         result=label_result(state.result, labels),
         validation=state.validation,
         stale=state.result_stale,
+        version=version_summary(latest),
+        summary=build_summary(fields, latest.facts, latest.assumptions),
+        unknowns=label_unknowns(latest.unknowns, labels),
+    )
+
+
+def to_version_view(state: SessionState, version: ResultVersion, fields: Sequence[FieldPolicy]) -> VersionView:
+    """[순수] 버전 하나 보기(그 버전의 결과와 기준)."""
+    labels = field_labels(fields)
+    return VersionView(
+        session_id=state.session_id,
+        version=version_summary(version),
+        latest=version.version == state.versions[-1].version,
+        result=label_result(version.result, labels),
+        validation=version.validation,
+        summary=build_summary(fields, version.facts, version.assumptions),
+        unknowns=label_unknowns(version.unknowns, labels),
+    )
+
+
+def to_session_summary(state: SessionState, title: str) -> SessionSummary:
+    """[순수] 목록에 보일 세션 요약. title은 과제 이름이다."""
+    return SessionSummary(
+        session_id=state.session_id,
+        task_type=state.task_type,
+        title=title,
+        raw_input=state.raw_input,
+        mode=state.mode,
+        has_question=state.pending_question is not None,
+        has_result=state.result is not None,
+        result_stale=state.result_stale,
+        latest_version=state.versions[-1].version if state.versions else None,
+        saved_versions=[version_summary(v) for v in state.versions if v.saved],
+        updated_at=state.updated_at,
     )

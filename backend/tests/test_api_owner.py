@@ -39,8 +39,9 @@ def test_session_routes_need_a_valid_client_id(client_id):
 
     created = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"})
     read = client.get(f"{BASE}/sessions/sess_1")
+    listed = client.get(f"{BASE}/sessions")
 
-    for response in (created, read):
+    for response in (created, read, listed):
         assert response.status_code == 422
         assert response.json() == {"detail": CLIENT_ID_REQUIRED_MESSAGE}
 
@@ -60,6 +61,8 @@ def test_other_clients_session_looks_missing_everywhere():
         ("POST", f"/sessions/{sid}/question/original", None),
         ("GET", f"/sessions/{sid}/result", None),
         ("GET", f"/sessions/{sid}/trace", None),
+        ("GET", f"/sessions/{sid}/versions/1", None),
+        ("POST", f"/sessions/{sid}/versions/1/save", None),
     ]
     for method, path, body in attempts:
         response = theirs.request(method, f"{BASE}{path}", json=body)

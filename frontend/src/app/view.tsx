@@ -1,24 +1,31 @@
 import type { JSX } from "react";
 
-import type { AnswerBody, CoachingMode, ReviseBody, SessionView } from "../api/types";
+import type { AnswerBody, CoachingMode, ReviseBody, SessionSummary, SessionView } from "../api/types";
 import { FlowPanel } from "../components/FlowPanel";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
+import type { DocumentFile } from "../lib/documentHtml";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
 import { questionKicker } from "../lib/question";
 import type { ExampleAction } from "../lib/question";
 import type { Route } from "../lib/routes";
+import { versionIsStale } from "../lib/sessions";
 import { enabledNav, railActive, railItems, routePhase } from "../lib/shell";
 import type { NavKey } from "../lib/shell";
 import { ConfirmScreen } from "../screens/ConfirmScreen";
+import { DocumentsScreen } from "../screens/DocumentsScreen";
 import { GuideScreen } from "../screens/GuideScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ModeScreen } from "../screens/ModeScreen";
 import { RequestScreen } from "../screens/RequestScreen";
 import { ResultMain, ResultSide } from "../screens/ResultScreen";
+import { SavedMain, SavedSide } from "../screens/SavedScreen";
 import { LoadingScreen, UnavailableScreen } from "../screens/StatusScreens";
+import { VersionMain, VersionSide } from "../screens/VersionScreen";
+import { WorkScreen } from "../screens/WorkScreen";
+import { documentFileOf } from "./documentFile";
 import type { ScreenModel } from "./screenModel";
 
 /** 화면 버튼이 부르는 동작. 앱은 handlers.ts의 makeHandlers가, 미리보기는 NOOP_HANDLERS가 준다. */
@@ -42,21 +49,44 @@ export type Handlers = {
   showResult: () => void;
   confirm: () => void;
   continueQuestions: () => void;
+  resume: (summary: SessionSummary) => void;
+  openVersion: (sessionId: string, version: number) => void;
+  saveVersion: () => void;
+  download: (file: DocumentFile) => void;
 };
 
 export type ScreenParts = { main: JSX.Element; side: JSX.Element | null };
 
 /** 화면 모델 → 본문과 오른쪽 패널. 판단은 하지 않고 모델과 lib의 순수 함수로만 그린다. */
 export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): ScreenParts {
+  const file = documentFileOf(model);
+  const download = () => {
+    if (file) on.download(file);
+  };
   switch (model.kind) {
     case "loading":
       return { main: <LoadingScreen />, side: null };
     case "unavailable":
       return { main: <UnavailableScreen onRetry={on.retry} onHome={on.goHome} />, side: null };
     case "home":
-      return { main: <HomeScreen tasks={model.tasks} onStart={on.start} />, side: null };
+      return {
+        main: (
+          <HomeScreen
+            tasks={model.tasks}
+            sessions={model.sessions}
+            onStart={on.start}
+            onResume={on.resume}
+            onWork={() => on.navigate("work")}
+          />
+        ),
+        side: null,
+      };
     case "guide":
       return { main: <GuideScreen onStart={on.goHome} />, side: null };
+    case "work":
+      return { main: <WorkScreen sessions={model.sessions} onResume={on.resume} onHome={on.goHome} />, side: null };
+    case "documents":
+      return { main: <DocumentsScreen sessions={model.sessions} onOpen={on.openVersion} onHome={on.goHome} />, side: null };
     case "request": {
       const task = model.task.task_type;
       return {
@@ -142,14 +172,42 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           model.result === null ? null : (
             <ResultSide
               session={model.session}
+              version={model.result.version}
               busy={busy}
               onRegenerate={on.generate}
+              onSave={on.saveVersion}
               onChangeAnswers={editable ? () => on.edit(editable) : null}
               onContinue={on.continueQuestions}
+              onDownload={download}
             />
           ),
       };
     }
+    case "saved":
+      return {
+        main: (
+          <SavedMain
+            task={model.task}
+            version={model.version}
+            onDocuments={() => on.navigate("documents")}
+            onOpen={() => on.openVersion(model.session.session_id, model.version.version.version)}
+            onDownload={download}
+          />
+        ),
+        side: <SavedSide session={model.session} />,
+      };
+    case "version":
+      return {
+        main: (
+          <VersionMain
+            task={model.task}
+            version={model.version}
+            stale={versionIsStale(model.version, model.session)}
+            onCurrent={on.showResult}
+          />
+        ),
+        side: <VersionSide version={model.version} onDocuments={() => on.navigate("documents")} onDownload={download} />,
+      };
   }
 }
 

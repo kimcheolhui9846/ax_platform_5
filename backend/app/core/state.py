@@ -1,13 +1,14 @@
 """세션 상태. 설계서 10.2(세션 상태)와 12장(사실·가정 분리)을 그대로 옮긴 모델이다."""
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.core.contract import ContractModel
-from app.core.results import GenerationResult, ValidationReport, utcnow
+from app.core.results import GenerationResult, ValidationReport, VersionReason, utcnow
 
 
 class SessionStatus(StrEnum):
@@ -106,6 +107,46 @@ class AskedQuestion(BaseModel):
     superseded: bool = False
 
 
+class ResultVersion(BaseModel):
+    """결과가 바뀔 때마다 하나씩 쌓는 기록. 마지막 버전의 결과가 지금 결과(SessionState.result)다.
+
+    그때의 사실·가정·미정을 복사해 둔다. 나중에 이 버전을 열면 그 기준으로 보여 준다.
+    """
+
+    version: int
+    created_at: datetime
+    reason: VersionReason
+    result: GenerationResult
+    validation: ValidationReport | None = None
+    facts: dict[str, InfoItem] = Field(default_factory=dict)
+    assumptions: dict[str, Assumption] = Field(default_factory=dict)
+    unknowns: list[str] = Field(default_factory=list)
+    saved: bool = False  # 저장 표시(결과물 목록에 모인다)
+
+    @classmethod
+    def snapshot(
+        cls,
+        number: int,
+        reason: VersionReason,
+        result: GenerationResult,
+        validation: ValidationReport | None,
+        facts: Mapping[str, InfoItem],
+        assumptions: Mapping[str, Assumption],
+        unknowns: Sequence[str],
+    ) -> "ResultVersion":
+        """그때의 결과·검증·기준을 복사해 버전 하나를 만든다. 뒤에 세션이 바뀌어도 이 버전은 그대로다."""
+        return cls(
+            version=number,
+            created_at=result.generated_at,
+            reason=reason,
+            result=result.model_copy(deep=True),
+            validation=validation.model_copy(deep=True) if validation is not None else None,
+            facts={name: item.model_copy() for name, item in facts.items()},
+            assumptions={name: item.model_copy() for name, item in assumptions.items()},
+            unknowns=list(unknowns),
+        )
+
+
 class TraceEntry(ContractModel):
     stage: str
     input: dict[str, Any] = Field(default_factory=dict)
@@ -149,9 +190,24 @@ class SessionState(BaseModel):
     result: GenerationResult | None = None
     result_stale: bool = False
     validation: ValidationReport | None = None
+    versions: list[ResultVersion] = Field(default_factory=list)  # 만든 결과의 기록(1부터, 마지막이 지금 결과)
     trace: list[TraceEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _version_legacy_result(self) -> "SessionState":
+        """버전 기록이 생기기 전에 저장한 세션은 지금 결과를 V1로 붙인다(지금 결과 = 마지막 버전).
+
+        그때의 기준은 남아 있지 않아 지금 세션의 사실·가정·미정으로 대신한다(개발 중에 만든 세션에만 해당하는 근사값).
+        """
+        if self.result is not None and not self.versions:
+            self.versions = [
+                ResultVersion.snapshot(
+                    1, VersionReason.FIRST, self.result, self.validation, self.facts, self.assumptions, self.unknowns
+                )
+            ]
+        return self
 
     def find_asked(self, question_id: str) -> AskedQuestion | None:
         return next(

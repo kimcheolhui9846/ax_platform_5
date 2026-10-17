@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer } from "react";
 
 import { Toast } from "../components/Toast";
+import { saveFile } from "../lib/download";
 import { readDraft, writeDraft } from "../lib/drafts";
 import { isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
@@ -64,7 +65,13 @@ export default function App() {
     document.title = title;
   }, [title]);
 
-  const on = makeHandlers({ state, run, dispatch, saveDraft: (key, text) => writeDraft(storage, key, text) });
+  const on = makeHandlers({
+    state,
+    run,
+    dispatch,
+    saveDraft: (key, text) => writeDraft(storage, key, text),
+    saveFile,
+  });
   return (
     <>
       <AppView route={state.route} model={model} busy={isBusy(state)} on={on} />

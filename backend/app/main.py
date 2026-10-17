@@ -6,7 +6,7 @@ from app.api.errors import install_error_handlers
 from app.api.locks import SessionLocks
 from app.api.responses import install_openapi
 from app.config import settings
-from app.core.store import InMemorySessionStore, SessionStore
+from app.core.store import SessionStore, build_store
 from app.harness.registry import HarnessRegistry
 from app.providers.base import LLMProvider
 from app.providers.factory import get_provider
@@ -22,7 +22,7 @@ def create_app(
         version="0.1.0",
     )
     app.state.registry = HarnessRegistry(provider or get_provider(settings.provider))
-    app.state.store = store or InMemorySessionStore()
+    app.state.store = store or build_store(settings.store, settings.database_path)
     app.state.locks = SessionLocks()
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)

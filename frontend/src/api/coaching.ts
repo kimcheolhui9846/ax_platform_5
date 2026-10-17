@@ -5,9 +5,11 @@ import type {
   CoachingMode,
   ResultView,
   ReviseBody,
+  SessionSummary,
   SessionView,
   TaskForm,
   TaskSummary,
+  VersionView,
 } from "./types";
 
 export type { ApiResult } from "./client";
@@ -33,6 +35,11 @@ export function createSession(
     params: { path: { task_type: taskType } },
     body: { raw_input: rawInput, mode },
   });
+}
+
+/** 내 세션 요약(최근에 바뀐 순서). 내 작업·결과물·홈 이어하기가 쓴다. */
+export function listSessions(): Promise<ApiResult<SessionSummary[]>> {
+  return api.GET(`${BASE}/sessions`);
 }
 
 export function getSession(sessionId: string): Promise<ApiResult<SessionView>> {
@@ -86,5 +93,19 @@ export function generateResult(sessionId: string): Promise<ApiResult<ResultView>
 export function getResult(sessionId: string): Promise<ApiResult<ResultView>> {
   return api.GET(`${BASE}/sessions/{session_id}/result`, {
     params: { path: { session_id: sessionId } },
+  });
+}
+
+/** 버전 하나 보기(보기 전용). */
+export function getVersion(sessionId: string, version: number): Promise<ApiResult<VersionView>> {
+  return api.GET(`${BASE}/sessions/{session_id}/versions/{version}`, {
+    params: { path: { session_id: sessionId, version } },
+  });
+}
+
+/** 그 버전에 저장 표시를 한다. */
+export function saveVersion(sessionId: string, version: number): Promise<ApiResult<VersionView>> {
+  return api.POST(`${BASE}/sessions/{session_id}/versions/{version}/save`, {
+    params: { path: { session_id: sessionId, version } },
   });
 }

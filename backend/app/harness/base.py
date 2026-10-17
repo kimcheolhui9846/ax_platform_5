@@ -16,6 +16,7 @@ from app.core.results import (
     TaskResult,
     ValidationIssue,
     ValidationReport,
+    VersionReason,
     utcnow,
 )
 from app.core.state import (
@@ -29,6 +30,7 @@ from app.core.state import (
     InfoSource,
     Question,
     QuestionOption,
+    ResultVersion,
     SessionState,
     SessionStatus,
     TraceEntry,
@@ -131,6 +133,24 @@ def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | N
     if answer.answer_type in (AnswerType.EASIER, AnswerType.SKIP):
         return None
     return answer_to_fact(question, answer)
+
+
+def new_version(state: SessionState, result: GenerationResult, report: ValidationReport) -> ResultVersion:
+    """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정을 복사해 함께 남긴다."""
+    return ResultVersion.snapshot(
+        len(state.versions) + 1,
+        VersionReason.REGENERATE if state.versions else VersionReason.FIRST,
+        result,
+        report,
+        state.facts,
+        state.assumptions,
+        state.unknowns,
+    )
+
+
+def find_version(versions: Sequence[ResultVersion], number: int) -> ResultVersion | None:
+    """[코드·순수] 번호로 버전을 찾는다. 없으면 None."""
+    return next((v for v in versions if v.version == number), None)
 
 
 def counted_fields(records: Sequence[AskedQuestion]) -> set[str]:
@@ -501,6 +521,7 @@ class BaseHarness:
         state.result = result
         state.result_stale = False
         state.validation = report
+        state.versions.append(new_version(state, result, report))
         state.status = SessionStatus.COMPLETED
 
     @staticmethod
@@ -514,6 +535,13 @@ class BaseHarness:
         if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
             state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
         state.status = SessionStatus.FAILED
+
+    def save_version(self, state: SessionState, number: int) -> ResultVersion | None:
+        """[코드] 그 버전에 저장 표시를 한다. 없는 번호면 None(세션은 그대로). 다시 저장해도 그대로다."""
+        version = find_version(state.versions, number)
+        if version is not None:
+            version.saved = True
+        return version
 
     def validate(self, state: SessionState, result: GenerationResult) -> ValidationReport:
         """[코드 + LLM] 공통·과제 규칙을 돌린다. LLM 검토는 policy.llm_validation일 때만(비용)."""

@@ -1,5 +1,5 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { FlowItem, Question, ResultView, SessionView, SummaryItem, TaskForm, TaskSummary } from "../api/types";
+import type { FlowItem, Question, ResultView, SessionSummary, SessionView, SummaryItem, TaskForm, TaskSummary, VersionView } from "../api/types";
 import type { EditableFlowItem } from "../lib/flowView";
 
 export const TASKS: TaskSummary[] = [
@@ -195,6 +195,9 @@ export const RESULT: ResultView = {
   session_id: "sess_preview",
   status: "completed",
   stale: false,
+  version: { version: 2, created_at: "2026-10-16T09:30:00Z", reason: "regenerate", saved: false },
+  summary: DONE_SUMMARY,
+  unknowns: [{ field: "customer_problem", label: "고객 문제" }],
   validation: {
     issues: [{ rule: "unverified_number", message: "가격은 AI 가정이에요. 비슷한 상품 가격을 확인해 주세요.", severity: "warning" }],
     passed: true,
@@ -214,3 +217,55 @@ export const RESULT: ResultView = {
     generated_at: "2026-10-16T09:00:00Z",
   },
 };
+
+export const SAVED_VERSION: VersionView = {
+  session_id: "sess_preview",
+  version: { ...RESULT.version, saved: true },
+  latest: true,
+  result: RESULT.result,
+  validation: RESULT.validation,
+  summary: RESULT.summary,
+  unknowns: RESULT.unknowns,
+};
+
+export const OLD_VERSION: VersionView = {
+  session_id: "sess_preview",
+  version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true },
+  latest: false,
+  result: { ...RESULT.result, cards: RESULT.result.cards.slice(0, 2) },
+  validation: null,
+  summary: SUMMARY,
+  unknowns: [{ field: "usage_context", label: "사용 상황" }],
+};
+
+export const SESSIONS: SessionSummary[] = [
+  {
+    session_id: "sess_preview",
+    task_type: "product_planning",
+    title: "상품기획",
+    raw_input: REQUEST,
+    mode: "standard",
+    has_question: false,
+    has_result: true,
+    result_stale: false,
+    latest_version: 2,
+    saved_versions: [
+      { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true },
+      { version: 2, created_at: "2026-10-16T09:30:00Z", reason: "regenerate", saved: true },
+    ],
+    updated_at: "2026-10-16T09:30:00Z",
+  },
+  {
+    session_id: "sess_brand",
+    task_type: "branding",
+    title: "브랜딩",
+    raw_input: "한글 파우치 브랜드가 너무 전통적으로만 보이지 않으면 좋겠어요",
+    mode: "quick",
+    has_question: true,
+    has_result: false,
+    result_stale: false,
+    latest_version: null,
+    saved_versions: [],
+    updated_at: "2026-10-16T08:10:00Z",
+  },
+];

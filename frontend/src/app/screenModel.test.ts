@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
-import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
+import { makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { screenModel } from "./screenModel";
 import { initialState } from "./state";
 import type { AppState } from "./state";
@@ -15,7 +15,7 @@ function at(route: Route, patch: Partial<AppState> = {}): AppState {
 
 describe("screenModel", () => {
   it("홈과 안내", () => {
-    expect(screenModel(at(HOME))).toEqual({ kind: "home", tasks: [task] });
+    expect(screenModel(at(HOME, { sessions: [] }))).toEqual({ kind: "home", tasks: [task], sessions: [] });
     expect(screenModel(at({ name: "guide" }))).toEqual({ kind: "guide" });
   });
 
@@ -81,6 +81,46 @@ describe("screenModel", () => {
   });
 
   it("받은 과제 목록이 비어 있어도 홈을 그린다", () => {
-    expect(screenModel({ ...initialState(HOME), tasks: [] })).toEqual({ kind: "home", tasks: [] });
+    expect(screenModel({ ...initialState(HOME), tasks: [], sessions: [] })).toEqual({ kind: "home", tasks: [], sessions: [] });
+  });
+
+  it("홈은 내 세션 목록을 받기 전에는 불러오는 중이다", () => {
+    expect(screenModel(at(HOME))).toEqual({ kind: "loading" });
+  });
+
+  it("내 작업·결과물은 내 세션 목록으로 그린다", () => {
+    const sessions = [makeSessionSummary()];
+    expect(screenModel(at({ name: "work" }, { sessions }))).toEqual({ kind: "work", sessions });
+    expect(screenModel(at({ name: "documents" }, { sessions }))).toEqual({ kind: "documents", sessions });
+    expect(screenModel(at({ name: "work" }))).toEqual({ kind: "loading" });
+  });
+
+  it("저장 완료는 저장한 그 버전으로 그린다(지금 결과가 아니다)", () => {
+    const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
+    const session = makeSession({ next_question: null, has_result: true });
+    const version = makeVersionView({ version: { version: 1, created_at: "2026-10-16T09:00:00Z", reason: "first", saved: true } });
+    expect(screenModel(at(route, { session, version, result: makeResult() }))).toEqual({ kind: "saved", task, session, version });
+    expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
+    expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
+  });
+
+  it("저장하지 않은 버전 번호로 저장 완료 주소를 열면 버전 보기로 보여 준다", () => {
+    const route: Route = { name: "saved", sessionId: "sess_1", version: 1 };
+    const session = makeSession({ next_question: null, has_result: true });
+    const unsaved = makeVersionView();
+    expect(screenModel(at(route, { session, version: unsaved }))).toEqual({ kind: "version", task, session, version: unsaved });
+  });
+
+  it("내 세션 목록을 못 받아도 홈은 이어하기 없이 열린다(새 과제는 시작할 수 있다)", () => {
+    expect(screenModel(at(HOME, { stalled: "sessions" }))).toEqual({ kind: "home", tasks: [task], sessions: [] });
+  });
+
+  it("버전 보기는 그 버전을 받아야 그린다", () => {
+    const route: Route = { name: "version", sessionId: "sess_1", version: 1 };
+    const session = makeSession({ next_question: null, has_result: true });
+    const version = makeVersionView();
+    expect(screenModel(at(route, { session, version }))).toEqual({ kind: "version", task, session, version });
+    expect(screenModel(at(route, { session }))).toEqual({ kind: "loading" });
+    expect(screenModel(at(route, { session, stalled: "version:sess_1:1" }))).toEqual({ kind: "unavailable" });
   });
 });

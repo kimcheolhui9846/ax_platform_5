@@ -23,7 +23,9 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 설정은 `backend/.env`(실행 위치와 상관없이 이 파일)나 환경 변수에서 읽는다. `DEBUG` 기본값은 `false`이고, `.env.example`을 복사하면 로컬 개발용으로 `DEBUG=true`가 된다.
 
-배포: 세션별 잠금(`app/api/locks.py`)과 메모리 저장소(`InMemorySessionStore`)는 서버 프로세스 하나를 전제로 한다. 인스턴스(워커)는 하나만 띄우고, 공유 저장소가 생기면 둘 다 그쪽으로 바꾼다.
+저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. 계약은 `tests/test_store_contract.py`가 두 구현에 함께 돌린다. 테스트는 `tests/conftest.py`가 개발자 `.env`와 상관없이 늘 `memory`로 정한다(실제 DB를 건드리지 않는다). 목록 조회(`list_by_owner`)는 무거운 trace를 빼고 읽는다.
+
+배포: 세션별 잠금(`app/api/locks.py`)은 서버 프로세스 하나를 전제로 한다. SQLite 파일도 한 프로세스가 쓴다. 인스턴스(워커)는 하나만 띄우고, 여러 프로세스가 필요해지면 잠금과 저장소를 공유 저장소(DB 잠금)로 함께 바꾼다.
 
 줄바꿈은 `.gitattributes`가 LF로 고정한다(`design/**`는 받은 바이트 그대로, PDF·이미지는 바이너리).
 
@@ -35,12 +37,12 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/harness/prompting.py` — 단계별 템플릿 변수 선언(`STAGE_CONTEXT`). 넘긴 키가 선언과 다르면 렌더링이 실패한다. 렌더 결과는 `Prompt(system, user)`.
 - `backend/app/harness/registry.py` — 과제 등록부(`TASK_TYPES`). 등록되지 않은 과제는 `build_harness`가 거부한다.
 - `backend/app/api/` — 얇은 라우터(`/api/v1/coaching/...`), 상태→응답 변환(`views.py`, 순수 함수), 예외 처리기(`errors.py`), 경로별 오류 응답 선언(`responses.py`), 세션별 잠금(`locks.py`), 요청한 사용자(`owner.py`).
-- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`, 계약은 `tests/test_store_contract.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
+- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, 계약은 `tests/test_store_contract.py`), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
 - `backend/app/providers/` — 모델 제공자. 지금은 `MockProvider`만 있다. `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다.
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `frontend/src/api/coaching.ts` — 백엔드 호출은 전부 여기를 거친다. `schema.d.ts`는 생성물이므로 손으로 고치지 않는다.
-- `frontend/src/app/` — 앱 상태와 연결. `state.ts`의 `reducer`(순수)만 상태를 바꾼다. 응답은 지금 기다리는 요청 번호(`inflight.seq`)일 때만 받고, 과제·세션 묶음(`contextOf`)을 떠나면 늦게 온 응답을 버린다. `load.ts`의 `needsLoad`가 화면에 모자란 데이터를, `screenModel.ts`가 그릴 화면을 정하고, `handlers.ts`가 버튼을 이동·요청으로 바꾼다(`requests.ts`가 요청 번호를 붙여 실행). `view.tsx`의 `AppView`는 앱과 미리보기 갤러리가 같이 쓴다.
-- `frontend/src/lib/routes.ts` — 해시 주소. `#/{task}/request`, `#/{task}/mode`(세션 전), `#/s/{id}/question|confirm|result`, `#/s/{id}/question/{question_id}`(답 고치기), `#/guide`. 주소를 읽고 만드는 곳은 `parseRoute`·`toHash`뿐이다. 본문 바로가기 같은 문서 안 앵커(`#main`)는 `isRouteHash`가 화면 이동에서 거른다.
+- `frontend/src/app/` — 앱 상태와 연결. `state.ts`의 `reducer`(순수)만 상태를 바꾼다. 응답은 지금 기다리는 요청 번호(`inflight.seq`)일 때만 받고, 과제·세션 묶음(`contextOf`)을 떠나면 늦게 온 응답을 버린다. `load.ts`의 `needsLoad`가 화면에 모자란 데이터를, `screenModel.ts`가 그릴 화면을 정하고, `handlers.ts`가 버튼을 이동·요청으로 바꾼다(`requests.ts`가 요청 번호를 붙여 실행). `view.tsx`의 `AppView`는 앱과 미리보기 갤러리가 같이 쓴다. 내 세션 목록(`sessions`)은 목록 화면(홈·내 작업·결과물)에 새로 들어올 때마다 다시 받는다. 내려받는 문서는 `documentFile.ts`가 화면 모델에서 만들고(`lib/documentHtml.ts`, 이스케이프한 HTML 한 파일), 파일 저장(`lib/download.ts`)은 App이 handlers에 넘긴다.
+- `frontend/src/lib/routes.ts` — 해시 주소. `#/{task}/request`, `#/{task}/mode`(세션 전), `#/s/{id}/question|confirm|result`, `#/s/{id}/saved/{n}`(저장 완료, 저장한 그 버전), `#/s/{id}/question/{question_id}`(답 고치기), `#/s/{id}/v/{n}`(버전 보기), `#/work`(내 작업), `#/documents`(결과물), `#/guide`. 주소를 읽고 만드는 곳은 `parseRoute`·`toHash`뿐이다. 본문 바로가기 같은 문서 안 앵커(`#main`)는 `isRouteHash`가 화면 이동에서 거른다.
 - `frontend/src/lib/` — 화면 판단(순수 함수): 흐름 표시(`flowView`), 질문 제목·도움 버튼(`question`), 모드 문구(`modes`), 기준 요약(`criteria`), 결과 문서(`document`), 결과 버튼(`actions`, 최신 결과가 있으면 새 생성 없이 `결과 보기`가 먼저), 브라우저 저장소(`storage`·`drafts`·`clientId`). `screens/`·`components/`는 props만 받아 그린다.
 - `frontend/src/styles/tokens.css` — 디자인 원시 값(색·글꼴·글자 크기·간격·모서리·폭·선 두께)은 여기에만 둔다. 다른 CSS에서 색과 글자 크기·폭·선·모서리는 `var(--…)`만 쓴다(`tokens.test.ts`가 검사한다. 컴포넌트 안쪽 여백의 잔값과 위치 값은 예외).
 - `frontend/src/layout/` — 앱 뼈대(왼쪽 메뉴·헤더·본문·오른쪽 패널). props만 받는다. 배치는 창 폭이 아니라 뼈대 폭(`@container app`)으로 바뀐다(미리보기 390px 프레임도 모바일 배치).
@@ -85,7 +87,8 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 내부 사정은 노출하지 않는다. 제공자 원문 오류와 생성 실패 상세는 trace에, 500 예외는 로그에 한 번만 남는다. 422 검증 상세는 로그에 남고, `DEBUG=true`일 때만 422 본문에 `errors`(개발용 선택 필드)로도 실린다.
 - `SessionView.error`는 저장값이 아니라 상태에서 나온다(`FAILED`일 때만 생성 실패 문구). 실패 뒤 답하거나, 이전 답을 고치거나, 질문이 걸린 채 이어 가거나, '원래 예시 보기'를 누르면 함께 사라진다.
 - 흐름 패널의 질문 목록(`SessionView.flow`)은 `app/harness/flow.py`의 `plan_flow`(순수)가 만든다. 물어본 필드(처음 물은 순서, 완료·미정·멈춤) → 지금 질문 → 예정(정책 순서, `questions_left`만큼)이다. 멈춤(`paused`)은 '다른 예시 보기' 중에 결과를 먼저 만들어 걸린 질문이 내려간 필드다. 이미 상한에 셌으므로 예정 자리를 쓰지 않고, 이어 가면 다시 묻는다. 답한 항목에는 그 답을 정한 질문이 실려 있어 그 `question_id`로 답을 고친다.
-- 세션에는 주인(`owner_id`)이 있다. 지금은 브라우저가 만든 익명 ID를 `X-Client-Id` 헤더로 보내고(`frontend/src/lib/clientId.ts`, `api/client.ts`의 `withClientId`), 백엔드는 `app/api/owner.py`의 `current_owner`로 받는다. 세션 경로는 모두 owner를 받고, 남의 세션은 없는 세션과 같은 404다(잠금도 만들지 않는다). 헤더가 없거나 형식이 틀리면 422. 로그인을 붙일 때는 `current_owner` 하나만 바꾼다. 테스트는 `tests/conftest.py`의 `api_client(app, client_id=...)`를 쓴다.
+- 결과는 버전으로 쌓인다(`SessionState.versions`, `ResultVersion`). 생성이 성공할 때마다 `new_version`이 하나를 덧붙이고(첫 번째는 `first`, 그 뒤는 `regenerate`), 마지막 버전의 결과가 지금 결과(`state.result`)다. 버전은 그때의 사실·가정·미정을 복사해 두므로 결과 화면·버전 보기의 '반영한 기준'은 그 버전의 것이다(`ResultView.summary`). 실패한 생성은 버전을 남기지 않는다. `POST /sessions/{id}/versions/{n}/save`가 저장 표시를 하고, `GET …/versions/{n}`이 지난 버전을 보여 준다.
+- 세션에는 주인(`owner_id`)이 있다. 지금은 브라우저가 만든 익명 ID를 `X-Client-Id` 헤더로 보내고(`frontend/src/lib/clientId.ts`, `api/client.ts`의 `withClientId`), 백엔드는 `app/api/owner.py`의 `current_owner`로 받는다. 세션 경로는 모두 owner를 받고, 남의 세션은 없는 세션과 같은 404다(잠금도 만들지 않는다). 헤더가 없거나 형식이 틀리면 422. 로그인을 붙일 때는 `current_owner` 하나만 바꾼다. 테스트는 `tests/conftest.py`의 `api_client(app, client_id=...)`를 쓴다. 내 세션 목록은 `GET /sessions`(`SessionSummary`, 최근에 바뀐 순서, 저장한 버전 포함)다.
 
 ## API 계약이 바뀔 때
 

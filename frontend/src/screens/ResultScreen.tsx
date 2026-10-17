@@ -1,9 +1,8 @@
-import type { ResultView, SessionView, TaskSummary } from "../api/types";
+import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { ResultDocument } from "../components/ResultDocument";
-import { STALE_NOTICE, actionState, regenerateAction } from "../lib/actions";
-import { criteriaRows } from "../lib/criteria";
-import { resultKicker, resultTitle } from "../lib/document";
+import { STALE_NOTICE, actionState, regenerateAction, saveButton } from "../lib/actions";
+import { documentContent } from "../lib/document";
 
 type MainProps = {
   task: TaskSummary;
@@ -26,28 +25,25 @@ export function ResultMain({ task, session, result, busy, onConfirm }: MainProps
       </section>
     );
   }
-  return (
-    <ResultDocument
-      result={result}
-      title={resultTitle(task.title)}
-      kicker={resultKicker(task.deliverable, session.result_stale)}
-      rows={criteriaRows(session.summary, session.unknowns)}
-    />
-  );
+  return <ResultDocument {...documentContent(task, result, session.result_stale)} />;
 }
 
 type SideProps = {
   session: SessionView;
+  version: VersionSummary;
   busy: boolean;
   onRegenerate: () => void;
+  onSave: () => void;
   onChangeAnswers: (() => void) | null;
   onContinue: () => void;
+  onDownload: () => void;
 };
 
-/** 결과 화면 오른쪽: 흐름 요약과 다음 할 일. */
-export function ResultSide({ session, busy, onRegenerate, onChangeAnswers, onContinue }: SideProps) {
+/** 결과 화면 오른쪽: 흐름 요약과 다음 할 일(다시 만들기·저장·답변 바꾸기·이어 가기·내려받기). */
+export function ResultSide({ session, version, busy, onRegenerate, onSave, onChangeAnswers, onContinue, onDownload }: SideProps) {
   const regenerate = regenerateAction(session.result_stale);
-  const { label, disabled } = actionState(regenerate, busy, session.can_generate);
+  const regenerateState = actionState(regenerate, busy, session.can_generate);
+  const save = saveButton(version, session.result_stale);
   return (
     <section className="card side-card stack" aria-label="결과 다음 할 일">
       <h2>결과를 확인해 주세요</h2>
@@ -59,8 +55,16 @@ export function ResultSide({ session, busy, onRegenerate, onChangeAnswers, onCon
       )}
       <FlowSummary flow={session.flow} />
       <div className="stack8">
-        <button type="button" className={regenerate.primary ? "btn primary full" : "btn full"} disabled={disabled} onClick={onRegenerate}>
-          {label}
+        <button
+          type="button"
+          className={regenerate.primary ? "btn primary full" : "btn full"}
+          disabled={regenerateState.disabled}
+          onClick={onRegenerate}
+        >
+          {regenerateState.label}
+        </button>
+        <button type="button" className={save.primary ? "btn primary full" : "btn full"} disabled={busy || save.done} onClick={onSave}>
+          {save.label}
         </button>
         {onChangeAnswers && (
           <button type="button" className="btn full" disabled={busy} onClick={onChangeAnswers}>
@@ -69,6 +73,9 @@ export function ResultSide({ session, busy, onRegenerate, onChangeAnswers, onCon
         )}
         <button type="button" className="btn full" disabled={busy} onClick={onContinue}>
           질문 이어 가기
+        </button>
+        <button type="button" className="btn full" disabled={busy} onClick={onDownload}>
+          문서 내려받기
         </button>
       </div>
       <p className="small muted">AI 제안과 외부 사실은 따로 검토가 필요해요.</p>

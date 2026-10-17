@@ -21,6 +21,9 @@ class HarnessRegistry:
     def __init__(self, provider: LLMProvider) -> None:
         self._harnesses = {t: build_harness(t, provider) for t in TASK_TYPES}
 
+    def __contains__(self, task_type: object) -> bool:
+        return task_type in self._harnesses
+
     def get(self, task_type: str) -> BaseHarness:
         try:
             return self._harnesses[task_type]

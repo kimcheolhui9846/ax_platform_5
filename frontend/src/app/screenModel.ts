@@ -1,4 +1,12 @@
-import type { Question, ResultView, SessionView, TaskForm, TaskSummary } from "../api/types";
+import type {
+  Question,
+  ResultView,
+  SessionSummary,
+  SessionView,
+  TaskForm,
+  TaskSummary,
+  VersionView,
+} from "../api/types";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
 import type { AppState } from "./state";
@@ -7,14 +15,18 @@ import type { AppState } from "./state";
 export type ScreenModel =
   | { kind: "loading" }
   | { kind: "unavailable" }
-  | { kind: "home"; tasks: TaskSummary[] }
+  | { kind: "home"; tasks: TaskSummary[]; sessions: SessionSummary[] }
   | { kind: "guide" }
+  | { kind: "work"; sessions: SessionSummary[] }
+  | { kind: "documents"; sessions: SessionSummary[] }
   | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string }
   | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
-  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null };
+  | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null }
+  | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView }
+  | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView };
 
 const LOADING: ScreenModel = { kind: "loading" };
 
@@ -27,10 +39,17 @@ export function screenModel(state: AppState): ScreenModel {
 function resolve(state: AppState): ScreenModel {
   const { route } = state;
   switch (route.name) {
-    case "home":
-      return state.tasks === null ? LOADING : { kind: "home", tasks: state.tasks };
+    case "home": {
+      // 내 세션 목록을 못 받았어도 홈은 이어하기 없이 연다(새 과제는 시작할 수 있다)
+      const sessions = state.sessions ?? (state.stalled === "sessions" ? [] : null);
+      return state.tasks === null || sessions === null ? LOADING : { kind: "home", tasks: state.tasks, sessions };
+    }
     case "guide":
       return { kind: "guide" };
+    case "work":
+    case "documents":
+      if (state.sessions === null) return LOADING;
+      return route.name === "work" ? { kind: "work", sessions: state.sessions } : { kind: "documents", sessions: state.sessions };
     case "request":
     case "mode": {
       const task = findTask(state.tasks, route.task);
@@ -43,6 +62,14 @@ function resolve(state: AppState): ScreenModel {
       if (session === null || session.session_id !== route.sessionId) return LOADING;
       const task = findTask(state.tasks, session.task_type);
       if (task === null) return LOADING;
+      if (route.name === "version" || route.name === "saved") {
+        const version = state.version;
+        const loaded = version !== null && version.session_id === session.session_id && version.version.version === route.version;
+        if (!loaded) return LOADING;
+        // 저장하지 않은 번호로 저장 완료 주소를 열었으면(직접 입력·북마크) 버전 보기로 보여 준다
+        const saved = route.name === "saved" && version.version.saved;
+        return saved ? { kind: "saved", task, session, version } : { kind: "version", task, session, version };
+      }
       if (route.name === "result") {
         if (!session.has_result) return { kind: "result", task, session, result: null };
         const result = state.result !== null && state.result.session_id === session.session_id ? state.result : null;
