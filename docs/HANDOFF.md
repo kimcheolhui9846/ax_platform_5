@@ -3,7 +3,7 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-18
-- main: `dbc6c99` (PR #21까지 머지)
+- main: `2efe2a3` (PR #22까지 머지)
 - 테스트: 백엔드 476 passed, 프론트 410 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
@@ -28,6 +28,7 @@
 | 실제 Claude 연결 | #20 | `ClaudeProvider`(공식 SDK, 구조화 출력·시스템 캐시·거절 시 서버 측 대체), `PROVIDER=claude`·`CLAUDE_MODEL`·`CLAUDE_EFFORT`, `scripts/claude_smoke.py` |
 | 무료 배포 설정 | #21 | `render.yaml`(렌더 Free), `vercel.json` rewrites, `docs/DEPLOY.md` |
 | 배포 완료 기록 | #22 | 실제 주소, WBS 5.1·5.2 완료 |
+| README 정리 | #23 | 바로 보기 주소, 된 것, 남은 일(맡을 사람·상의할 점) |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
