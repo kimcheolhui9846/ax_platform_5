@@ -37,9 +37,14 @@ def test_redact_masks_each_kind(text, masked, kind):
 
 
 @pytest.mark.parametrize("text", ["판매가 18,000원", "2026년 10월 18일", "500개 생산", "원가 8000원 / 개", "버전 1.2.3",
-    "2026-10-18", "일시 2026-10-18 09:00", "품번 12-34-56", "SKU 2026-1018-01", "10-20대 고객", "바코드 8801234567890"])
+    "2026-10-18", "일시 2026-10-18 09:00", "품번 12-34-56", "SKU 2026-1018-01", "10-20대 고객"])
 def test_redact_leaves_prices_dates_and_quantities(text):
     assert redact(text) == (text, {})
+
+
+def test_redact_masks_barcodes_that_look_like_resident_numbers():
+    # 오탐을 일부러 받아들인다: 주민번호를 놓치는 것(유출)보다 바코드를 가리는 것이 낫다
+    assert redact("바코드 8801234567890") == ("바코드 [주민번호]", {"resident": 1})
 
 
 def test_redact_counts_repeats():
