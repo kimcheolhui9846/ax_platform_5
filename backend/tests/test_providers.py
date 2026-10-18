@@ -4,6 +4,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from app.providers.base import Prompt, ProviderError, ProviderOutputError
+from app.providers.claude import ClaudeProvider
 from app.providers.factory import get_provider
 from app.providers.mock import MockProvider
 from app.providers.mock_fill import mock_instance
@@ -70,5 +71,12 @@ def test_mock_provider_failure_modes():
 
 def test_get_provider():
     assert get_provider("mock").name == "mock"
-    with pytest.raises(ValueError):
-        get_provider("claude")
+    with pytest.raises(ValueError, match="claude"):
+        get_provider("unknown")
+
+
+def test_get_provider_builds_claude_without_calling(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")  # 생성만 한다. 실제 호출은 하지 않는다.
+    provider = get_provider("claude", model="claude-haiku-5-5", effort="low")
+    assert isinstance(provider, ClaudeProvider)
+    assert (provider.name, provider.model, provider.effort) == ("claude", "claude-haiku-5-5", "low")
