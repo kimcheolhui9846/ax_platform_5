@@ -136,3 +136,25 @@ def test_supplements_privacy_accepts_only_supplement_names():
     field = view["next_question"]["field"]
     bad = client.put(f"{BASE}/sessions/{view['session_id']}/supplements", json={"values": {}, "private": {field: True}})
     assert bad.status_code == 422
+
+
+def test_clearing_the_context_also_drops_the_privacy_it_brought():
+    app = create_app(provider=MockProvider(), debug=True)
+    client = api_client(app)
+    prev = new_session(client, task="branding", text="비밀상품설명XYZ")["session_id"]
+    state = app.state.store.get(prev)
+    state.private_overrides["product_and_customer"] = True
+    app.state.store.save(state)
+    client.post(f"{BASE}/sessions/{prev}/generate")
+    view = client.post(
+        f"{BASE}/tasks/marketing_content/sessions",
+        json={"raw_input": "새요청글QRS", "notice_acknowledged": True, "from_session_id": prev},
+    ).json()
+    sid = view["session_id"]
+    assert "product" in view["private_names"]
+
+    cleared = client.delete(f"{BASE}/sessions/{sid}/context").json()
+    assert cleared["private_names"] == ["price"]  # 정책 기본값으로 돌아간다
+    client.post(f"{BASE}/sessions/{sid}/generate")
+    generate = [e for e in client.get(f"{BASE}/sessions/{sid}/trace").json() if e["stage"] == "generate"][-1]
+    assert "새요청글QRS" in generate["input"]["user"]

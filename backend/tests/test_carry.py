@@ -248,3 +248,23 @@ def test_clear_context_leaves_a_pending_question_on_another_field_alone(harness)
     harness.clear_context(state)
 
     assert state.pending_question.question_id == pending.question_id
+
+
+def test_clear_context_keeps_privacy_of_carried_values_the_user_changed(harness):
+    first = harness.start("향초").pending_question.field
+    others = [f.name for f in harness.policy.fields if f.kind != "default" and f.name not in (first, harness.policy.raw_input_field)]
+    kept, dropped = others[0], others[1]
+    context = CarriedContext(
+        session_id="sess_prev", task_type="product_planning", version=1, title="t", summary="s",
+        items=[
+            CarriedItem(field=kept, value="가져온 값", from_name=kept, private=True),
+            CarriedItem(field=dropped, value="가져온 값", from_name=dropped, private=True),
+        ],
+    )
+    state = harness.start("향초", context=context)
+    state.facts[kept] = info("사용자가 고친 값")
+
+    harness.clear_context(state)
+
+    assert kept in harness.private(state)
+    assert dropped not in harness.private(state)

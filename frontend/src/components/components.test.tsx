@@ -474,6 +474,14 @@ describe("ContextBox", () => {
     expect(rendered).not.toContain("disabled");
   });
 
+  it("이전 작업에서 비공개였던 항목에는 'AI에 보내지 않음'을 붙인다", () => {
+    const rendered = html(makeContext({ items: [
+      { field: "a", label: "상품", value: "향초", private: true },
+      { field: "b", label: "고객", value: "집들이", private: false },
+    ] }));
+    expect(rendered).toContain("상품: 향초 (AI에 보내지 않음) · 고객: 집들이");
+  });
+
   it("항목이 없으면 항목 줄이 없고, 처리 중이면 제외를 막는다", () => {
     expect(html(makeContext({ items: [] })).match(/class="small muted"/g)).toHaveLength(1);
     expect(html(makeContext({ items: [], summary: "" }))).not.toContain("small muted");

@@ -751,6 +751,7 @@ class BaseHarness:
         답·보완 정보가 마지막 버전과 다른지로 다시 정한다. 걸린 질문이 없으면 평소 규칙으로 다음 질문을 건다(빠진 항목을
         다시 묻는다. 다른 예시 사다리면 LLM 호출이 날 수 있다). 다른 필드 질문이 걸려 있으면 그대로 둔다.
         가져온 내용이 없으면 그대로고, 지울 값이 남아 있지 않으면(모두 사용자가 고쳤으면) 가져온 기준 표시만 뺀다.
+        지운 값 중 이전 작업에서 비공개였던 것은 비공개 설정도 정책 기본값으로 되돌린다.
         """
         if state.context is None:
             return
@@ -762,9 +763,13 @@ class BaseHarness:
         if not removed:
             state.context = None
             return
+        brought_private = [item.field for item in state.context.items if item.private and item.field in removed]
         with _atomic(state):
             for name in removed:
                 del state.facts[name]
+            # 가져오면서 함께 건 비공개도 정책 기본값으로 되돌린다(사용자가 고친 값의 설정은 둔다)
+            for name in brought_private:
+                self._set_private(state, name, name in self.policy.private_fields)
             state.context = None
             self.apply_defaults(state)
             self.fill_raw_input(state)
