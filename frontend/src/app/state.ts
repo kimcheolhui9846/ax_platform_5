@@ -167,6 +167,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         route: action.next ?? done.route,
         session: action.session,
         sessionOutdated: false,
+        notices: { ...done.notices, [action.session.task_type]: false }, // 세션을 만들 때마다 안내를 새로 확인한다
         result: matchingResult(done.result, action.session),
         toast: action.notice ?? done.toast,
       };

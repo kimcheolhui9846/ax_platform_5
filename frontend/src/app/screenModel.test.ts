@@ -28,8 +28,10 @@ describe("screenModel", () => {
   it("요청·모드는 양식과 쓰다 만 글로 그린다", () => {
     const form = makeForm();
     const state = at({ name: "mode", task: "product_planning", from: null }, { form, drafts: { product_planning: "수제 향초" } });
-    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false });
-    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form }))).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: false });
+    expect(screenModel(state)).toEqual({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: false });
+    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form }))).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: false });
+    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form, notices: { product_planning: true } }))).toMatchObject({ noticeAcknowledged: true });
+    expect(screenModel(at({ name: "request", task: "product_planning", from: null }, { form, notices: { branding: true } }))).toMatchObject({ noticeAcknowledged: false });
   });
 
   it("데이터가 모자라면 불러오는 중이고, 그 불러오기가 실패했으면 열 수 없다", () => {
@@ -222,14 +224,14 @@ describe("screenModel — 이어가기", () => {
     const route: Route = { name: "request", task: "product_planning", from };
     expect(screenModel(at(route, { form }))).toEqual({ kind: "loading" });
     const carry = { task: "product_planning", key: "product_planning:s1:2", context };
-    expect(screenModel(at(route, { form, carry }))).toEqual({ kind: "request", task, form, draft: "", context, carryFailed: false });
+    expect(screenModel(at(route, { form, carry }))).toEqual({ kind: "request", task, form, draft: "", context, carryFailed: false, noticeAcknowledged: false });
     expect(screenModel(at(route, { form, carry: { task: "product_planning", key: "product_planning:other:1", context } }))).toEqual({ kind: "loading" });
   });
 
   it("미리보기를 못 받았으면 context 없이 계속할 수 있게 요청·모드 화면을 연다", () => {
     const failed = { form, stalled: "carry:product_planning:s1:2" };
     const request = screenModel(at({ name: "request", task: "product_planning", from }, failed));
-    expect(request).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: true });
+    expect(request).toEqual({ kind: "request", task, form, draft: "", context: null, carryFailed: true, noticeAcknowledged: false });
     expect(screenModel(at({ name: "mode", task: "product_planning", from }, failed))).toMatchObject({ kind: "mode", context: null, carryFailed: true });
     // 다른 출처의 실패는 이 화면과 상관없다
     expect(screenModel(at({ name: "request", task: "product_planning", from }, { form, stalled: "carry:product_planning:other:1" }))).toEqual({ kind: "unavailable" });

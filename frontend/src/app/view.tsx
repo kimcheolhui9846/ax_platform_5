@@ -9,6 +9,7 @@ import { firstSectionOrder } from "../lib/document";
 import type { DocumentFile } from "../lib/documentHtml";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
+import { isPrivate } from "../lib/privacy";
 import { questionKicker } from "../lib/question";
 import { appliedSourceIds, evidenceButton, resultHeading, versionBeforeEvidence } from "../lib/evidence";
 import type { ExampleAction } from "../lib/question";
@@ -144,7 +145,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             draft={model.draft}
             context={model.context}
             carryFailed={model.carryFailed}
+            acknowledged={model.noticeAcknowledged}
             busy={busy}
+            onAcknowledge={(acknowledged) => on.acknowledgeNotice(task, acknowledged)}
             onExcludeContext={() => on.dropCarry(task)}
             onChange={(text) => on.changeDraft(task, text)}
             onSubmit={() => on.submitRequest(task)}
@@ -162,6 +165,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             draft={model.draft}
             context={model.context}
             carryFailed={model.carryFailed}
+            acknowledged={model.noticeAcknowledged}
             onExcludeContext={() => on.dropCarry(task)}
             busy={busy}
             onPick={(mode) => on.pickMode(task, mode)}
@@ -179,6 +183,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
             question={model.question}
             kicker={questionKicker(model.question, answeredBefore(model.session.flow))}
             request={model.session.raw_input}
+            defaultPrivate={isPrivate(model.session.private_names, model.question.field)}
             busy={busy}
             onAnswer={on.answer}
             onExample={on.example}
@@ -194,6 +199,7 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <ReviseCard
             key={questionId}
             item={model.item}
+            defaultPrivate={isPrivate(model.session.private_names, model.item.field)}
             busy={busy}
             onRevise={(body) => on.revise(questionId, body)}
             onCancel={on.backToQuestions}
@@ -320,7 +326,7 @@ function supplementProps(session: SessionView, result: ResultView, on: Handlers)
     applied: result.supplements,
     changed: session.supplements_changed,
     canGenerate: session.can_generate,
-    onSave: (values: Record<string, string | null>) => on.saveSupplements(values, {}),
+    onSave: on.saveSupplements,
     onApply: on.applySupplements,
   };
 }

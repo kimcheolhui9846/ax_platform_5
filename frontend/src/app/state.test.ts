@@ -86,6 +86,12 @@ describe("reducer", () => {
     expect(done.route).toEqual(question);
   });
 
+  it("세션을 받으면 그 과제의 안내 확인을 지운다(만들 때마다 새로 확인)", () => {
+    const state = { ...waiting(initialState(question), 1), notices: { product_planning: true, branding: true } };
+    const done = reducer(state, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, notice: null });
+    expect(done.notices).toEqual({ product_planning: false, branding: true });
+  });
+
   it("알림이 있는 세션 응답은 알림을 띄운다", () => {
     const done = reducer(waiting(initialState(result), 1), {
       type: "sessionLoaded",

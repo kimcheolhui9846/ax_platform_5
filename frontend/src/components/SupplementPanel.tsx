@@ -10,7 +10,7 @@ type Props = {
   changed: boolean; // 입력이 아직 결과에 반영되지 않았다
   canGenerate: boolean; // 지금 초안을 만들 수 있다
   busy: boolean;
-  onSave: (values: Record<string, string | null>) => void;
+  onSave: (values: Record<string, string | null>, privacy: Record<string, boolean>) => void;
   onApply: (() => void) | null; // null이면 '초안에 반영'을 두지 않는다(문구 수정 화면)
 };
 
@@ -86,9 +86,9 @@ export function SupplementPanel({ current, applied, changed, canGenerate, busy, 
             titleId={titleId}
             items={current}
             busy={busy}
-            onSave={(values) => {
+            onSave={(values, privacy) => {
               currentAtSave.current = current;
-              onSave(values);
+              onSave(values, privacy);
               send({ type: "save" });
             }}
             onCancel={() => send({ type: "cancel" })}

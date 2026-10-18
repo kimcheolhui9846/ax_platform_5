@@ -203,6 +203,16 @@ const READY: SessionView = {
 };
 
 export const SESSION_READY: SessionView = READY;
+/** 질문 항목(사용 상황)이 AI에 보내지 않음으로 정해진 상태: 체크 칸이 처음부터 체크돼 있다. */
+export const SESSION_QUESTION_PRIVATE: SessionView = { ...SESSION_BASE, private_names: ["usage_context"] };
+/** 기준 표에 AI에 보내지 않은 값(핵심 가치)이 표시된 확인 화면. */
+export const SESSION_READY_PRIVATE: SessionView = {
+  ...READY,
+  summary: DONE_SUMMARY.map((item) => (item.field === "core_value" ? { ...item, private: true } : item)),
+  private_names: ["core_value"],
+};
+/** 판매 가격을 AI에 보내지 않기로 한 보완 항목. */
+export const SUPPLEMENT_PRIVATE: SupplementItem[] = SUPPLEMENT_FILLED.map((item) => (item.name === "sale_price" ? { ...item, private: true } : item));
 export const SESSION_FAILED: SessionView = {
   ...READY,
   status: "failed",

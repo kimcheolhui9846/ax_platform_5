@@ -8,6 +8,9 @@ import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import {
   ANSWERED_USER,
+  SESSION_QUESTION_PRIVATE,
+  SESSION_READY_PRIVATE,
+  SUPPLEMENT_PRIVATE,
   CONTEXT,
   EVIDENCE_ITEMS,
   FORM,
@@ -77,14 +80,23 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 export const FRAMES: Frame[] = [
   frame("home", "홈 · 이어하기", HOME, { kind: "home", tasks: TASKS, sessions: SESSIONS }),
   frame("home-new", "홈 · 처음 방문", HOME, { kind: "home", tasks: TASKS, sessions: [] }),
-  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false }),
+  frame("request", "01 내 요청", request, { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false, noticeAcknowledged: true }),
   frame(
     "request-context",
     "01 내 요청 · 이전 작업에서 이어가기",
     { name: "request", task: PRODUCT.task_type, from: { sessionId: CONTEXT.session_id, version: CONTEXT.version } },
-    { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: CONTEXT, carryFailed: false },
+    { kind: "request", task: PRODUCT, form: FORM, draft: REQUEST, context: CONTEXT, carryFailed: false, noticeAcknowledged: true },
   ),
-  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false }),
+  frame("request-notice", "01 내 요청 · 외부 전송 안내 확인 전", request, {
+    kind: "request",
+    task: PRODUCT,
+    form: FORM,
+    draft: REQUEST,
+    context: null,
+    carryFailed: false,
+    noticeAcknowledged: false,
+  }),
+  frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false, noticeAcknowledged: true }),
   frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
   frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION }),
   frame("question-proposal", "질문 · AI 후보 제안", question, {
@@ -92,6 +104,12 @@ export const FRAMES: Frame[] = [
     task: PRODUCT,
     session: SESSION_PROPOSAL,
     question: PROPOSAL_QUESTION,
+  }),
+  frame("question-private", "질문 · AI에 보내지 않기(체크됨)", question, {
+    kind: "question",
+    task: PRODUCT,
+    session: SESSION_QUESTION_PRIVATE,
+    question: QUESTION,
   }),
   frame(
     "revise",
@@ -105,6 +123,7 @@ export const FRAMES: Frame[] = [
     task: PRODUCT,
     session: { ...SESSION_READY, context: CONTEXT },
   }),
+  frame("confirm-private", "03 답변 의미 확인 · AI에 보내지 않음 표시", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY_PRIVATE }),
   frame("generating", "초안 생성 중", confirm, { kind: "generating", task: PRODUCT, session: SESSION_READY }, true),
   frame("failed", "초안 생성 실패", failed, { kind: "failed", task: PRODUCT, session: SESSION_FAILED }),
   frame("failed-with-result", "생성 실패 · 이전 결과 있음", failed, {
@@ -135,7 +154,7 @@ export const FRAMES: Frame[] = [
     "미확인 정보 입력",
     result,
     { kind: "result", task: PRODUCT, session: SESSION_SUPPLEMENT, result: RESULT, images: {} },
-    (titleId) => <SupplementForm titleId={titleId} items={SESSION_SUPPLEMENT.supplements} busy={false} onSave={() => {}} onCancel={() => {}} />,
+    (titleId) => <SupplementForm titleId={titleId} items={SUPPLEMENT_PRIVATE} busy={false} onSave={() => {}} onCancel={() => {}} />,
   ),
   frame(
     "edit",

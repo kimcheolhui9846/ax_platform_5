@@ -11,9 +11,14 @@ describe("criteriaRows", () => {
       [{ field: "mvp", label: "MVP 구성" }],
     );
     expect(rows).toEqual([
-      { field: "product_idea", label: "상품 아이디어", value: "수제 향초", note: "직접 입력" },
-      { field: "price", label: "가격 방향", value: "1~3만원", note: "AI 가정 · 확인 필요" },
-      { field: "mvp", label: "MVP 구성", value: "아직 미정", note: null },
+      { field: "product_idea", label: "상품 아이디어", value: "수제 향초", note: "직접 입력", private: false },
+      { field: "price", label: "가격 방향", value: "1~3만원", note: "AI 가정 · 확인 필요", private: false },
+      { field: "mvp", label: "MVP 구성", value: "아직 미정", note: null, private: false },
     ]);
+  });
+
+  it("AI에 보내지 않기로 한 값은 private로 표시한다", () => {
+    const { summary } = makeSession();
+    expect(criteriaRows([{ ...summary[0], private: true }], [])[0].private).toBe(true);
   });
 });

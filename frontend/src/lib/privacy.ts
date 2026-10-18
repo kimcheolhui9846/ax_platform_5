@@ -11,3 +11,6 @@ export function isPrivate(privateNames: string[], name: string): boolean {
 export function privateChanges(initial: Record<string, boolean>, current: Record<string, boolean>): Record<string, boolean> {
   return Object.fromEntries(Object.entries(current).filter(([name, value]) => initial[name] !== value));
 }
+
+/** 기준 표에서 AI에 보내지 않은 항목 옆에 붙이는 표시. */
+export const PRIVATE_LABEL = "AI에 보내지 않음";
