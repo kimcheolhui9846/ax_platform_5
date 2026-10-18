@@ -32,9 +32,16 @@ describe("내려받을 문서(HTML)", () => {
   it("보완 정보는 사용자 입력 · 검증 전으로 싣고, 없으면 칸을 두지 않는다", () => {
     const base = { ...documentContent(makeTask(), makeResult(), false, {}), request: "향초" };
     expect(documentHtml(base)).not.toContain("보완 정보");
-    const html = documentHtml({ ...base, supplements: [{ label: "소재", value: "<면>" }] });
+    const html = documentHtml({
+      ...base,
+      supplements: [
+        { label: "소재", value: "<면>", private: false },
+        { label: "판매 가격", value: "18,000원", private: true },
+      ],
+    });
     expect(html).toContain("<h2>보완 정보 · 사용자 입력 / 검증 전</h2>");
     expect(html).toContain("<tr><th>소재</th><td>&lt;면&gt;</td></tr>");
+    expect(html).toContain('<tr><th>판매 가격</th><td>18,000원 <span class="note">· AI에 보내지 않음</span></td></tr>');
   });
 
   it("AI 가정과 검토 항목은 있을 때만 넣는다", () => {

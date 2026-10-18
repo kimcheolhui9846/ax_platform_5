@@ -4,7 +4,7 @@ import type { SupplementItem } from "../api/types";
 export type SupplementStatus = { line: string; missing: string; canApply: boolean };
 
 /** 결과 문서에 실을 반영된 보완 정보 한 줄. */
-export type AppliedRow = { label: string; value: string };
+export type AppliedRow = { label: string; value: string; private: boolean }; // private: 그 결과를 만들 때 AI에 보내지 않은 항목
 
 export const ALL_FILLED_NOTE = "모든 항목에 입력값이 있어요. 사실 검증 완료를 의미하지 않아요.";
 
@@ -43,7 +43,7 @@ export function supplementValues(draft: Record<string, string>): Record<string, 
 /** [순수] 결과 문서에 실을 보완 정보. 반영한 값이 하나도 없으면 빈 목록이다(문서에 칸을 두지 않는다). */
 export function appliedRows(applied: SupplementItem[]): AppliedRow[] {
   if (filled(applied).length === 0) return [];
-  return applied.map((item) => ({ label: item.label, value: item.value ?? "미확인" }));
+  return applied.map((item) => ({ label: item.label, value: item.value ?? "미확인", private: item.private }));
 }
 
 /** 보완 대화상자의 단계: 닫힘 · 열림 · 저장 중(연 채 요청을 기다린다). */

@@ -306,10 +306,17 @@ describe("SupplementForm", () => {
 
 describe("ResultDocument — 보완 정보", () => {
   it("반영한 보완 정보는 검증 전으로 따로 보인다", () => {
-    const content = { ...documentContent(makeTask(), makeResult(), false, {}), supplements: [{ label: "소재", value: "면" }] };
+    const content = {
+      ...documentContent(makeTask(), makeResult(), false, {}),
+      supplements: [
+        { label: "소재", value: "면", private: false },
+        { label: "판매 가격", value: "18,000원", private: true },
+      ],
+    };
     const html = renderToString(<ResultDocument {...content} />);
     expect(html).toContain("보완 정보 · 사용자 입력 / 검증 전");
     expect(html).toContain("<span>소재</span><span>면</span>");
+    expect(html).toContain('<span>판매 가격</span><span>18,000원<span class="muted"> · AI에 보내지 않음</span></span>');
   });
 });
 

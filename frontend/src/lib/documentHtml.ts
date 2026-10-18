@@ -59,7 +59,7 @@ export function documentHtml(content: DocumentContent & { request: string }): st
     content.supplements.length === 0
       ? ""
       : `<h2>보완 정보 · 사용자 입력 / 검증 전</h2><table>${content.supplements
-          .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}</td></tr>`)
+          .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.private ? ` <span class="note">· ${e(PRIVATE_LABEL)}</span>` : ""}</td></tr>`)
           .join("")}</table>`;
   return [
     "<!doctype html>",
