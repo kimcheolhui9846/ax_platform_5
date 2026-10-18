@@ -1,0 +1,23 @@
+# 렌더(render.com) 블루프린트: 백엔드 API를 무료 플랜으로 띄운다. 절차는 docs/DEPLOY.md.
+# 무료 플랜은 디스크가 없어 서버가 다시 시작하면(15분 동안 요청이 없어 잠들었다 깨는 경우 포함) 세션·이미지가 지워진다.
+# 개발자 개인 렌더 계정의 서비스다(인수 시 교체·삭제: docs/HANDOFF.md "개인 계정·키·로컬 데이터"). 프로토타입 시연용이다. 계속 남겨야 하면 유료 플랜 + 디스크로 바꾼다(docs/DEPLOY.md "나중에 바꿀 것").
+services:
+  - type: web
+    name: ax-coaching-api
+    runtime: python
+    plan: free
+    rootDir: backend # uv.lock이 있어 렌더가 uv를 깔아 준다
+    buildCommand: uv sync --frozen --no-dev
+    startCommand: uv run --no-sync python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/coaching/tasks
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: PROVIDER
+        value: mock # 비용 0. 실제 Claude는 claude + ANTHROPIC_API_KEY(대시보드에만 넣는다, 개인 키는 인수 시 폐기)
+      - key: IMAGE_PROVIDER
+        value: mock
+      - key: STORE
+        value: sqlite # 실행 중에는 남고, 다시 시작하면 지워진다(무료 플랜)
+      - key: DEBUG
+        value: "false"

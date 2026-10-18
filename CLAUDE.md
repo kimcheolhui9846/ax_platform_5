@@ -4,7 +4,7 @@
 
 - 기획 근거: `docs/planning/` (기능 설계, 기획 및 하네스 설계서 — PDF와 추출 텍스트)
 - 현재 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
-- **지금 상태·다음 할 일·이어서 일하는 법: `docs/HANDOFF.md`** (새 세션은 이것부터 읽는다)
+- **지금 상태·다음 할 일·이어서 일하는 법: `docs/HANDOFF.md`** (새 세션은 이것부터 읽는다), 배포: `docs/DEPLOY.md`
 - **요구사항·디자인·하네스는 자주 바뀐다.** 바뀌었을 때 고칠 곳이 적은 쪽을 고른다.
 
 ## 실행
@@ -109,7 +109,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 `design/README.md`의 절차를 따른다. 원본은 날짜 폴더에 그대로 두고, 직전 버전과 diff해 바뀐 화면만 React에 반영한다. 디자인 때문에 API가 바뀌어야 하면 위 "API 계약이 바뀔 때"를 먼저 한다.
 
-배포: 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). `/preview`는 `cleanUrls`가 `preview.html`로 연결한다(로컬 Vite 서버도 같다). 백엔드 주소는 `VITE_API_BASE`로 정하고, 지금은 백엔드를 배포하지 않아 앱 화면은 미연결 안내를 띄운다. 다른 출처(렌더)를 가리키려면 백엔드에 CORS(버셀 도메인 허용)가 먼저 필요하다. CORS 없이 가려면 `vercel.json`의 `rewrites`로 `/api/:path*`를 렌더로 넘겨 같은 출처로 쓴다(이때 `VITE_API_BASE`는 비운다). 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
+배포(무료 구성, 절차는 `docs/DEPLOY.md`): 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). `/preview`는 `cleanUrls`가 `preview.html`로 연결한다(로컬 Vite 서버도 같다). 백엔드는 렌더 Free(`render.yaml` 블루프린트, 루트 `backend`, uv, Mock·SQLite·디스크 없음 — 다시 시작하면 데이터가 지워진다)이고, `vercel.json`의 `rewrites`가 `/api/:path*`를 렌더로 넘겨 같은 출처로 쓴다(CORS 불필요, `VITE_API_BASE`는 비운다). 다른 출처로 직접 부르려면 백엔드 CORS(버셀 도메인)와 `VITE_API_BASE`가 필요하다. 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이, 렌더가 깨어나는 중)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
 
 ## 코드 품질 기준
 

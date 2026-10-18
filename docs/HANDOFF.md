@@ -3,7 +3,7 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-18
-- main: `6676693` (PR #19까지 머지)
+- main: `4dffdd0` (PR #20까지 머지)
 - 테스트: 백엔드 476 passed, 프론트 410 passed, 빌드 OK
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -25,6 +25,7 @@
 | 묶음 4 | #18 | 다음 과제로 이어가기(이전 결과의 기준 가져오기·빼기) |
 | 인수인계 | #19 | 이 문서, PR마다 갱신하는 규칙(`CLAUDE.md` 개발 방식) |
 | 실제 Claude 연결 | #20 | `ClaudeProvider`(공식 SDK, 구조화 출력·시스템 캐시·거절 시 서버 측 대체), `PROVIDER=claude`·`CLAUDE_MODEL`·`CLAUDE_EFFORT`, `scripts/claude_smoke.py` |
+| 무료 배포 설정 | #21 | `render.yaml`(렌더 Free), `vercel.json` rewrites, `docs/DEPLOY.md` |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -33,19 +34,8 @@
 1. **디자인 검수(디자이너)** — WBS 3.3·3.4
    - 모바일 390px 화면 확인, `/preview`를 html.to.design으로 피그마에 가져와 다듬기(`design/README.md`).
    - 수정본이 오면 `design/YYYY-MM-DD-…/`에 받은 그대로 넣고 직전 원본과 비교해 바뀐 화면만 반영한다(PR #17이 본보기).
-2. **프론트 버셀 연결(사용자)** — WBS 5.1. vercel.com에서 한 번:
-
-   | 항목 | 값 |
-   |---|---|
-   | Import | GitHub `kimcheolhui9846/ax_platform_5` |
-   | Root Directory | `frontend` |
-   | 빌드 설정 | `frontend/vercel.json`이 정한다(`npm ci` / `npm test && npm run build` / `dist`) |
-   | 환경 변수 | 지금은 없음. 백엔드를 붙일 때 정한다(아래 2번) |
-
-3. **백엔드 렌더 배포** — WBS 5.2. 먼저 정할 것:
-   - 저장 디스크: SQLite 파일(`DATABASE_PATH`)과 이미지 폴더(`ASSET_DIR`)를 남길 영속 디스크.
-   - 프론트와 연결: 백엔드 CORS(버셀 도메인) + `VITE_API_BASE`, 또는 `vercel.json` `rewrites`로 `/api/:path*`를 렌더로 넘겨 같은 출처(이때 `VITE_API_BASE`는 비운다).
-   - 서버 프로세스는 하나(세션 잠금이 프로세스 안 잠금이다).
+2. **배포(사용자, 무료)** — WBS 5.1·5.2. **`docs/DEPLOY.md`를 따른다.** 렌더 Free에 백엔드(`render.yaml` 블루프린트, Mock·SQLite), 버셀 Hobby에 프론트(`vercel.json`의 `rewrites`가 `/api/*`를 렌더로 넘김, `VITE_API_BASE`는 비움). 렌더 주소가 `ax-coaching-api.onrender.com`과 다르면 `frontend/vercel.json`을 고친다.
+3. **배포 뒤 확인** — 렌더 `/api/v1/coaching/tasks` JSON, 버셀 홈의 과제 4개, `/preview`. 무료 플랜이라 15분 무요청이면 잠들고(깨는 데 약 1분) 다시 시작하면 데이터가 지워진다(시연용으로 충분, 보관은 '문서 내려받기').
 4. **실제 AI 연결** — WBS 6.1~6.3
    - LLM 어댑터는 준비됐다(`app/providers/claude.py`). 이 프로토타입은 비용 0을 지키므로 `PROVIDER`는 `mock`으로 둔다. 테스트는 계속 Mock·가짜 응답(네트워크 없음)이다.
    - 인수하는 회사가 켤 때(실제 호출·모델 선택·비용은 그쪽이 정한다, 키는 커밋 금지):
@@ -55,6 +45,22 @@
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.
 5. **평가·발표** — WBS 7.1·7.2 (기획서 14장 지표).
+
+## 개인 계정·키·로컬 데이터 (인수 시 교체·삭제)
+
+프로토타입 개발·시연은 개발자 개인 계정과 키로 한다. **키 값은 저장소에 절대 넣지 않는다**(각 서비스 대시보드의 환경 변수나 git에서 빠진 `backend/.env`에만 둔다). 인수할 때 아래 표를 차례로 처리한다.
+
+| 항목 | 어디에 있나 | 지금(개발자 개인) | 인수 시 할 일 |
+|---|---|---|---|
+| GitHub 저장소 | `kimcheolhui9846/ax_platform_5` | 개인 계정 | 저장소 이전(Transfer)이나 인수 기업 쪽으로 복제 |
+| 렌더 서비스 `ax-coaching-api` | render.com 개인 계정(Free) | 개인 서비스, Mock·데이터 휘발 | 인수 기업 계정에서 `render.yaml`로 새로 만들고 개인 서비스 삭제. 주소가 바뀌면 `frontend/vercel.json`의 `rewrites` 교체 |
+| 버셀 프로젝트 | vercel.com 개인 계정(Hobby) | 개인 프로젝트 | 인수 기업 계정에서 새로 가져오고 개인 프로젝트 삭제 |
+| Anthropic API 키 `ANTHROPIC_API_KEY` | 로컬 `backend/.env`(git 제외) 또는 렌더 환경 변수 | 개인 키(연결 확인용, 기본 `PROVIDER=mock`이라 호출되지 않음) | 콘솔에서 개인 키 폐기(revoke), 인수 기업 키로 교체 |
+| 렌더·버셀 API 토큰(만들었다면) | 각 대시보드 | 개인 토큰 | 폐기 |
+| `frontend/vercel.json`의 `rewrites` 주소 | 저장소 | 개인 렌더 서비스 주소 | 인수 기업 렌더 주소로 교체 |
+| 로컬 DB·이미지 `backend/data/` | 개발자 PC(git 제외) | 테스트 데이터 | 삭제해도 된다(넘길 데이터 없음) |
+| 렌더 Free의 세션·이미지 | 렌더 서버(디스크 없음) | 다시 시작하면 지워짐 | 넘길 데이터 없음 |
+| 익명 사용자 ID | 각 브라우저 `localStorage['ax.client-id']` | 브라우저마다 | 로그인 붙일 때 `current_owner` 교체(`CLAUDE.md`) |
 
 ## 남겨 둔 것·알려진 한계
 
