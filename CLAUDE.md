@@ -4,6 +4,7 @@
 
 - 기획 근거: `docs/planning/` (기능 설계, 기획 및 하네스 설계서 — PDF와 추출 텍스트)
 - 현재 설계·계획: `docs/superpowers/specs/`, `docs/superpowers/plans/`
+- **지금 상태·다음 할 일·이어서 일하는 법: `docs/HANDOFF.md`** (새 세션은 이것부터 읽는다)
 - **요구사항·디자인·하네스는 자주 바뀐다.** 바뀌었을 때 고칠 곳이 적은 쪽을 고른다.
 
 ## 실행
@@ -125,6 +126,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 작업마다 `task/<번호>-<이름>` 브랜치를 따고 PR을 올려 squash merge한다.
 - 커밋 메시지와 PR 본문에 AI 공동저자·생성 표기를 넣지 않는다(저자는 사용자 단독).
 - 작업(PR)을 머지할 때마다 WBS(`docs/WBS.xlsx`, 팀 공유용 작업 현황)를 같은 PR에서 고친다: 끝난 작업은 상태 `완료`·완료일·진척률 1·PR 번호, 시작한 작업은 `진행 중`과 시작일, 계획에 없던 작업은 행을 더하고, 기준일(2행)을 오늘로. `uv run --no-project --with openpyxl python scripts/wbs.py list|set|add|date`로 고친다(엑셀에서 직접 고친 다른 칸은 그대로 둔다). 단계 행 진척률과 '요약' 시트는 수식이라 손대지 않는다.
+- 같은 PR에서 `docs/HANDOFF.md`의 기준일·main·테스트 수, "지금 상태" 표, "다음 할 일"도 고친다.
 
 ## 비용
 
