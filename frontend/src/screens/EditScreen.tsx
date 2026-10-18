@@ -46,7 +46,7 @@ export type SupplementProps = {
   applied: SupplementItem[];
   changed: boolean;
   canGenerate: boolean;
-  onSave: (values: Record<string, string | null>) => void;
+  onSave: (values: Record<string, string | null>, privacy: Record<string, boolean>) => void;
   onApply: () => void;
 };
 

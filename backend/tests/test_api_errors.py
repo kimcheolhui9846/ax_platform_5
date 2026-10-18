@@ -37,7 +37,7 @@ def test_explicit_korean_detail_is_kept(client):
 
 def test_hidden_trace_looks_like_unknown_path():
     client = api_client(create_app(provider=MockProvider(), debug=False))
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()["session_id"]
     response = client.get(f"{BASE}/sessions/{sid}/trace")
     assert response.status_code == 404
     assert response.json() == {"detail": "찾을 수 없습니다."}
@@ -53,7 +53,7 @@ def test_unexpected_exception_is_korean_500_and_logged_once(monkeypatch, caplog)
 
     monkeypatch.setattr(app.state.registry.get("product_planning"), "start", boom)
     with caplog.at_level(logging.DEBUG):
-        response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
+        response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "x"})
 
     assert response.status_code == 500
     assert response.json() == {"detail": INTERNAL_ERROR_MESSAGE}
@@ -65,7 +65,7 @@ def test_unexpected_exception_is_korean_500_and_logged_once(monkeypatch, caplog)
 def test_request_validation_details_are_logged_not_returned(caplog):
     client = api_client(create_app(provider=MockProvider(), debug=False))
     with caplog.at_level(logging.INFO, logger="app.api.errors"):
-        response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
+        response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": ""})
     assert response.json() == {"detail": INVALID_REQUEST_MESSAGE}
     assert any("raw_input" in r.getMessage() for r in caplog.records)
 
@@ -108,13 +108,13 @@ def test_each_route_declares_only_errors_it_can_return(client):
 
 def test_request_error_details_only_in_debug():
     debug = api_client(create_app(provider=MockProvider(), debug=True))
-    body = debug.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""}).json()
+    body = debug.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": ""}).json()
     assert body["detail"] == INVALID_REQUEST_MESSAGE
     assert any("raw_input" in item["loc"] for item in body["errors"])
     assert set(body["errors"][0]) == {"loc", "msg", "type"}
 
     prod = api_client(create_app(provider=MockProvider(), debug=False))
-    body = prod.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""}).json()
+    body = prod.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": ""}).json()
     assert body == {"detail": INVALID_REQUEST_MESSAGE}
 
 

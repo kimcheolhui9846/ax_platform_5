@@ -81,6 +81,7 @@ class TaskPolicy(BaseModel):
     image_generation: bool = False  # 생성마다 참고 이미지 한 장 (비용 때문에 기본 꺼짐)
     fields: list[FieldPolicy]
     supplement_fields: list[SupplementField] = Field(default_factory=list)
+    private_fields: list[str] = Field(default_factory=list)  # AI에 보내지 않는 기본 항목(필드·보완 항목 이름)
     carry_over: dict[str, str] = Field(default_factory=dict)  # 이전 과제 이름 → 이 과제 필드(같은 이름은 적지 않아도 가져온다)
     rules: list[str] = Field(default_factory=list)  # 금지·주의 규칙
 
@@ -108,6 +109,9 @@ class TaskPolicy(BaseModel):
         clashes = sorted(set(supplement_names) & set(names))
         if clashes:
             raise ValueError(f"보완 항목 이름이 필드와 겹칩니다: {', '.join(clashes)}")
+        unknown_private = sorted(set(self.private_fields) - set(names) - set(supplement_names))
+        if unknown_private:
+            raise ValueError(f"private_fields에 모르는 이름이 있습니다: {', '.join(unknown_private)}")
         strays = sorted(set(self.carry_over.values()) - set(names))
         if strays:
             raise ValueError(f"carry_over의 대상이 필드가 아닙니다: {', '.join(strays)}")

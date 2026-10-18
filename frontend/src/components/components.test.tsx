@@ -45,9 +45,9 @@ describe("Composer", () => {
 });
 
 describe("QuestionCard", () => {
-  const card = (question = makeQuestion(), kicker = "핵심 질문") =>
+  const card = (question = makeQuestion(), kicker = "핵심 질문", defaultPrivate = false) =>
     renderToString(
-      <QuestionCard question={question} kicker={kicker} request="수제 향초" busy={false} onAnswer={noop} onExample={noop} onEarlyDraft={noop} />,
+      <QuestionCard question={question} kicker={kicker} request="수제 향초" defaultPrivate={defaultPrivate} busy={false} onAnswer={noop} onExample={noop} onEarlyDraft={noop} />,
     );
 
   it("요청·제목·선택지·도움 버튼을 그린다", () => {
@@ -60,6 +60,12 @@ describe("QuestionCard", () => {
     expect(html).toContain("아직 모르겠어요");
     expect(html).toContain("현재 정보로 초안 만들기");
     expect(html).not.toContain("aria-pressed");
+  });
+
+  it("AI에 보내지 않기 체크 칸이 있고, 기본값이 비공개면 체크돼 있다", () => {
+    expect(card()).toContain("🔒 이 답은 AI에 보내지 않기");
+    expect(card()).not.toMatch(/<input type="checkbox"[^>]*checked/);
+    expect(card(makeQuestion(), "핵심 질문", true)).toMatch(/<input type="checkbox"[^>]*checked/);
   });
 
   it("사다리 질문에는 원래 예시 보기가 있다", () => {
@@ -86,21 +92,28 @@ describe("ReviseCard", () => {
   });
 
   it("지금 답을 입력창에 채워 둔다", () => {
-    const html = renderToString(<ReviseCard item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("◈ 답변 고치기 · 사용자");
     expect(html).toContain("지금 답: 부모");
     expect(html).toMatch(/<textarea[^>]*>부모<\/textarea>/);
     expect(html).toContain("고치지 않고 돌아가기");
   });
 
+  it("같은 체크 칸이 있고 기본값을 따른다", () => {
+    const html = (hidden: boolean) => renderToString(<ReviseCard defaultPrivate={hidden} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
+    expect(html(false)).toContain("🔒 이 답은 AI에 보내지 않기");
+    expect(html(false)).not.toMatch(/<input type="checkbox"[^>]*checked/);
+    expect(html(true)).toMatch(/<input type="checkbox"[^>]*checked/);
+  });
+
   it("다른 예시를 보던 중에 멈춘 질문은 그렇다고 안내한다(빈 '지금 답'을 보이지 않는다)", () => {
-    const html = renderToString(<ReviseCard item={item({ status: "paused", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({ status: "paused", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("다른 예시를 보던 중에 멈춘 질문이에요");
     expect(html).not.toContain("지금 답:");
   });
 
   it("미정으로 둔 질문은 지금 답할 수 있다고 안내한다", () => {
-    const html = renderToString(<ReviseCard item={item({ status: "skipped", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({ status: "skipped", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("아직 미정으로 남겨 둔 질문이에요");
   });
 });
@@ -163,6 +176,13 @@ describe("FlowSummary·CriteriaBox", () => {
     expect(html).toContain("수제 향초");
     expect(html).toContain(" · 직접 입력");
     expect(html).toContain("아직 미정");
+    expect(html).not.toContain("AI에 보내지 않음");
+  });
+
+  it("AI에 보내지 않은 행에는 표시가 붙는다", () => {
+    const { summary } = makeSession();
+    const html = renderToString(<CriteriaBox rows={criteriaRows([{ ...summary[0], private: true }], [])} />);
+    expect(html).toContain("AI에 보내지 않음");
   });
 });
 
@@ -202,8 +222,8 @@ describe("Toast", () => {
 });
 
 const items: SupplementItem[] = [
-  { name: "material", label: "소재", example: "면 100%", value: "면" },
-  { name: "size", label: "크기", example: "", value: null },
+  { name: "material", label: "소재", example: "면 100%", value: "면", private: false },
+  { name: "size", label: "크기", example: "", value: null, private: false },
 ];
 
 describe("SupplementPanel", () => {
@@ -246,6 +266,20 @@ describe("SupplementForm", () => {
     expect(saving).toContain('<button type="button" class="btn" disabled="">취소</button>');
   });
 
+  it("저장 중에는 비공개 체크 칸도 바꿀 수 없다", () => {
+    const saving = renderToString(<SupplementForm titleId="t" items={items} busy={true} onSave={noop} onCancel={noop} />);
+    expect(saving.match(/<input type="checkbox"[^>]*disabled=""/g)).toHaveLength(2);
+    expect(html).not.toMatch(/<input type="checkbox"[^>]*disabled=""/);
+  });
+
+  it("항목마다 AI에 보내지 않기 체크 칸이 있고, 비공개 항목은 체크돼 있다", () => {
+    expect(html.match(/AI에 보내지 않기/g)).toHaveLength(2);
+    const hidden = renderToString(
+      <SupplementForm titleId="t" items={items.map((i) => ({ ...i, private: i.name === "size" }))} busy={false} onSave={noop} onCancel={noop} />,
+    );
+    expect(hidden.match(/<input type="checkbox"[^>]*checked/g)).toHaveLength(1);
+  });
+
   it("항목마다 지금 값(미확인은 빈 칸)과 예시 넣기·미확인으로", () => {
     expect(html).toContain('<h2 id="t">미확인 정보를 채워 주세요</h2>');
     expect(html).toContain('value="면"');
@@ -272,10 +306,17 @@ describe("SupplementForm", () => {
 
 describe("ResultDocument — 보완 정보", () => {
   it("반영한 보완 정보는 검증 전으로 따로 보인다", () => {
-    const content = { ...documentContent(makeTask(), makeResult(), false, {}), supplements: [{ label: "소재", value: "면" }] };
+    const content = {
+      ...documentContent(makeTask(), makeResult(), false, {}),
+      supplements: [
+        { label: "소재", value: "면", private: false },
+        { label: "판매 가격", value: "18,000원", private: true },
+      ],
+    };
     const html = renderToString(<ResultDocument {...content} />);
     expect(html).toContain("보완 정보 · 사용자 입력 / 검증 전");
     expect(html).toContain("<span>소재</span><span>면</span>");
+    expect(html).toContain('<span>판매 가격</span><span>18,000원<span class="muted"> · AI에 보내지 않음</span></span>');
   });
 });
 
@@ -429,8 +470,8 @@ describe("ContextBox", () => {
 
   it("라벨·제목·요약·항목 한 줄·제외 버튼", () => {
     const rendered = html(makeContext({ items: [
-      { field: "a", label: "상품", value: "향초" },
-      { field: "b", label: "고객", value: "집들이" },
+      { field: "a", label: "상품", value: "향초", private: false },
+      { field: "b", label: "고객", value: "집들이", private: false },
     ] }));
     expect(rendered).toContain("이전 작업에서 가져온 기준");
     expect(rendered).toContain("사업계획");
@@ -438,6 +479,14 @@ describe("ContextBox", () => {
     expect(rendered).toContain("상품: 향초 · 고객: 집들이");
     expect(rendered).toContain("가져온 내용 제외");
     expect(rendered).not.toContain("disabled");
+  });
+
+  it("이전 작업에서 비공개였던 항목에는 'AI에 보내지 않음'을 붙인다", () => {
+    const rendered = html(makeContext({ items: [
+      { field: "a", label: "상품", value: "향초", private: true },
+      { field: "b", label: "고객", value: "집들이", private: false },
+    ] }));
+    expect(rendered).toContain("상품: 향초 (AI에 보내지 않음) · 고객: 집들이");
   });
 
   it("항목이 없으면 항목 줄이 없고, 처리 중이면 제외를 막는다", () => {

@@ -44,10 +44,10 @@ describe("coaching API 래퍼", () => {
   });
 
   it("세션 만들기·조회", async () => {
-    await createSession("branding", "향초");
+    await createSession("branding", "향초", "standard", null, true);
     expect(api.POST).toHaveBeenCalledWith(`${BASE}/tasks/{task_type}/sessions`, {
       params: { path: { task_type: "branding" } },
-      body: { raw_input: "향초", mode: "standard" },
+      body: { raw_input: "향초", mode: "standard", notice_acknowledged: true },
     });
 
     await getSession("sess_1");
@@ -67,6 +67,19 @@ describe("coaching API 래퍼", () => {
     expect(api.PATCH).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/answers/{question_id}`, {
       params: { path: { session_id: "sess_1", question_id: "q_1" } },
       body: { answer_type: "free_text", value: "부모" },
+    });
+  });
+
+  it("답변·수정은 비공개 표시를 그대로 싣는다", async () => {
+    await submitAnswer("sess_1", "q_1", { answer_type: "free_text", value: "9900", private: true });
+    expect(api.POST).toHaveBeenLastCalledWith(`${BASE}/sessions/{session_id}/answers`, {
+      params: { path: { session_id: "sess_1" } },
+      body: { answer_type: "free_text", value: "9900", private: true, question_id: "q_1" },
+    });
+    await reviseAnswer("sess_1", "q_1", { answer_type: "free_text", value: "1", private: false });
+    expect(api.PATCH).toHaveBeenLastCalledWith(`${BASE}/sessions/{session_id}/answers/{question_id}`, {
+      params: { path: { session_id: "sess_1", question_id: "q_1" } },
+      body: { answer_type: "free_text", value: "1", private: false },
     });
   });
 
@@ -127,10 +140,10 @@ describe("coaching API 래퍼", () => {
   });
 
   it("미확인 정보 저장", async () => {
-    await saveSupplements("sess_1", { material: "면", size: null });
+    await saveSupplements("sess_1", { material: "면", size: null }, { sale_price: false });
     expect(api.PUT).toHaveBeenCalledWith(`${BASE}/sessions/{session_id}/supplements`, {
       params: { path: { session_id: "sess_1" } },
-      body: { values: { material: "면", size: null } },
+      body: { values: { material: "면", size: null }, private: { sale_price: false } },
     });
     expectTypeOf(saveSupplements).returns.resolves.toEqualTypeOf<ApiResult<SessionView>>();
   });
@@ -173,15 +186,15 @@ describe("coaching API 래퍼", () => {
 
 describe("이어가기", () => {
   it("createSession은 출처가 있을 때만 본문에 싣는다", async () => {
-    await createSession("branding", "글", "standard", { sessionId: "s1", version: 2 });
+    await createSession("branding", "글", "standard", { sessionId: "s1", version: 2 }, true);
     expect(api.POST).toHaveBeenLastCalledWith(`${BASE}/tasks/{task_type}/sessions`, {
       params: { path: { task_type: "branding" } },
-      body: { raw_input: "글", mode: "standard", from_session_id: "s1", from_version: 2 },
+      body: { raw_input: "글", mode: "standard", notice_acknowledged: true, from_session_id: "s1", from_version: 2 },
     });
-    await createSession("branding", "글");
+    await createSession("branding", "글", "standard", null, true);
     expect(api.POST).toHaveBeenLastCalledWith(`${BASE}/tasks/{task_type}/sessions`, {
       params: { path: { task_type: "branding" } },
-      body: { raw_input: "글", mode: "standard" },
+      body: { raw_input: "글", mode: "standard", notice_acknowledged: true },
     });
   });
 

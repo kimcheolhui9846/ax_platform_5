@@ -410,6 +410,8 @@ export interface components {
             value?: string | null;
             /** Option Ids */
             option_ids?: string[];
+            /** Private */
+            private?: boolean | null;
         };
         /**
          * AnswerType
@@ -434,11 +436,15 @@ export interface components {
             label: string;
             /** Value */
             value: string;
+            /** Private */
+            private: boolean;
         };
         /** CreateSessionRequest */
         CreateSessionRequest: {
             /** Raw Input */
             raw_input: string;
+            /** Notice Acknowledged */
+            notice_acknowledged: boolean;
             /** @default standard */
             mode: components["schemas"]["CoachingMode"];
             /** From Session Id */
@@ -726,6 +732,8 @@ export interface components {
             value?: string | null;
             /** Option Ids */
             option_ids?: string[];
+            /** Private */
+            private?: boolean | null;
         };
         /**
          * SessionContext
@@ -800,6 +808,8 @@ export interface components {
             flow: components["schemas"]["FlowItem"][];
             /** Supplements */
             supplements: components["schemas"]["SupplementItem"][];
+            /** Private Names */
+            private_names: string[];
             /** Supplements Changed */
             supplements_changed: boolean;
             context: components["schemas"]["SessionContext"] | null;
@@ -827,6 +837,8 @@ export interface components {
             confidence: number;
             /** Is Assumption */
             is_assumption: boolean;
+            /** Private */
+            private: boolean;
         };
         /** SupplementItem */
         SupplementItem: {
@@ -838,6 +850,8 @@ export interface components {
             example: string;
             /** Value */
             value: string | null;
+            /** Private */
+            private: boolean;
         };
         /**
          * SupplementsRequest
@@ -847,6 +861,10 @@ export interface components {
             /** Values */
             values: {
                 [key: string]: string | null;
+            };
+            /** Private */
+            private?: {
+                [key: string]: boolean;
             };
         };
         /** TaskForm */

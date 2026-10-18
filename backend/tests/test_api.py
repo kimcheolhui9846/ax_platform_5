@@ -20,7 +20,7 @@ def client():
 
 
 def create_session(client, task_type="product_planning", raw_input="수제 향초"):
-    response = client.post(f"{BASE}/tasks/{task_type}/sessions", json={"raw_input": raw_input})
+    response = client.post(f"{BASE}/tasks/{task_type}/sessions", json={"notice_acknowledged": True, "raw_input": raw_input})
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -53,7 +53,7 @@ def test_task_form(client):
 
 def test_unknown_task_and_session_404(client):
     assert client.get(f"{BASE}/tasks/nope/form").status_code == 404
-    assert client.post(f"{BASE}/tasks/nope/sessions", json={"raw_input": "x"}).status_code == 404
+    assert client.post(f"{BASE}/tasks/nope/sessions", json={"notice_acknowledged": True, "raw_input": "x"}).status_code == 404
     assert client.get(f"{BASE}/sessions/sess_없음").status_code == 404
 
 
@@ -264,7 +264,7 @@ def test_openapi_marks_defaulted_response_fields_required(client):
 
 
 def test_request_format_errors_are_korean_422(client):
-    empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": ""})
+    empty = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": ""})
     assert empty.status_code == 422
     assert empty.json()["detail"] == INVALID_REQUEST_MESSAGE
 
@@ -306,7 +306,7 @@ def test_provider_error_is_502_with_fixed_message(client, monkeypatch):
         raise ProviderError("sk-secret 원문 오류")
 
     monkeypatch.setattr(client.app.state.registry.get("product_planning"), "start", boom)
-    response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "x"})
+    response = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "x"})
     assert response.status_code == 502
     assert response.json()["detail"] == PROVIDER_FAILED_MESSAGE
 

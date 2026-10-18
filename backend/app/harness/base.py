@@ -5,13 +5,14 @@
 """
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
 from app.core.assets import AssetStore, InMemoryAssetStore
-from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE
+from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE, private_unknown_message
 from app.core.results import (
     GenerationResult,
     ImageBlock,
@@ -50,6 +51,7 @@ from app.core.state import (
 from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
+from app.harness.privacy import NOTICE_VERSION, masked_state, outbound_prompt, private_names, redact
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
@@ -137,10 +139,8 @@ def merge_assumptions(
 
 def _validation_trace(report: ValidationReport) -> TraceEntry:
     """[코드·순수] 검증 결과 요약 기록. LLM 검토 호출 기록과 kind로 구분한다."""
-    return TraceEntry(
-        stage="validate",
-        output={"kind": "summary", "issues": [i.model_dump() for i in report.issues]},
-    )
+    issues = [{**i.model_dump(), "message": redact(i.message)[0]} for i in report.issues]
+    return TraceEntry(stage="validate", output={"kind": "summary", "issues": issues})
 
 
 def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | None:
@@ -182,6 +182,11 @@ def answers_changed(state: SessionState, latest: ResultVersion) -> bool:
     )
 
 
+def privacy_changed(private: frozenset[str], latest: ResultVersion) -> bool:
+    """[코드·순수] 비공개 이름이 마지막 결과 버전을 만들 때와 다른지. 기록이 없는 옛 버전은 다르다고 보지 않는다."""
+    return latest.private is not None and sorted(private) != latest.private
+
+
 def generate_reason(state: SessionState) -> VersionReason:
     """[코드·순수] 이번 생성의 버전 이유. 답은 그대로이고 보완 정보만 바뀌었으면 보완 반영이다."""
     if not state.versions:
@@ -192,7 +197,9 @@ def generate_reason(state: SessionState) -> VersionReason:
     return VersionReason.REGENERATE
 
 
-def new_version(state: SessionState, result: GenerationResult, report: ValidationReport) -> ResultVersion:
+def new_version(
+    state: SessionState, result: GenerationResult, report: ValidationReport, private: frozenset[str]
+) -> ResultVersion:
     """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정·보완 정보를 복사해 함께 남긴다."""
     return ResultVersion.snapshot(
         len(state.versions) + 1,
@@ -203,6 +210,7 @@ def new_version(state: SessionState, result: GenerationResult, report: Validatio
         state.assumptions,
         state.unknowns,
         state.supplements,
+        private,
     )
 
 
@@ -303,6 +311,7 @@ class BaseHarness:
         profile: HarnessProfile | None = None,
         owner_id: str = "",
         context: CarriedContext | None = None,
+        notice_acknowledged_at: datetime | None = None,
     ) -> SessionState:
         state = SessionState(
             task_type=self.task_type,
@@ -311,6 +320,8 @@ class BaseHarness:
             profile=profile or HarnessProfile(),
             owner_id=owner_id,
             context=context,
+            notice_version=NOTICE_VERSION,
+            notice_acknowledged_at=notice_acknowledged_at,
         )
         self.apply_defaults(state)
         self.apply_context(state)
@@ -328,12 +339,14 @@ class BaseHarness:
         """[코드] 이전 과제에서 가져온 값을 사실로 넣는다(출처 previous_task). 그 필드는 묻지 않는다.
 
         진단 전에 넣으므로 처음 입력 필드(raw_input_field)도 가져온 값이 이긴다. 새 요청 글은 처음 입력
-        (state.raw_input)으로 프롬프트에 남는다.
+        (state.raw_input)으로 프롬프트에 남는다. 이전 작업에서 비공개였던 값은 이 세션에서도 비공개로 둔다.
         """
         if state.context is None:
             return
         for item in state.context.items:
             state.facts[item.field] = InfoItem(value=item.value, source=InfoSource.PREVIOUS_TASK)
+            if item.private:
+                self._set_private(state, item.field, True)
 
     def diagnose(self, state: SessionState) -> None:
         """[LLM] 처음 입력에서 항목을 뽑는다. 뽑은 값은 확인 전이므로 가정으로만 둔다."""
@@ -482,7 +495,7 @@ class BaseHarness:
 
     # ── 답변 ──────────────────────────────────────────────────
 
-    def apply_answer(self, state: SessionState, answer: Answer) -> None:
+    def apply_answer(self, state: SessionState, answer: Answer, private: bool | None = None) -> None:
         question = state.pending_question
         if question is None or question.question_id != answer.question_id:
             raise HarnessError("지금 답할 수 있는 질문이 아닙니다.")
@@ -490,12 +503,15 @@ class BaseHarness:
         fact = reply_fact(question, answer)
         with _atomic(state):
             self._apply_reply(state, question, answer.answer_type, fact)
+            if private is not None:
+                self._set_private(state, question.field, private)
+                self._restale(state)
             _mark_answered(record, answer.answer_type, fact[0] if fact else None)
             if fact is not None:
                 _supersede_others(state.asked_questions, record)
             self.advance(state)
 
-    def revise_answer(self, state: SessionState, answer: Answer) -> None:
+    def revise_answer(self, state: SessionState, answer: Answer, private: bool | None = None) -> None:
         """이전 답변 수정(IV-08). 결과가 이미 있으면 재생성이 필요하다고 표시한다."""
         record = state.find_asked(answer.question_id)
         if record is None or record.answer_type is None:
@@ -504,6 +520,9 @@ class BaseHarness:
         value, source = answer_to_fact(record.question, answer)
         with _atomic(state):
             self._set_fact(state, field, value, source)
+            if private is not None:
+                self._set_private(state, field, private)
+                self._restale(state)
             _mark_answered(record, answer.answer_type, value)
             _supersede_others(state.asked_questions, record)
             pending = state.pending_question
@@ -611,7 +630,7 @@ class BaseHarness:
         state.result = result
         state.result_stale = False
         state.validation = report
-        state.versions.append(new_version(state, result, report))
+        state.versions.append(new_version(state, result, report, self.private(state)))
         state.status = SessionStatus.COMPLETED
 
     @staticmethod
@@ -623,7 +642,7 @@ class BaseHarness:
         FAILED는 다음 답변·수정·성공한 생성까지 이어진다.
         """
         if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
-            state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
+            state.trace.append(TraceEntry(stage="generate", output={"error": redact(repr(exc))[0]}))
         state.status = SessionStatus.FAILED
 
     def save_version(self, state: SessionState, number: int) -> ResultVersion | None:
@@ -676,23 +695,54 @@ class BaseHarness:
         state.result = result
         state.validation = report
 
-    def set_supplements(self, state: SessionState, values: Mapping[str, str | None]) -> None:
+    def set_supplements(
+        self, state: SessionState, values: Mapping[str, str | None], private: Mapping[str, bool] | None = None
+    ) -> None:
         """미확인 정보를 저장한다(사용자 입력·검증 전). 다음 생성에 반영된다.
 
-        값이 바뀌면 수정처럼 FAILED를 푼다. 결과가 있으면 최신 여부를 답과 보완 정보가 마지막 버전과 다른지로 다시
+        값 또는 비공개 설정이 바뀌면 수정처럼 FAILED를 푼다. 결과가 있으면 최신 여부를 답과 보완 정보가 마지막 버전과 다른지로 다시
         정한다(바꿨다 되돌려 같아지면 다시 최신, 답이 바뀐 채면 낡은 채). 결과가 없으면 최신 여부는 건드리지 않는다.
         """
         unknown = sorted(set(values) - set(self.policy.supplement_labels))
         if unknown:
             raise HarnessError(f"보완할 수 없는 항목입니다: {', '.join(unknown)}")
+        wanted = private or {}
+        # 이름을 먼저 모두 확인하므로 아래 _set_private는 중간에 실패하지 않는다(_atomic 밖이어도 안전하다)
+        # 보완 정보 요청은 보완 항목의 비공개만 정한다(필드는 답·수정 요청으로 정한다)
+        unknown_private = sorted(set(wanted) - set(self.policy.supplement_labels))
+        if unknown_private:
+            raise HarnessError(private_unknown_message(unknown_private))
         merged = apply_supplements(state.supplements, values)
-        if _values(merged) == _values(state.supplements):
+        before = dict(state.private_overrides)
+        for name, value in wanted.items():
+            self._set_private(state, name, value)
+        if _values(merged) == _values(state.supplements) and state.private_overrides == before:
             return
         state.supplements = merged
+        self._restale(state)
+        _settle_status(state)
+
+    def _private_settable(self) -> set[str]:
+        return set(self.policy.labels) | set(self.policy.supplement_labels)
+
+    def _set_private(self, state: SessionState, name: str, value: bool) -> None:
+        """[코드] 비공개 설정 하나를 정한다. 정책 기본값과 같아지면 덮어쓴 값을 지운다."""
+        if name not in self._private_settable():
+            raise HarnessError(private_unknown_message([name]))
+        if value == (name in self.policy.private_fields):
+            state.private_overrides.pop(name, None)
+        else:
+            state.private_overrides[name] = value
+
+    def _restale(self, state: SessionState) -> None:
+        """[코드] 결과가 있으면 최신 여부를 답·보완 정보·비공개 설정이 마지막 버전과 다른지로 다시 정한다."""
         if state.versions:
             latest = state.versions[-1]
-            state.result_stale = answers_changed(state, latest) or supplements_changed(merged, latest)
-        _settle_status(state)
+            state.result_stale = (
+                answers_changed(state, latest)
+                or supplements_changed(state.supplements, latest)
+                or privacy_changed(self.private(state), latest)
+            )
 
     def clear_context(self, state: SessionState) -> None:
         """이전 과제에서 가져온 내용을 뺀다. 아직 출처가 previous_task인 사실만 지운다(그 뒤 사용자가 고친 값은 둔다).
@@ -701,6 +751,7 @@ class BaseHarness:
         답·보완 정보가 마지막 버전과 다른지로 다시 정한다. 걸린 질문이 없으면 평소 규칙으로 다음 질문을 건다(빠진 항목을
         다시 묻는다. 다른 예시 사다리면 LLM 호출이 날 수 있다). 다른 필드 질문이 걸려 있으면 그대로 둔다.
         가져온 내용이 없으면 그대로고, 지울 값이 남아 있지 않으면(모두 사용자가 고쳤으면) 가져온 기준 표시만 뺀다.
+        지운 값 중 이전 작업에서 비공개였던 것은 비공개 설정도 정책 기본값으로 되돌린다.
         """
         if state.context is None:
             return
@@ -712,15 +763,17 @@ class BaseHarness:
         if not removed:
             state.context = None
             return
+        brought_private = [item.field for item in state.context.items if item.private and item.field in removed]
         with _atomic(state):
             for name in removed:
                 del state.facts[name]
+            # 가져오면서 함께 건 비공개도 정책 기본값으로 되돌린다(사용자가 고친 값의 설정은 둔다)
+            for name in brought_private:
+                self._set_private(state, name, name in self.policy.private_fields)
             state.context = None
             self.apply_defaults(state)
             self.fill_raw_input(state)
-            if state.versions:
-                latest = state.versions[-1]
-                state.result_stale = answers_changed(state, latest) or supplements_changed(state.supplements, latest)
+            self._restale(state)
             if state.pending_question is None:
                 self.advance(state)
             else:
@@ -760,9 +813,15 @@ class BaseHarness:
         if target is None:
             return result, []
         prompt = self.prompts.render(
-            "image", state=state, policy=self.policy, profile=state.profile, heading=target.heading, text=section_text(target)
+            "image",
+            state=masked_state(state, self.private(state), self.policy.raw_input_field),
+            policy=self.policy,
+            profile=state.profile,
+            heading=target.heading,
+            text=section_text(target),
         )
-        trace_input = {"system": prompt.system, "user": prompt.user}
+        prompt, redactions = outbound_prompt(prompt)
+        trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
         try:
             image = self.images.generate(task_type=self.task_type, prompt=prompt)
         except ProviderError as exc:
@@ -803,6 +862,10 @@ class BaseHarness:
 
     # ── 내부 도우미 ───────────────────────────────────────────
 
+    def private(self, state: SessionState) -> frozenset[str]:
+        """[순수] 이 세션에서 AI에 보내지 않는 항목 이름(정책 기본값 + 사용자 설정)."""
+        return private_names(self.policy.private_fields, state.private_overrides)
+
     def _call_retrying_bad_output(
         self, state: SessionState, stage: str, response_model: type[M]
     ) -> M:
@@ -818,8 +881,10 @@ class BaseHarness:
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
         prompt = self.prompts.render(
-            stage, state=state, policy=self.policy, profile=state.profile, **context
+            stage, state=masked_state(state, self.private(state), self.policy.raw_input_field), policy=self.policy, profile=state.profile, **context
         )
+        prompt, redactions = outbound_prompt(prompt)
+        trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
         try:
             response = self.provider.complete(
                 task_type=self.task_type, stage=stage, prompt=prompt, response_model=response_model
@@ -830,7 +895,7 @@ class BaseHarness:
             state.trace.append(
                 TraceEntry(
                     stage=stage,
-                    input={"system": prompt.system, "user": prompt.user},
+                    input=trace_input,
                     output={"error": str(exc)},
                     provider=self.provider.name,
                 )
@@ -839,7 +904,7 @@ class BaseHarness:
         state.trace.append(
             TraceEntry(
                 stage=stage,
-                input={"system": prompt.system, "user": prompt.user},
+                input=trace_input,
                 output=response.parsed.model_dump(mode="json"),
                 provider=self.provider.name,
                 model=response.model,

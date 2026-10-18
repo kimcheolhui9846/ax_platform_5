@@ -78,6 +78,7 @@ fields:
     options: [지인에게 먼저 팔아보기, SNS로 반응 보기, 플리마켓 참가]
     easier_questions:
       - question: 처음 10명의 고객을 어디서 만날 수 있을까요?
+private_fields: [revenue_model, production_cost, sale_price, budget]
 supplement_fields:
   - { name: production_cost, label: 제작 원가, example: "8,000원 / 개" }
   - { name: sale_price, label: 판매 가격, example: "18,000원 / 개" }

@@ -77,7 +77,7 @@ export function startLoad(run: Runner, load: Load): Promise<void> {
     case "session":
       return run({
         request: () => getSession(load.sessionId),
-        done: (session, seq) => ({ type: "sessionLoaded", seq, session, next: null, notice: null }),
+        done: (session, seq) => ({ type: "sessionLoaded", seq, session, next: null, noticeConsumed: null, notice: null }),
         ...PLAIN,
         load: key,
       });

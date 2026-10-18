@@ -1,6 +1,7 @@
 import { formatAssumption } from "./assumption";
 import type { DocumentBlock, DocumentContent, DocumentRecord } from "./document";
 import { documentSections } from "./document";
+import { PRIVATE_LABEL } from "./privacy";
 
 export type DocumentFile = { filename: string; html: string };
 
@@ -46,7 +47,7 @@ function recordHtml(record: DocumentRecord): string {
 export function documentHtml(content: DocumentContent & { request: string }): string {
   const e = escapeHtml;
   const rows = content.rows
-    .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.note ? ` <span class="note">· ${e(row.note)}</span>` : ""}</td></tr>`)
+    .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.note ? ` <span class="note">· ${e(row.note)}</span>` : ""}${row.private ? ` <span class="note">· ${e(PRIVATE_LABEL)}</span>` : ""}</td></tr>`)
     .join("");
   const sections = documentSections(content.result.sections, content.result.evidence, content.images)
     .map(
@@ -58,7 +59,7 @@ export function documentHtml(content: DocumentContent & { request: string }): st
     content.supplements.length === 0
       ? ""
       : `<h2>보완 정보 · 사용자 입력 / 검증 전</h2><table>${content.supplements
-          .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}</td></tr>`)
+          .map((row) => `<tr><th>${e(row.label)}</th><td>${e(row.value)}${row.private ? ` <span class="note">· ${e(PRIVATE_LABEL)}</span>` : ""}</td></tr>`)
           .join("")}</table>`;
   return [
     "<!doctype html>",

@@ -24,8 +24,8 @@ export type ScreenModel =
   | { kind: "guide" }
   | { kind: "work"; sessions: SessionSummary[] }
   | { kind: "documents"; sessions: SessionSummary[] }
-  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean }
-  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean }
+  | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean; noticeAcknowledged: boolean }
+  | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean; noticeAcknowledged: boolean }
   | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
   | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
   | { kind: "generating"; task: TaskSummary; session: SessionView }
@@ -70,7 +70,7 @@ function resolve(state: AppState): ScreenModel {
       const carryFailed = key !== null && !loaded && state.stalled === `carry:${key}`;
       if (key !== null && !loaded && !carryFailed) return LOADING;
       const context = loaded ? (state.carry?.context ?? null) : null;
-      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "", context, carryFailed };
+      const data = { task, form: state.form, draft: state.drafts[route.task] ?? "", context, carryFailed, noticeAcknowledged: state.notices[route.task] === true };
       return route.name === "request" ? { kind: "request", ...data } : { kind: "mode", ...data };
     }
     default: {

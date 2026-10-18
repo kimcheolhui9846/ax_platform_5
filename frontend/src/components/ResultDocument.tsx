@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { assumptionKey, formatAssumption } from "../lib/assumption";
 import type { DocumentBlock, DocumentContent, DocumentRecord } from "../lib/document";
 import { documentSections } from "../lib/document";
+import { PRIVATE_LABEL } from "../lib/privacy";
 import { CriteriaBox } from "./CriteriaBox";
 
 function Blocks({ blocks }: { blocks: DocumentBlock[] }) {
@@ -89,7 +90,10 @@ export function ResultDocument({ title, kicker, rows, result, issues, supplement
           {supplements.map((row) => (
             <div key={row.label} className="summary-row">
               <span>{row.label}</span>
-              <span>{row.value}</span>
+              <span>
+                {row.value}
+                {row.private && <span className="muted">{` · ${PRIVATE_LABEL}`}</span>}
+              </span>
             </div>
           ))}
         </section>

@@ -38,7 +38,7 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts" | "result">;
+  state: Pick<AppState, "session" | "drafts" | "result" | "notices">;
   /** 요청·모드 화면이면 그 화면(과제·이어 가는 출처). 아니면 null. */
   carryScreen: CarryScreen | null;
   run: Runner;
@@ -53,11 +53,11 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
   const from = carryScreen?.from ?? null;
   const go = (route: Route) => dispatch({ type: "navigated", route });
 
-  /** 세션을 바꾸는 요청. 응답 세션의 다음 화면(질문 또는 답변 확인)으로 간다. */
-  const moveOn = (request: () => Promise<ApiResult<SessionView>>) =>
+  /** 세션을 바꾸는 요청. 응답 세션의 다음 화면(질문 또는 답변 확인)으로 간다. 세션을 새로 만들면 그 과제(noticeConsumed)의 안내 확인을 지운다. */
+  const moveOn = (request: () => Promise<ApiResult<SessionView>>, noticeConsumed: string | null = null) =>
     void run({
       request,
-      done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), notice: null }),
+      done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), noticeConsumed, notice: null }),
       ...PLAIN,
     });
 
@@ -99,7 +99,9 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
     },
     submitRequest: (task) => go({ name: "mode", task, from }),
     editRequest: (task) => go({ name: "request", task, from }),
-    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, from)),
+    // 안내 확인 여부는 그대로 보낸다. 확인하지 않았으면 서버가 거절한다(판정은 서버 한 곳)
+    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, from, state.notices[task] === true), task),
+    acknowledgeNotice: (task, acknowledged) => dispatch({ type: "noticeChanged", task, acknowledged }),
     startNext: (task, source) => go({ name: "request", task, from: source }),
     dropCarry: (task) => {
       if (carryScreen !== null && carryScreen.task === task) go({ name: carryScreen.screen, task, from: null });
@@ -114,14 +116,15 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
           seq,
           session: next,
           next: next.next_question ? routeAfterSession(next) : null,
+          noticeConsumed: null,
           notice: CONTEXT_CLEARED_NOTICE,
         }),
         ...PLAIN,
       });
     },
     answer,
-    example: (action) => {
-      if (action === "easier") answer({ answer_type: "easier" });
+    example: (action, isPrivate) => {
+      if (action === "easier") answer({ answer_type: "easier", private: isPrivate });
       else if (session) moveOn(() => showOriginalQuestion(session.session_id));
     },
     earlyDraft: () => {
@@ -152,6 +155,7 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
           seq,
           session: next,
           next: next.next_question ? routeAfterSession(next) : null,
+          noticeConsumed: null,
           notice: next.next_question ? null : NOTHING_LEFT_NOTICE,
         }),
         ...PLAIN,
@@ -170,12 +174,12 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
         ...PLAIN,
       });
     },
-    saveSupplements: (values) => {
+    saveSupplements: (values, privacy) => {
       if (!session) return;
       const sessionId = session.session_id;
       void run({
-        request: () => saveSupplementsRequest(sessionId, values),
-        done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
+        request: () => saveSupplementsRequest(sessionId, values, privacy),
+        done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, noticeConsumed: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
         ...PLAIN,
       });
     },

@@ -61,7 +61,7 @@ def test_different_sessions_do_not_block_each_other():
 def test_mutating_routes_hold_the_session_lock_during_harness_call(monkeypatch, route):
     app = create_app(provider=MockProvider(), debug=True)
     client = api_client(app)
-    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()
+    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()
     sid, qid = view["session_id"], view["next_question"]["question_id"]
     harness = app.state.registry.get("product_planning")
     seen: list[bool] = []
@@ -102,6 +102,6 @@ def test_unknown_session_ids_create_no_locks():
         assert client.post(f"{BASE}/sessions/{sid}/continue").status_code == 404
     assert len(app.state.locks) == 0
 
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()["session_id"]
     client.post(f"{BASE}/sessions/{sid}/continue")
     assert len(app.state.locks) == 1

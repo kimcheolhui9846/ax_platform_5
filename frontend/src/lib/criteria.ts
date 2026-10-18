@@ -1,6 +1,6 @@
 import type { SummaryItem, UnknownItem } from "../api/types";
 
-export type CriteriaRow = { field: string; label: string; value: string; note: string | null };
+export type CriteriaRow = { field: string; label: string; value: string; note: string | null; private: boolean };
 
 /** [순수] '내 답변에서 반영한 기준'. 확인한 값(출처)과 AI 가정(확인 필요)을 정책 순서로, 그 뒤에 아직 미정. */
 export function criteriaRows(summary: SummaryItem[], unknowns: UnknownItem[]): CriteriaRow[] {
@@ -10,7 +10,8 @@ export function criteriaRows(summary: SummaryItem[], unknowns: UnknownItem[]): C
       label: item.label,
       value: item.value,
       note: item.is_assumption ? "AI 가정 · 확인 필요" : item.source_label,
+      private: item.private,
     })),
-    ...unknowns.map((item) => ({ field: item.field, label: item.label, value: "아직 미정", note: null })),
+    ...unknowns.map((item) => ({ field: item.field, label: item.label, value: "아직 미정", note: null, private: false })),
   ];
 }

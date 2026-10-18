@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SupplementItem } from "../api/types";
 import { ALL_FILLED_NOTE, appliedRows, panelAfter, supplementDraft, supplementStatus, supplementValues } from "./supplements";
 
-const item = (name: string, label: string, value: string | null): SupplementItem => ({ name, label, example: "", value });
+const item = (name: string, label: string, value: string | null): SupplementItem => ({ name, label, example: "", value, private: false });
 
 describe("supplementStatus", () => {
   const empty = [item("material", "소재", null), item("size", "크기", null)];
@@ -38,8 +38,14 @@ describe("appliedRows", () => {
   it("결과에 반영한 보완 정보. 하나도 없으면 칸을 두지 않는다", () => {
     expect(appliedRows([item("material", "소재", null)])).toEqual([]);
     expect(appliedRows([item("material", "소재", "면"), item("size", "크기", null)])).toEqual([
-      { label: "소재", value: "면" },
-      { label: "크기", value: "미확인" },
+      { label: "소재", value: "면", private: false },
+      { label: "크기", value: "미확인", private: false },
+    ]);
+  });
+
+  it("비공개였던 보완 정보는 표시를 싣는다", () => {
+    expect(appliedRows([{ ...item("price", "판매 가격", "18,000원"), private: true }])).toEqual([
+      { label: "판매 가격", value: "18,000원", private: true },
     ]);
   });
 });

@@ -35,20 +35,20 @@ describe("renderScreen", () => {
   });
 
   it("요청은 입력창과 예시", () => {
-    const { main } = draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false });
+    const { main } = draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: true });
     expect(main).toContain("상품기획에서 어떤 도움이 필요한가요?");
     expect(main).toContain('placeholder="예) 집들이 선물용 수제 향초"');
     expect(main).toContain("이 문장 넣기");
   });
 
   it("모드는 보낸 요청과 세 모드(질문 수 없이), 요청이 없으면 요청으로 안내", () => {
-    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false });
+    const { main } = draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: true });
     expect(main).toContain("수제 향초");
     expect(main).toContain("스탠다드 코칭 시작");
     expect(main).toContain("꼭 필요한 질문으로 방향을 잡고");
     expect(main).not.toContain("최대 10개");
-    expect(draw({ kind: "mode", task, form, draft: " ", context: null, carryFailed: false }).main).toContain("먼저 요청을 보내 주세요");
-    expect(draw({ kind: "mode", task, form, draft: "x", context: null, carryFailed: false }, true).main).toContain("코칭을 준비하는 중…");
+    expect(draw({ kind: "mode", task, form, draft: " ", context: null, carryFailed: false, noticeAcknowledged: true }).main).toContain("먼저 요청을 보내 주세요");
+    expect(draw({ kind: "mode", task, form, draft: "x", context: null, carryFailed: false, noticeAcknowledged: true }, true).main).toContain("코칭을 준비하는 중…");
   });
 
   it("질문은 질문 카드와 흐름 패널", () => {
@@ -214,7 +214,7 @@ describe("renderScreen", () => {
 });
 
 describe("renderScreen — 보완·문구 수정", () => {
-  const supplements = [{ name: "material", label: "소재", example: "", value: null }];
+  const supplements = [{ name: "material", label: "소재", example: "", value: null, private: false }];
 
   it("결과 오른쪽에 미확인 정보와 소개 문구 수정하기", () => {
     const session = makeSession({ has_result: true, supplements });
@@ -258,9 +258,9 @@ describe("AppView", () => {
 describe("projectOf·pageTitle", () => {
   it("과제 화면은 과제 이름", () => {
     expect(projectOf({ kind: "home", tasks: [], sessions: [] })).toBeNull();
-    expect(projectOf({ kind: "request", task, form, draft: "", context: null, carryFailed: false })).toBe("상품기획");
+    expect(projectOf({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: true })).toBe("상품기획");
     expect(pageTitle({ kind: "guide" })).toBe("창작자 AX");
-    expect(pageTitle({ kind: "request", task, form, draft: "", context: null, carryFailed: false })).toBe("창작자 AX · 상품기획");
+    expect(pageTitle({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: true })).toBe("창작자 AX · 상품기획");
   });
 });
 
@@ -309,41 +309,84 @@ describe("이어가기 화면", () => {
   const context = makeContext();
 
   it("요청은 입력 위에, 없으면 상자가 없다", () => {
-    const withBox = draw({ kind: "request", task, form, draft: "", context, carryFailed: false }).main;
+    const withBox = draw({ kind: "request", task, form, draft: "", context, carryFailed: false, noticeAcknowledged: true }).main;
     expect(withBox).toContain("이전 작업에서 가져온 기준");
     expect(withBox.indexOf("이전 작업에서 가져온 기준")).toBeLessThan(withBox.indexOf("내 질문 · 의견"));
-    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false }).main).not.toContain("가져온 기준");
+    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: true }).main).not.toContain("가져온 기준");
   });
 
   it("모드는 내가 보낸 요청 아래에 상자", () => {
-    const main = draw({ kind: "mode", task, form, draft: "수제 향초", context, carryFailed: false }).main;
+    const main = draw({ kind: "mode", task, form, draft: "수제 향초", context, carryFailed: false, noticeAcknowledged: true }).main;
     expect(main.indexOf("내가 보낸 요청")).toBeLessThan(main.indexOf("이전 작업에서 가져온 기준"));
-    expect(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false }).main).not.toContain("가져온 기준");
+    expect(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: true }).main).not.toContain("가져온 기준");
   });
 
   it("미리보기를 못 받았으면 안내와 가져오지 않고 계속 버튼", () => {
     for (const kind of ["request", "mode"] as const) {
-      const main = draw({ kind, task, form, draft: "수제 향초", context: null, carryFailed: true }).main;
+      const main = draw({ kind, task, form, draft: "수제 향초", context: null, carryFailed: true, noticeAcknowledged: true }).main;
       expect(main).toContain("이전 작업을 불러오지 못했어요. 가져오지 않고 계속할 수 있어요.");
       expect(main).toContain("가져오지 않고 계속");
     }
-    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false }).main).not.toContain("불러오지 못했어요");
+    expect(draw({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: true }).main).not.toContain("불러오지 못했어요");
+  });
+
+  it("외부 전송 안내를 확인하기 전에는 요청 전송이 막히고, 확인하면 열린다", () => {
+    const send = (ack: boolean) => draw({ kind: "request", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: ack }).main;
+    expect(send(false)).toContain("외부 AI 서비스로 전송될 수 있어요");
+    expect(send(false)).toContain("확인했어요");
+    expect(send(false)).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>요청 전송/);
+    expect(send(true)).not.toMatch(/<button type="submit"[^>]*disabled=""/);
+  });
+
+  it("안내를 확인하지 않았으면 모드 버튼이 막히고 요청 화면으로 돌아가라고 안내한다", () => {
+    const modeButtons = (main: string) => [...main.matchAll(/<button[^>]*>([^<]*코칭 시작)<\/button>/g)].map((m) => m[0]);
+    const main = draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: false }).main;
+    expect(main).toContain("요청 화면에서 외부 전송 안내를 확인해 주세요.");
+    expect(modeButtons(main)).toHaveLength(3);
+    for (const button of modeButtons(main)) expect(button).toContain('disabled=""');
+  });
+
+  it("처리 중에는 '요청 화면으로 가기'도 누를 수 없다", () => {
+    const back = (busy: boolean) =>
+      /<button[^>]*>요청 화면으로 가기<\/button>/.exec(
+        draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: false }, busy).main,
+      )?.[0];
+    expect(back(true)).toContain('disabled=""');
+    expect(back(false)).not.toContain('disabled=""');
+  });
+
+  it("보완 정보 저장은 항목별 비공개 변경을 함께 넘긴다", () => {
+    const calls: unknown[][] = [];
+    const spy = { ...NOOP_HANDLERS, saveSupplements: (...args: unknown[]) => calls.push(args) };
+    const side = renderScreen({ kind: "result", task, session: makeSession({ has_result: true }), result: makeResult(), images: {} }, false, spy)
+      .side as ReactElement<{ supplements: { onSave: (v: Record<string, string | null>, p: Record<string, boolean>) => void } }>;
+    side.props.supplements.onSave({ price: "1" }, { price: true });
+    expect(calls).toEqual([[{ price: "1" }, { price: true }]]);
+  });
+
+  it("체크 칸은 acknowledgeNotice로 이어진다", () => {
+    const calls: [string, boolean][] = [];
+    const spy = { ...NOOP_HANDLERS, acknowledgeNotice: (t: string, a: boolean) => calls.push([t, a]) };
+    const element = renderScreen({ kind: "request", task, form, draft: "", context: null, carryFailed: false, noticeAcknowledged: false }, false, spy)
+      .main as ReactElement<{ onAcknowledge: (a: boolean) => void }>;
+    element.props.onAcknowledge(true);
+    expect(calls).toEqual([["product_planning", true]]);
   });
 
   it("미리보기를 불러오지 못하면 모드 버튼을 막고 '가져오지 않고 계속'으로만 간다", () => {
     const modeButtons = (main: string) => [...main.matchAll(/<button[^>]*>([^<]*코칭 시작)<\/button>/g)].map((m) => m[0]);
-    const failed = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: true }).main);
+    const failed = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: true, noticeAcknowledged: true }).main);
     expect(failed).toHaveLength(3);
     for (const button of failed) expect(button).toContain('disabled=""');
-    const fine = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false }).main);
+    const fine = modeButtons(draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: true }).main);
     for (const button of fine) expect(button).not.toContain("disabled");
   });
 
   it("제외 버튼은 요청·모드는 dropCarry, 확인은 clearContext로 이어진다", () => {
     const calls: string[] = [];
     const spy = { ...NOOP_HANDLERS, dropCarry: (t: string) => calls.push(`drop:${t}`), clearContext: () => calls.push("clear") };
-    (renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: false }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
-    (renderScreen({ kind: "mode", task, form, draft: "x", context, carryFailed: false }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
+    (renderScreen({ kind: "request", task, form, draft: "", context, carryFailed: false, noticeAcknowledged: true }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
+    (renderScreen({ kind: "mode", task, form, draft: "x", context, carryFailed: false, noticeAcknowledged: true }, false, spy).main as ReactElement<{ onExcludeContext: () => void }>).props.onExcludeContext();
     const confirm = renderScreen({ kind: "confirm", task, session: makeSession({ context }) }, false, spy).main as ReactElement<{ onClearContext: () => void }>;
     expect(confirm.props.onClearContext).toBe(spy.clearContext);
     confirm.props.onClearContext();

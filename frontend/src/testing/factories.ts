@@ -88,6 +88,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
         source_label: "직접 입력",
         confidence: 1,
         is_assumption: false,
+        private: false,
       },
     ],
     unknowns: [],
@@ -101,6 +102,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
     result_stale: false,
     context: null,
     error: null,
+    private_names: [],
     ...overrides,
   };
 }
@@ -120,6 +122,7 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
         source_label: "직접 입력",
         confidence: 1,
         is_assumption: false,
+        private: false,
       },
     ],
     unknowns: [],
@@ -176,7 +179,7 @@ export function makeContext(overrides: Partial<SessionContext> = {}): SessionCon
     version: 2,
     title: "사업계획",
     summary: "가져올 내용 요약",
-    items: [{ field: "product_idea", label: "상품 아이디어", value: "수제 향초" }],
+    items: [{ field: "product_idea", label: "상품 아이디어", value: "수제 향초", private: false }],
     ...overrides,
   };
 }

@@ -26,3 +26,5 @@ Thumbs.db
 
 # 오피스가 파일을 여는 동안 만드는 잠금 파일
 ~$*
+
+*.tsbuildinfo

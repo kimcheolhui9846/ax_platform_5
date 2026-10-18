@@ -15,7 +15,7 @@ def client():
 
 
 def started(client) -> str:
-    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "수제 향초"}).json()
+    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "수제 향초"}).json()
     sid, qid = view["session_id"], view["next_question"]["question_id"]
     client.post(f"{BASE}/sessions/{sid}/answers", json={"question_id": qid, "answer_type": "option", "option_ids": ["o2"]})
     return sid

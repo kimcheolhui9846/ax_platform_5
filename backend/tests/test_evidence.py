@@ -118,7 +118,7 @@ def test_evidence_api():
     client = api_client(create_app(provider=MockProvider(), debug=True))
     tasks = {t["task_type"]: t["evidence_sources"] for t in client.get(f"{BASE}/tasks").json()}
     assert tasks == {"business_plan": 0, "product_planning": 2, "branding": 0, "marketing_content": 0}
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "한글 파우치"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "한글 파우치"}).json()["session_id"]
 
     before = client.get(f"{BASE}/sessions/{sid}/evidence")
     assert (before.status_code, before.json()) == (404, {"detail": RESULT_NOT_READY_MESSAGE})
@@ -146,7 +146,7 @@ def test_evidence_api():
 
 def test_apply_evidence_api_without_a_result_is_404_result_not_ready():
     client = api_client(create_app(provider=MockProvider(), debug=True))
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "한글 파우치"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "한글 파우치"}).json()["session_id"]
 
     response = client.post(f"{BASE}/sessions/{sid}/evidence/ykk_zipper_caution/apply")
 

@@ -68,6 +68,7 @@ class TaskForm(ContractModel):
 
 class CreateSessionRequest(BaseModel):
     raw_input: str = Field(min_length=1, max_length=2000)
+    notice_acknowledged: bool  # 외부 AI 전송 안내를 확인했다(false면 422)
     mode: CoachingMode = CoachingMode.STANDARD
     from_session_id: str | None = None  # 이어 갈 이전 작업(다음 과제로 이어가기)
     from_version: int | None = Field(default=None, ge=1)  # 없으면 이전 작업의 마지막 버전
@@ -77,6 +78,7 @@ class ContextItem(ContractModel):
     field: str
     label: str
     value: str
+    private: bool  # 이전 작업에서 비공개였다(이 세션에서도 비공개로 둔다)
 
 
 class SessionContext(ContractModel):
@@ -95,12 +97,14 @@ class AnswerRequest(BaseModel):
     answer_type: AnswerType
     value: str | None = None
     option_ids: list[str] = Field(default_factory=list)
+    private: bool | None = None  # 이 답을 비공개로 정한다(없으면 그대로)
 
 
 class ReviseAnswerRequest(BaseModel):
     answer_type: Literal[AnswerType.OPTION, AnswerType.FREE_TEXT]
     value: str | None = None
     option_ids: list[str] = Field(default_factory=list)
+    private: bool | None = None
 
 
 class EditSectionRequest(BaseModel):
@@ -121,6 +125,7 @@ class SummaryItem(ContractModel):
     source_label: str
     confidence: float
     is_assumption: bool
+    private: bool
 
 
 class UnknownItem(ContractModel):
@@ -133,12 +138,14 @@ class SupplementItem(ContractModel):
     label: str
     example: str
     value: str | None  # 아직 미확인이면 None
+    private: bool
 
 
 class SupplementsRequest(BaseModel):
     """{항목 이름: 값 | null}. null·빈 값이면 그 항목을 지운다."""
 
     values: dict[str, Annotated[str, Field(max_length=250)] | None]
+    private: dict[str, bool] = Field(default_factory=dict)  # {보완 항목 이름: 비공개 여부}(다른 이름은 422)
 
 
 class SessionView(ContractModel):
@@ -153,6 +160,7 @@ class SessionView(ContractModel):
     unknowns: list[UnknownItem]
     flow: list[FlowItem]  # 흐름 패널: 물어본 필드 → 지금 질문 → 예정
     supplements: list[SupplementItem]
+    private_names: list[str]  # 지금 비공개인 필드·보완 항목 이름(정렬)
     supplements_changed: bool  # 보완 정보가 마지막 결과에 반영되지 않았다
     context: SessionContext | None  # 이전 과제에서 가져온 기준
     can_generate: bool

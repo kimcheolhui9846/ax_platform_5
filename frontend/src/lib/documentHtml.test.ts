@@ -21,12 +21,27 @@ describe("내려받을 문서(HTML)", () => {
     expect(html).toContain('<span class="num">01</span> 상품 콘셉트');
   });
 
+  it("AI에 보내지 않은 기준 행에는 표시를 붙인다", () => {
+    const shown = makeResult();
+    shown.summary = shown.summary.map((item, index) => (index === 0 ? { ...item, private: true } : item));
+    const html = documentHtml({ ...documentContent(makeTask(), shown, false, {}), request: "x" });
+    expect(html.match(/AI에 보내지 않음/g)).toHaveLength(1);
+    expect(documentHtml({ ...documentContent(makeTask(), makeResult(), false, {}), request: "x" })).not.toContain("AI에 보내지 않음");
+  });
+
   it("보완 정보는 사용자 입력 · 검증 전으로 싣고, 없으면 칸을 두지 않는다", () => {
     const base = { ...documentContent(makeTask(), makeResult(), false, {}), request: "향초" };
     expect(documentHtml(base)).not.toContain("보완 정보");
-    const html = documentHtml({ ...base, supplements: [{ label: "소재", value: "<면>" }] });
+    const html = documentHtml({
+      ...base,
+      supplements: [
+        { label: "소재", value: "<면>", private: false },
+        { label: "판매 가격", value: "18,000원", private: true },
+      ],
+    });
     expect(html).toContain("<h2>보완 정보 · 사용자 입력 / 검증 전</h2>");
     expect(html).toContain("<tr><th>소재</th><td>&lt;면&gt;</td></tr>");
+    expect(html).toContain('<tr><th>판매 가격</th><td>18,000원 <span class="note">· AI에 보내지 않음</span></td></tr>');
   });
 
   it("AI 가정과 검토 항목은 있을 때만 넣는다", () => {

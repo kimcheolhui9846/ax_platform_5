@@ -84,10 +84,10 @@ def test_supplements_reach_the_generate_prompt(harness):
 
 def test_supplements_api():
     client = api_client(create_app(provider=MockProvider(), debug=True))
-    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()
+    view = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()
     sid = view["session_id"]
     assert [s["name"] for s in view["supplements"]][:2] == ["target_customer", "material"]
-    assert view["supplements"][1] == {"name": "material", "label": "소재", "example": "면 100%", "value": None}
+    assert view["supplements"][1] == {"name": "material", "label": "소재", "example": "면 100%", "value": None, "private": False}
     assert view["supplements_changed"] is False
 
     saved = client.put(f"{BASE}/sessions/{sid}/supplements", json={"values": {"material": "면 100%"}})

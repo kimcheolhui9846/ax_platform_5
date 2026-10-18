@@ -112,30 +112,57 @@ describe("makeHandlers — 이동", () => {
 });
 
 describe("makeHandlers — 요청", () => {
+  it("고지 확인 여부를 그대로 서버에 보낸다(판정은 서버가 한다)", async () => {
+    const { on, calls } = setup({ drafts: { branding: "글" }, notices: { branding: false, marketing: true } });
+    on.pickMode("branding", "quick");
+    on.pickMode("marketing", "quick");
+    on.pickMode("product_planning", "quick");
+    for (const call of calls) await call.request();
+    expect(createSession).toHaveBeenNthCalledWith(1, "branding", "글", "quick", null, false);
+    expect(createSession).toHaveBeenNthCalledWith(2, "marketing", "", "quick", null, true);
+    expect(createSession).toHaveBeenNthCalledWith(3, "product_planning", "", "quick", null, false);
+  });
+
+  it("acknowledgeNotice는 noticeChanged를 보낸다", () => {
+    const { on, actions } = setup();
+    on.acknowledgeNotice("branding", true);
+    expect(actions).toEqual([{ type: "noticeChanged", task: "branding", acknowledged: true }]);
+  });
+
   it("모드를 고르면 쓰다 만 요청 글로 세션을 만들고 첫 질문으로 간다", async () => {
-    const { on, calls } = setup({ drafts: { branding: "한글 파우치" } });
+    const { on, calls } = setup({ drafts: { branding: "한글 파우치" }, notices: { branding: true } });
     on.pickMode("branding", "precise");
     await calls[0].request();
-    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise", null);
+    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise", null, true);
     expect(calls[0].done(session, 3)).toEqual({
       type: "sessionLoaded",
       seq: 3,
       session,
       next: { name: "question", sessionId: "sess_1" },
+      noticeConsumed: "branding",
       notice: null,
     });
+  });
+
+  it("다른 예시 보기도 비공개 체크를 싣는다", async () => {
+    const { on, calls } = setup({ session });
+    on.example("easier", true);
+    on.example("easier", false);
+    for (const call of calls) await call.request();
+    expect(submitAnswer).toHaveBeenNthCalledWith(1, "sess_1", "q_1", { answer_type: "easier", private: true });
+    expect(submitAnswer).toHaveBeenNthCalledWith(2, "sess_1", "q_1", { answer_type: "easier", private: false });
   });
 
   it("답하기·다른 예시·원래 예시·고치기는 바뀐 세션의 다음 화면으로 간다", async () => {
     const { on, calls } = setup({ session });
     on.answer({ answer_type: "option", option_ids: ["o1"] });
-    on.example("easier");
-    on.example("original");
+    on.example("easier", false);
+    on.example("original", false);
     on.revise("q_0", { answer_type: "free_text", value: "부모" });
     for (const call of calls) await call.request();
 
     expect(submitAnswer).toHaveBeenNthCalledWith(1, "sess_1", "q_1", { answer_type: "option", option_ids: ["o1"] });
-    expect(submitAnswer).toHaveBeenNthCalledWith(2, "sess_1", "q_1", { answer_type: "easier" });
+    expect(submitAnswer).toHaveBeenNthCalledWith(2, "sess_1", "q_1", { answer_type: "easier", private: false });
     expect(showOriginalQuestion).toHaveBeenCalledWith("sess_1");
     expect(reviseAnswer).toHaveBeenCalledWith("sess_1", "q_0", { answer_type: "free_text", value: "부모" });
 
@@ -177,10 +204,11 @@ describe("makeHandlers — 요청", () => {
       seq: 1,
       session,
       next: { name: "question", sessionId: "sess_1" },
+      noticeConsumed: null,
       notice: null,
     });
     const nothing = makeSession({ next_question: null });
-    expect(calls[0].done(nothing, 2)).toEqual({ type: "sessionLoaded", seq: 2, session: nothing, next: null, notice: NOTHING_LEFT_NOTICE });
+    expect(calls[0].done(nothing, 2)).toEqual({ type: "sessionLoaded", seq: 2, session: nothing, next: null, noticeConsumed: null, notice: NOTHING_LEFT_NOTICE });
   });
 
   it("왼쪽 메뉴는 홈·내 작업·결과물을 연다", () => {
@@ -230,11 +258,11 @@ describe("makeHandlers — 요청", () => {
 describe("makeHandlers — 보완·문구 수정", () => {
   it("미확인 정보를 저장하면 지금 화면에 머물며 반영을 안내한다", async () => {
     const { on, calls } = setup({ session });
-    on.saveSupplements({ material: "면", size: null });
+    on.saveSupplements({ material: "면", size: null }, { sale_price: true });
     await calls[0].request();
-    expect(saveSupplements).toHaveBeenCalledWith("sess_1", { material: "면", size: null });
+    expect(saveSupplements).toHaveBeenCalledWith("sess_1", { material: "면", size: null }, { sale_price: true });
     const next = makeSession({ session_id: "sess_1" });
-    expect(calls[0].done(next, 7)).toEqual({ type: "sessionLoaded", seq: 7, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE });
+    expect(calls[0].done(next, 7)).toEqual({ type: "sessionLoaded", seq: 7, session: next, next: null, noticeConsumed: null, notice: SUPPLEMENTS_SAVED_NOTICE });
   });
 
   it("초안에 반영은 생성이고, 결과 화면에서 반영했다고 알린다", async () => {
@@ -276,7 +304,7 @@ describe("makeHandlers — 보완·문구 수정", () => {
 
   it("세션이 없으면 아무것도 하지 않는다", () => {
     const { on, calls, actions } = setup();
-    on.saveSupplements({});
+    on.saveSupplements({}, {});
     on.applySupplements();
     on.editSection(1);
     on.submitEdit(1, "x");
@@ -351,7 +379,7 @@ describe("makeHandlers — 이어가기", () => {
   });
 
   it("요청↔모드 이동과 모드 선택이 출처를 잇는다", async () => {
-    const { on, actions, calls } = setup({ route: { name: "request", task: "branding", from }, drafts: { branding: "글" } });
+    const { on, actions, calls } = setup({ route: { name: "request", task: "branding", from }, drafts: { branding: "글" }, notices: { branding: true } });
     on.submitRequest("branding");
     on.editRequest("branding");
     expect(actions).toEqual([
@@ -360,7 +388,7 @@ describe("makeHandlers — 이어가기", () => {
     ]);
     on.pickMode("branding", "quick");
     await calls[0].request();
-    expect(createSession).toHaveBeenCalledWith("branding", "글", "quick", from);
+    expect(createSession).toHaveBeenCalledWith("branding", "글", "quick", from, true);
   });
 
   it("clearContext는 가져온 내용을 빼고 세션을 갱신한다", async () => {
@@ -368,7 +396,7 @@ describe("makeHandlers — 이어가기", () => {
     on.clearContext();
     await calls[0].request();
     expect(clearContext).toHaveBeenCalledWith("sess_1");
-    expect(calls[0].done(session, 4)).toEqual({ type: "sessionLoaded", seq: 4, session, next: { name: "question", sessionId: "sess_1" }, notice: CONTEXT_CLEARED_NOTICE });
+    expect(calls[0].done(session, 4)).toEqual({ type: "sessionLoaded", seq: 4, session, next: { name: "question", sessionId: "sess_1" }, noticeConsumed: null, notice: CONTEXT_CLEARED_NOTICE });
     expect(CONTEXT_CLEARED_NOTICE).toBe("가져온 내용을 뺐어요.");
   });
 
@@ -376,6 +404,6 @@ describe("makeHandlers — 이어가기", () => {
     const { on, calls } = setup({ session });
     on.clearContext();
     const done = makeSession({ session_id: "sess_1", next_question: null });
-    expect(calls[0].done(done, 5)).toEqual({ type: "sessionLoaded", seq: 5, session: done, next: null, notice: CONTEXT_CLEARED_NOTICE });
+    expect(calls[0].done(done, 5)).toEqual({ type: "sessionLoaded", seq: 5, session: done, next: null, noticeConsumed: null, notice: CONTEXT_CLEARED_NOTICE });
   });
 });

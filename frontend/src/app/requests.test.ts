@@ -29,7 +29,7 @@ describe("createRunner", () => {
     const session = makeSession();
     await run({
       request: async () => ok(session),
-      done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
+      done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, noticeConsumed: null, notice: null }),
       load: null,
       generating: true,
       failedRoute: null,
@@ -44,7 +44,7 @@ describe("createRunner", () => {
     const session = makeSession();
     const call: Call<typeof session> = {
       request: async () => ok(session),
-      done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, notice: null }),
+      done: (data, seq) => ({ type: "sessionLoaded", seq, session: data, next: null, noticeConsumed: null, notice: null }),
       load: "session:sess_1",
       generating: false,
       failedRoute: null,
@@ -56,9 +56,9 @@ describe("createRunner", () => {
 
     expect(actions).toEqual([
       { type: "requested", seq: 1, load: "session:sess_1", generating: false },
-      { type: "sessionLoaded", seq: 1, session, next: null, notice: null },
+      { type: "sessionLoaded", seq: 1, session, next: null, noticeConsumed: null, notice: null },
       { type: "requested", seq: 2, load: null, generating: false },
-      { type: "sessionLoaded", seq: 2, session, next: null, notice: null },
+      { type: "sessionLoaded", seq: 2, session, next: null, noticeConsumed: null, notice: null },
     ]);
   });
 
@@ -136,7 +136,7 @@ describe("startLoad", () => {
     const [tasks, form, session, result] = calls;
     expect(tasks.done([makeTask()], 1)).toEqual({ type: "tasksLoaded", seq: 1, tasks: [makeTask()] });
     expect(form.done(makeForm(), 2)).toEqual({ type: "formLoaded", seq: 2, form: makeForm() });
-    expect(session.done(makeSession(), 3)).toEqual({ type: "sessionLoaded", seq: 3, session: makeSession(), next: null, notice: null });
+    expect(session.done(makeSession(), 3)).toEqual({ type: "sessionLoaded", seq: 3, session: makeSession(), next: null, noticeConsumed: null, notice: null });
     expect(result.done(makeResult(), 4)).toEqual({ type: "resultLoaded", seq: 4, result: makeResult(), next: null, outdatesSession: false, notice: null });
   });
 
