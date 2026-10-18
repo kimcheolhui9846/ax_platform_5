@@ -202,8 +202,8 @@ describe("Toast", () => {
 });
 
 const items: SupplementItem[] = [
-  { name: "material", label: "소재", example: "면 100%", value: "면" },
-  { name: "size", label: "크기", example: "", value: null },
+  { name: "material", label: "소재", example: "면 100%", value: "면", private: false },
+  { name: "size", label: "크기", example: "", value: null, private: false },
 ];
 
 describe("SupplementPanel", () => {

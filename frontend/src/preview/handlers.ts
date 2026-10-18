@@ -27,6 +27,7 @@ export const NOOP_HANDLERS: Handlers = {
   openVersion: noop,
   saveVersion: noop,
   saveSupplements: noop,
+  acknowledgeNotice: noop,
   applySupplements: noop,
   editSection: noop,
   submitEdit: noop,

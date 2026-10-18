@@ -88,6 +88,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
         source_label: "직접 입력",
         confidence: 1,
         is_assumption: false,
+        private: false,
       },
     ],
     unknowns: [],
@@ -101,6 +102,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
     result_stale: false,
     context: null,
     error: null,
+    private_names: [],
     ...overrides,
   };
 }
@@ -120,6 +122,7 @@ export function makeResult(overrides: Partial<ResultView> = {}): ResultView {
         source_label: "직접 입력",
         confidence: 1,
         is_assumption: false,
+        private: false,
       },
     ],
     unknowns: [],

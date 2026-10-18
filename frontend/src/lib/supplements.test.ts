@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SupplementItem } from "../api/types";
 import { ALL_FILLED_NOTE, appliedRows, panelAfter, supplementDraft, supplementStatus, supplementValues } from "./supplements";
 
-const item = (name: string, label: string, value: string | null): SupplementItem => ({ name, label, example: "", value });
+const item = (name: string, label: string, value: string | null): SupplementItem => ({ name, label, example: "", value, private: false });
 
 describe("supplementStatus", () => {
   const empty = [item("material", "소재", null), item("size", "크기", null)];

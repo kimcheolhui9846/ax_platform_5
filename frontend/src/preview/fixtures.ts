@@ -135,23 +135,23 @@ const DONE_FLOW: FlowItem[] = [
 ];
 
 const SUMMARY: SummaryItem[] = [
-  { field: "product_idea", label: "상품 아이디어", value: "한글을 활용한 파우치", source: "user_free_text", source_label: "직접 입력", confidence: 1, is_assumption: false },
-  { field: "user", label: "사용자", value: "일상 소지품을 정리하는 사람", source: "user_selected_ai_option", source_label: "선택지에서 고름", confidence: 1, is_assumption: false },
+  { field: "product_idea", label: "상품 아이디어", value: "한글을 활용한 파우치", source: "user_free_text", source_label: "직접 입력", confidence: 1, is_assumption: false, private: false },
+  { field: "user", label: "사용자", value: "일상 소지품을 정리하는 사람", source: "user_selected_ai_option", source_label: "선택지에서 고름", confidence: 1, is_assumption: false, private: false },
 ];
 
 const DONE_SUMMARY: SummaryItem[] = [
   ...SUMMARY,
-  { field: "usage_context", label: "사용 상황", value: "가방 안의 작은 물건을 찾기 쉽게", source: "user_selected_ai_option", source_label: "선택지에서 고름", confidence: 1, is_assumption: false },
-  { field: "core_value", label: "핵심 가치", value: "한글 형태를 일상 소품으로 즐긴다", source: "user_free_text", source_label: "직접 입력", confidence: 1, is_assumption: false },
-  { field: "price_direction", label: "가격 방향", value: "1~3만원", source: "ai_assumption", source_label: "AI 가정", confidence: 0.5, is_assumption: true },
+  { field: "usage_context", label: "사용 상황", value: "가방 안의 작은 물건을 찾기 쉽게", source: "user_selected_ai_option", source_label: "선택지에서 고름", confidence: 1, is_assumption: false, private: false },
+  { field: "core_value", label: "핵심 가치", value: "한글 형태를 일상 소품으로 즐긴다", source: "user_free_text", source_label: "직접 입력", confidence: 1, is_assumption: false, private: false },
+  { field: "price_direction", label: "가격 방향", value: "1~3만원", source: "ai_assumption", source_label: "AI 가정", confidence: 0.5, is_assumption: true, private: false },
 ];
 
 const SUPPLEMENT_EMPTY: SupplementItem[] = [
-  { name: "target_customer", label: "고객", example: "일상 소지품을 정리하는 사용자", value: null },
-  { name: "material", label: "소재", example: "면 100%", value: null },
-  { name: "size", label: "크기", example: "가로 20 × 세로 12cm", value: null },
-  { name: "production_cost", label: "제작 비용", example: "8,000원 / 개", value: null },
-  { name: "sale_price", label: "판매 가격", example: "18,000원 / 개", value: null },
+  { name: "target_customer", label: "고객", example: "일상 소지품을 정리하는 사용자", value: null, private: false },
+  { name: "material", label: "소재", example: "면 100%", value: null, private: false },
+  { name: "size", label: "크기", example: "가로 20 × 세로 12cm", value: null, private: false },
+  { name: "production_cost", label: "제작 비용", example: "8,000원 / 개", value: null, private: false },
+  { name: "sale_price", label: "판매 가격", example: "18,000원 / 개", value: null, private: false },
 ];
 
 const SUPPLEMENT_FILLED: SupplementItem[] = SUPPLEMENT_EMPTY.map((item) =>
@@ -176,6 +176,7 @@ const SESSION_BASE: SessionView = {
   result_stale: false,
   context: null,
   error: null,
+  private_names: [],
 };
 
 export const SESSION_QUESTION: SessionView = SESSION_BASE;

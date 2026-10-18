@@ -38,7 +38,7 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts" | "result">;
+  state: Pick<AppState, "session" | "drafts" | "result" | "notices">;
   /** 요청·모드 화면이면 그 화면(과제·이어 가는 출처). 아니면 null. */
   carryScreen: CarryScreen | null;
   run: Runner;
@@ -99,7 +99,10 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
     },
     submitRequest: (task) => go({ name: "mode", task, from }),
     editRequest: (task) => go({ name: "request", task, from }),
-    pickMode: (task, mode) => moveOn(() => createSession(task, state.drafts[task] ?? "", mode, from)),
+    pickMode: (task, mode) => {
+      if (state.notices[task] === true) moveOn(() => createSession(task, state.drafts[task] ?? "", mode, from, true));
+    },
+    acknowledgeNotice: (task, acknowledged) => dispatch({ type: "noticeChanged", task, acknowledged }),
     startNext: (task, source) => go({ name: "request", task, from: source }),
     dropCarry: (task) => {
       if (carryScreen !== null && carryScreen.task === task) go({ name: carryScreen.screen, task, from: null });
@@ -170,11 +173,11 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
         ...PLAIN,
       });
     },
-    saveSupplements: (values) => {
+    saveSupplements: (values, privacy) => {
       if (!session) return;
       const sessionId = session.session_id;
       void run({
-        request: () => saveSupplementsRequest(sessionId, values),
+        request: () => saveSupplementsRequest(sessionId, values, privacy),
         done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE }),
         ...PLAIN,
       });

@@ -19,6 +19,7 @@ export type AppState = {
   evidence: { sessionId: string; items: EvidenceItem[] } | null; // 근거 검토 화면의 자료
   assets: Images; // 결과 이미지(asset_id → data URL). 화면 불러오기와 따로 받는다
   drafts: Record<string, string>; // 과제별 쓰다 만 요청 글
+  notices: Record<string, boolean>; // 과제별 외부 전송 고지 확인(세션을 만들 때 서버에 알린다)
   inflight: Inflight | null;
   stalled: string | null; // 실패한 불러오기(loadKey). 같은 화면에서는 다시 부르지 않는다
   toast: string | null;
@@ -40,6 +41,7 @@ export type Action =
   | { type: "assetRequested"; assetId: string }
   | { type: "assetLoaded"; assetId: string; url: string | null }
   | { type: "draftChanged"; task: string; text: string }
+  | { type: "noticeChanged"; task: string; acknowledged: boolean }
   | { type: "noticed"; message: string }
   | { type: "toastClosed" }
   | { type: "retried" };
@@ -60,6 +62,7 @@ export function initialState(route: Route): AppState {
     carry: null,
     assets: {},
     drafts: {},
+    notices: {},
     inflight: null,
     stalled: null,
     toast: null,
@@ -80,6 +83,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, inflight: { seq: action.seq, load: action.load, generating: action.generating }, toast: action.load === null ? null : state.toast };
     case "draftChanged":
       return { ...state, drafts: { ...state.drafts, [action.task]: action.text } };
+    case "noticeChanged":
+      return { ...state, notices: { ...state.notices, [action.task]: action.acknowledged } };
     case "noticed":
       return { ...state, toast: action.message };
     case "assetRequested":

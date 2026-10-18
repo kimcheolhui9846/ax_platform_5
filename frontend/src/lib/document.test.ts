@@ -19,7 +19,7 @@ describe("결과 문서", () => {
   });
 
   it("결과에 반영한 보완 정보를 함께 싣는다", () => {
-    const shown = makeResult({ supplements: [{ name: "material", label: "소재", example: "면 100%", value: "면" }] });
+    const shown = makeResult({ supplements: [{ name: "material", label: "소재", example: "면 100%", value: "면", private: false }] });
     expect(documentContent(makeTask(), shown, false, {}).supplements).toEqual([{ label: "소재", value: "면" }]);
     expect(documentContent(makeTask(), makeResult(), false, {}).supplements).toEqual([]);
   });

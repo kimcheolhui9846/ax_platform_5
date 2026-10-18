@@ -214,7 +214,7 @@ describe("renderScreen", () => {
 });
 
 describe("renderScreen — 보완·문구 수정", () => {
-  const supplements = [{ name: "material", label: "소재", example: "", value: null }];
+  const supplements = [{ name: "material", label: "소재", example: "", value: null, private: false }];
 
   it("결과 오른쪽에 미확인 정보와 소개 문구 수정하기", () => {
     const session = makeSession({ has_result: true, supplements });

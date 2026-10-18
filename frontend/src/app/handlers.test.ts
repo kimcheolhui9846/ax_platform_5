@@ -112,11 +112,23 @@ describe("makeHandlers — 이동", () => {
 });
 
 describe("makeHandlers — 요청", () => {
+  it("고지를 확인하지 않은 과제는 세션을 만들지 않는다", () => {
+    const { on, calls } = setup({ drafts: { branding: "글" }, notices: { branding: false, marketing: true } });
+    on.pickMode("branding", "quick");
+    expect(calls).toEqual([]);
+  });
+
+  it("acknowledgeNotice는 noticeChanged를 보낸다", () => {
+    const { on, actions } = setup();
+    on.acknowledgeNotice("branding", true);
+    expect(actions).toEqual([{ type: "noticeChanged", task: "branding", acknowledged: true }]);
+  });
+
   it("모드를 고르면 쓰다 만 요청 글로 세션을 만들고 첫 질문으로 간다", async () => {
-    const { on, calls } = setup({ drafts: { branding: "한글 파우치" } });
+    const { on, calls } = setup({ drafts: { branding: "한글 파우치" }, notices: { branding: true } });
     on.pickMode("branding", "precise");
     await calls[0].request();
-    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise", null);
+    expect(createSession).toHaveBeenCalledWith("branding", "한글 파우치", "precise", null, true);
     expect(calls[0].done(session, 3)).toEqual({
       type: "sessionLoaded",
       seq: 3,
@@ -230,9 +242,9 @@ describe("makeHandlers — 요청", () => {
 describe("makeHandlers — 보완·문구 수정", () => {
   it("미확인 정보를 저장하면 지금 화면에 머물며 반영을 안내한다", async () => {
     const { on, calls } = setup({ session });
-    on.saveSupplements({ material: "면", size: null });
+    on.saveSupplements({ material: "면", size: null }, { sale_price: true });
     await calls[0].request();
-    expect(saveSupplements).toHaveBeenCalledWith("sess_1", { material: "면", size: null });
+    expect(saveSupplements).toHaveBeenCalledWith("sess_1", { material: "면", size: null }, { sale_price: true });
     const next = makeSession({ session_id: "sess_1" });
     expect(calls[0].done(next, 7)).toEqual({ type: "sessionLoaded", seq: 7, session: next, next: null, notice: SUPPLEMENTS_SAVED_NOTICE });
   });
@@ -276,7 +288,7 @@ describe("makeHandlers — 보완·문구 수정", () => {
 
   it("세션이 없으면 아무것도 하지 않는다", () => {
     const { on, calls, actions } = setup();
-    on.saveSupplements({});
+    on.saveSupplements({}, {});
     on.applySupplements();
     on.editSection(1);
     on.submitEdit(1, "x");
@@ -351,7 +363,7 @@ describe("makeHandlers — 이어가기", () => {
   });
 
   it("요청↔모드 이동과 모드 선택이 출처를 잇는다", async () => {
-    const { on, actions, calls } = setup({ route: { name: "request", task: "branding", from }, drafts: { branding: "글" } });
+    const { on, actions, calls } = setup({ route: { name: "request", task: "branding", from }, drafts: { branding: "글" }, notices: { branding: true } });
     on.submitRequest("branding");
     on.editRequest("branding");
     expect(actions).toEqual([
@@ -360,7 +372,7 @@ describe("makeHandlers — 이어가기", () => {
     ]);
     on.pickMode("branding", "quick");
     await calls[0].request();
-    expect(createSession).toHaveBeenCalledWith("branding", "글", "quick", from);
+    expect(createSession).toHaveBeenCalledWith("branding", "글", "quick", from, true);
   });
 
   it("clearContext는 가져온 내용을 빼고 세션을 갱신한다", async () => {

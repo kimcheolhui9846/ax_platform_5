@@ -33,14 +33,16 @@ export function getTaskForm(taskType: string): Promise<ApiResult<TaskForm>> {
 export function createSession(
   taskType: string,
   rawInput: string,
-  mode: CoachingMode = "standard",
-  from: CarrySource | null = null,
+  mode: CoachingMode,
+  from: CarrySource | null,
+  noticeAcknowledged: boolean,
 ): Promise<ApiResult<SessionView>> {
   return api.POST(`${BASE}/tasks/{task_type}/sessions`, {
     params: { path: { task_type: taskType } },
     body: {
       raw_input: rawInput,
       mode,
+      notice_acknowledged: noticeAcknowledged,
       ...(from ? { from_session_id: from.sessionId, from_version: from.version } : {}),
     },
   });
@@ -101,10 +103,14 @@ export function continueSession(sessionId: string): Promise<ApiResult<SessionVie
 }
 
 /** 미확인 정보를 저장한다(사용자 입력·검증 전). null이면 그 항목을 지운다. */
-export function saveSupplements(sessionId: string, values: Record<string, string | null>): Promise<ApiResult<SessionView>> {
+export function saveSupplements(
+  sessionId: string,
+  values: Record<string, string | null>,
+  privacy: Record<string, boolean>,
+): Promise<ApiResult<SessionView>> {
   return api.PUT(`${BASE}/sessions/{session_id}/supplements`, {
     params: { path: { session_id: sessionId } },
-    body: { values },
+    body: { values, private: privacy },
   });
 }
 

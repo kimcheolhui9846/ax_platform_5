@@ -58,7 +58,8 @@ export type Handlers = {
   resume: (summary: SessionSummary) => void;
   openVersion: (sessionId: string, version: number) => void;
   saveVersion: () => void;
-  saveSupplements: (values: Record<string, string | null>) => void;
+  saveSupplements: (values: Record<string, string | null>, privacy: Record<string, boolean>) => void;
+  acknowledgeNotice: (task: string, acknowledged: boolean) => void;
   applySupplements: () => void;
   editSection: (order: number) => void;
   submitEdit: (order: number, text: string) => void;
@@ -319,7 +320,7 @@ function supplementProps(session: SessionView, result: ResultView, on: Handlers)
     applied: result.supplements,
     changed: session.supplements_changed,
     canGenerate: session.can_generate,
-    onSave: on.saveSupplements,
+    onSave: (values: Record<string, string | null>) => on.saveSupplements(values, {}),
     onApply: on.applySupplements,
   };
 }

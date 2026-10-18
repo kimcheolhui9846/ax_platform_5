@@ -186,6 +186,13 @@ describe("reducer", () => {
     expect(reducer(noticed, { type: "toastClosed" }).toast).toBeNull();
   });
 
+  it("noticeChanged는 그 과제의 고지 확인만 바꾼다", () => {
+    const on = reducer(initialState(HOME), { type: "noticeChanged", task: "branding", acknowledged: true });
+    expect(on.notices).toEqual({ branding: true });
+    const other = reducer(on, { type: "noticeChanged", task: "marketing", acknowledged: true });
+    expect(reducer(other, { type: "noticeChanged", task: "branding", acknowledged: false }).notices).toEqual({ branding: false, marketing: true });
+  });
+
   it("목록 화면에 새로 들어오면 내 세션 목록을 다시 받고, 목록 화면끼리는 그대로 둔다", () => {
     const sessions = [makeSessionSummary()];
     const onQuestion: AppState = { ...initialState(question), sessions };
