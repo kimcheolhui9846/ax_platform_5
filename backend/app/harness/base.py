@@ -5,13 +5,14 @@
 """
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
 from app.core.assets import AssetStore, InMemoryAssetStore
-from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE
+from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE, private_unknown_message
 from app.core.results import (
     GenerationResult,
     ImageBlock,
@@ -50,7 +51,7 @@ from app.core.state import (
 from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
-from app.harness.privacy import masked_state, outbound_prompt, private_names, redact
+from app.harness.privacy import NOTICE_VERSION, masked_state, outbound_prompt, private_names, redact
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
@@ -181,6 +182,11 @@ def answers_changed(state: SessionState, latest: ResultVersion) -> bool:
     )
 
 
+def privacy_changed(private: frozenset[str], latest: ResultVersion) -> bool:
+    """[코드·순수] 비공개 이름이 마지막 결과 버전을 만들 때와 다른지."""
+    return sorted(private) != latest.private
+
+
 def generate_reason(state: SessionState) -> VersionReason:
     """[코드·순수] 이번 생성의 버전 이유. 답은 그대로이고 보완 정보만 바뀌었으면 보완 반영이다."""
     if not state.versions:
@@ -191,7 +197,9 @@ def generate_reason(state: SessionState) -> VersionReason:
     return VersionReason.REGENERATE
 
 
-def new_version(state: SessionState, result: GenerationResult, report: ValidationReport) -> ResultVersion:
+def new_version(
+    state: SessionState, result: GenerationResult, report: ValidationReport, private: frozenset[str]
+) -> ResultVersion:
     """[코드·순수] 방금 만든 결과의 버전 기록. 그때의 사실·가정·미정·보완 정보를 복사해 함께 남긴다."""
     return ResultVersion.snapshot(
         len(state.versions) + 1,
@@ -202,6 +210,7 @@ def new_version(state: SessionState, result: GenerationResult, report: Validatio
         state.assumptions,
         state.unknowns,
         state.supplements,
+        private,
     )
 
 
@@ -302,6 +311,7 @@ class BaseHarness:
         profile: HarnessProfile | None = None,
         owner_id: str = "",
         context: CarriedContext | None = None,
+        notice_acknowledged_at: datetime | None = None,
     ) -> SessionState:
         state = SessionState(
             task_type=self.task_type,
@@ -310,6 +320,8 @@ class BaseHarness:
             profile=profile or HarnessProfile(),
             owner_id=owner_id,
             context=context,
+            notice_version=NOTICE_VERSION,
+            notice_acknowledged_at=notice_acknowledged_at,
         )
         self.apply_defaults(state)
         self.apply_context(state)
@@ -481,7 +493,7 @@ class BaseHarness:
 
     # ── 답변 ──────────────────────────────────────────────────
 
-    def apply_answer(self, state: SessionState, answer: Answer) -> None:
+    def apply_answer(self, state: SessionState, answer: Answer, private: bool | None = None) -> None:
         question = state.pending_question
         if question is None or question.question_id != answer.question_id:
             raise HarnessError("지금 답할 수 있는 질문이 아닙니다.")
@@ -489,12 +501,14 @@ class BaseHarness:
         fact = reply_fact(question, answer)
         with _atomic(state):
             self._apply_reply(state, question, answer.answer_type, fact)
+            if private is not None:
+                self._set_private(state, question.field, private)
             _mark_answered(record, answer.answer_type, fact[0] if fact else None)
             if fact is not None:
                 _supersede_others(state.asked_questions, record)
             self.advance(state)
 
-    def revise_answer(self, state: SessionState, answer: Answer) -> None:
+    def revise_answer(self, state: SessionState, answer: Answer, private: bool | None = None) -> None:
         """이전 답변 수정(IV-08). 결과가 이미 있으면 재생성이 필요하다고 표시한다."""
         record = state.find_asked(answer.question_id)
         if record is None or record.answer_type is None:
@@ -503,6 +517,8 @@ class BaseHarness:
         value, source = answer_to_fact(record.question, answer)
         with _atomic(state):
             self._set_fact(state, field, value, source)
+            if private is not None:
+                self._set_private(state, field, private)
             _mark_answered(record, answer.answer_type, value)
             _supersede_others(state.asked_questions, record)
             pending = state.pending_question
@@ -610,7 +626,7 @@ class BaseHarness:
         state.result = result
         state.result_stale = False
         state.validation = report
-        state.versions.append(new_version(state, result, report))
+        state.versions.append(new_version(state, result, report, self.private(state)))
         state.status = SessionStatus.COMPLETED
 
     @staticmethod
@@ -675,7 +691,9 @@ class BaseHarness:
         state.result = result
         state.validation = report
 
-    def set_supplements(self, state: SessionState, values: Mapping[str, str | None]) -> None:
+    def set_supplements(
+        self, state: SessionState, values: Mapping[str, str | None], private: Mapping[str, bool] | None = None
+    ) -> None:
         """미확인 정보를 저장한다(사용자 입력·검증 전). 다음 생성에 반영된다.
 
         값이 바뀌면 수정처럼 FAILED를 푼다. 결과가 있으면 최신 여부를 답과 보완 정보가 마지막 버전과 다른지로 다시
@@ -684,14 +702,43 @@ class BaseHarness:
         unknown = sorted(set(values) - set(self.policy.supplement_labels))
         if unknown:
             raise HarnessError(f"보완할 수 없는 항목입니다: {', '.join(unknown)}")
+        wanted = private or {}
+        unknown_private = sorted(set(wanted) - self._private_settable())
+        if unknown_private:
+            raise HarnessError(private_unknown_message(unknown_private))
         merged = apply_supplements(state.supplements, values)
-        if _values(merged) == _values(state.supplements):
+        before = dict(state.private_overrides)
+        for name, value in wanted.items():
+            self._set_private(state, name, value)
+        if _values(merged) == _values(state.supplements) and state.private_overrides == before:
             return
         state.supplements = merged
+        self._restale(state)
+        _settle_status(state)
+
+    def _private_settable(self) -> set[str]:
+        return set(self.policy.labels) | set(self.policy.supplement_labels)
+
+    def _set_private(self, state: SessionState, name: str, value: bool) -> None:
+        """[코드] 비공개 설정 하나를 정한다. 정책 기본값과 같아지면 덮어쓴 값을 지운다."""
+        if name not in self._private_settable():
+            raise HarnessError(private_unknown_message([name]))
+        if value == (name in self.policy.private_fields):
+            state.private_overrides.pop(name, None)
+        else:
+            state.private_overrides[name] = value
+        if state.versions and privacy_changed(self.private(state), state.versions[-1]):
+            state.result_stale = True
+
+    def _restale(self, state: SessionState) -> None:
+        """[코드] 결과가 있으면 최신 여부를 답·보완 정보·비공개 설정이 마지막 버전과 다른지로 다시 정한다."""
         if state.versions:
             latest = state.versions[-1]
-            state.result_stale = answers_changed(state, latest) or supplements_changed(merged, latest)
-        _settle_status(state)
+            state.result_stale = (
+                answers_changed(state, latest)
+                or supplements_changed(state.supplements, latest)
+                or privacy_changed(self.private(state), latest)
+            )
 
     def clear_context(self, state: SessionState) -> None:
         """이전 과제에서 가져온 내용을 뺀다. 아직 출처가 previous_task인 사실만 지운다(그 뒤 사용자가 고친 값은 둔다).
@@ -717,9 +764,7 @@ class BaseHarness:
             state.context = None
             self.apply_defaults(state)
             self.fill_raw_input(state)
-            if state.versions:
-                latest = state.versions[-1]
-                state.result_stale = answers_changed(state, latest) or supplements_changed(state.supplements, latest)
+            self._restale(state)
             if state.pending_question is None:
                 self.advance(state)
             else:

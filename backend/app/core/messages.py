@@ -3,6 +3,8 @@
 내부 사정(제공자 원문 오류, 예외 repr, 요청 검증 상세)은 여기 문구에 싣지 않고 trace·로그에만 남긴다.
 """
 
+from collections.abc import Iterable
+
 GENERATION_FAILED_MESSAGE = "결과를 만들지 못했습니다. 입력은 그대로 남아 있으니 다시 시도해 주세요."
 PROVIDER_FAILED_MESSAGE = "AI 호출에 실패했습니다. 다시 시도해 주세요."
 INVALID_REQUEST_MESSAGE = "요청 형식이 올바르지 않습니다."
@@ -16,6 +18,13 @@ SECTION_NOT_FOUND_MESSAGE = "그 섹션을 찾을 수 없습니다."
 IMAGE_FAILED_MESSAGE = "참고 이미지를 만들지 못했어요. 결과 글은 그대로예요."
 ASSET_NOT_FOUND_MESSAGE = "그 파일을 찾을 수 없습니다."
 CLIENT_ID_REQUIRED_MESSAGE = "사용자 식별 정보(X-Client-Id 헤더)가 없거나 형식이 맞지 않습니다."
+
+
+NOTICE_REQUIRED_MESSAGE = "외부 전송 안내를 확인해 주세요."
+
+
+def private_unknown_message(names: Iterable[str]) -> str:
+    return f"비공개로 정할 수 없는 항목입니다: {', '.join(names)}"
 
 
 def unknown_task_message(task_type: str) -> str:

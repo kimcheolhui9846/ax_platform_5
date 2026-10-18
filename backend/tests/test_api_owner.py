@@ -37,7 +37,7 @@ def test_task_routes_are_open_without_client_id():
 def test_session_routes_need_a_valid_client_id(client_id):
     client = api_client(create_app(provider=MockProvider(), debug=True), client_id=client_id)
 
-    created = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"})
+    created = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"})
     read = client.get(f"{BASE}/sessions/sess_1")
     listed = client.get(f"{BASE}/sessions")
 
@@ -49,7 +49,7 @@ def test_session_routes_need_a_valid_client_id(client_id):
 def test_other_clients_session_looks_missing_everywhere():
     app = create_app(provider=MockProvider(), debug=True)
     mine, theirs = api_client(app), api_client(app, client_id=OTHER_CLIENT_ID)
-    view = mine.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()
+    view = mine.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()
     sid, qid = view["session_id"], view["next_question"]["question_id"]
 
     attempts = [

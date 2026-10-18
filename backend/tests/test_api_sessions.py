@@ -7,7 +7,7 @@ BASE = "/api/v1/coaching"
 
 
 def create(client, task_type: str, raw_input: str) -> dict:
-    return client.post(f"{BASE}/tasks/{task_type}/sessions", json={"raw_input": raw_input}).json()
+    return client.post(f"{BASE}/tasks/{task_type}/sessions", json={"notice_acknowledged": True, "raw_input": raw_input}).json()
 
 
 def test_lists_only_my_sessions_newest_first(clock):

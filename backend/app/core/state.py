@@ -144,6 +144,7 @@ class ResultVersion(BaseModel):
     unknowns: list[str] = Field(default_factory=list)
     supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 그 버전에 반영한 보완 정보
     saved: bool = False  # 저장 표시(결과물 목록에 모인다)
+    private: list[str] = Field(default_factory=list)  # 그 버전을 만들 때 비공개였던 이름(정렬)
 
     @classmethod
     def snapshot(
@@ -156,6 +157,7 @@ class ResultVersion(BaseModel):
         assumptions: Mapping[str, Assumption],
         unknowns: Sequence[str],
         supplements: Mapping[str, InfoItem],
+        private: Sequence[str] = (),
     ) -> "ResultVersion":
         """그때의 결과·검증·기준을 복사해 버전 하나를 만든다. 뒤에 세션이 바뀌어도 이 버전은 그대로다."""
         return cls(
@@ -168,6 +170,7 @@ class ResultVersion(BaseModel):
             assumptions={name: item.model_copy() for name, item in assumptions.items()},
             unknowns=list(unknowns),
             supplements={name: item.model_copy() for name, item in supplements.items()},
+            private=sorted(private),
         )
 
     def derived(
@@ -175,7 +178,7 @@ class ResultVersion(BaseModel):
     ) -> "ResultVersion":
         """이 버전의 기준(사실·가정·미정·보완 정보)을 그대로 이어받고 결과만 바꾼 새 버전(문구 수정)."""
         return ResultVersion.snapshot(
-            number, reason, result, validation, self.facts, self.assumptions, self.unknowns, self.supplements
+            number, reason, result, validation, self.facts, self.assumptions, self.unknowns, self.supplements, self.private
         )
 
 
@@ -216,6 +219,8 @@ class SessionState(BaseModel):
     unknowns: list[str] = Field(default_factory=list)
     supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 미확인 정보 보완(사용자 입력·검증 전). 질문 흐름과 준비도에는 들지 않는다
     context: CarriedContext | None = None  # 이전 과제에서 가져온 기준(없으면 None)
+    notice_version: str = ""  # 동의한 외부 전송 안내의 버전
+    notice_acknowledged_at: datetime | None = None
     private_overrides: dict[str, bool] = Field(default_factory=dict)  # 사용자가 바꾼 비공개 설정(정책 기본값보다 우선)
     easier_levels: dict[str, int] = Field(default_factory=dict)  # 다른 예시 보기 사다리 현재 단계
     conflicts: list[Conflict] = Field(default_factory=list)

@@ -18,7 +18,7 @@ def test_build_summary_orders_by_policy_and_marks_assumptions():
     facts = {"c": InfoItem(value="사실", source=InfoSource.USER_FREE_TEXT)}
     assumptions = {"a": Assumption(value="가정", source=InfoSource.AI_ASSUMPTION, confidence=0.5)}
 
-    items = build_summary(_fields(), facts, assumptions)
+    items = build_summary(_fields(), facts, assumptions, frozenset())
 
     assert [(i.field, i.label, i.value, i.is_assumption) for i in items] == [
         ("a", "가", "가정", True),
@@ -30,7 +30,7 @@ def test_build_summary_prefers_fact_over_assumption():
     facts = {"a": InfoItem(value="사실", source=InfoSource.USER_FREE_TEXT)}
     assumptions = {"a": Assumption(value="가정", source=InfoSource.AI_ASSUMPTION)}
 
-    [item] = build_summary(_fields(), facts, assumptions)
+    [item] = build_summary(_fields(), facts, assumptions, frozenset())
 
     assert (item.value, item.is_assumption) == ("사실", False)
 

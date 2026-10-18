@@ -11,6 +11,8 @@ from app.providers.base import Prompt
 
 _T = TypeVar("_T", bound=InfoItem)
 
+NOTICE_VERSION = "2026-10-18"  # 외부 전송 안내 문구 버전(문구가 바뀌면 올린다)
+
 PRIVATE_MARK = "[비공개 입력 · AI에 보내지 않음]"
 
 _BIRTH = r"(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])"

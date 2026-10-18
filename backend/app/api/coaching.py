@@ -20,6 +20,7 @@ from app.api.views import (
 )
 from app.core.messages import (
     EVIDENCE_NOT_FOUND_MESSAGE,
+    NOTICE_REQUIRED_MESSAGE,
     PREVIOUS_SESSION_NOT_FOUND_MESSAGE,
     RESULT_NOT_READY_MESSAGE,
     SECTION_NOT_FOUND_MESSAGE,
@@ -27,6 +28,7 @@ from app.core.messages import (
     VERSION_NOT_FOUND_MESSAGE,
     unknown_task_message,
 )
+from app.core.results import utcnow
 from app.core.state import Answer, CarriedContext, SessionState, TraceEntry
 from app.core.store import SessionStore
 from app.harness.base import BaseHarness, find_version
@@ -145,13 +147,15 @@ def preview_context(
 def create_session(
     task_type: str, body: CreateSessionRequest, registry: Registry, store: Store, owner: Owner
 ) -> SessionView:
+    if not body.notice_acknowledged:
+        raise HTTPException(422, NOTICE_REQUIRED_MESSAGE)
     harness = _harness(registry, task_type)
     context = (
         _carried(registry, store, owner, harness.policy, body.from_session_id, body.from_version)
         if body.from_session_id is not None
         else None
     )
-    state = harness.start(body.raw_input, body.mode, owner_id=owner, context=context)
+    state = harness.start(body.raw_input, body.mode, owner_id=owner, context=context, notice_acknowledged_at=utcnow())
     store.save(state)
     return to_session_view(state, harness)
 
@@ -187,7 +191,7 @@ def submit_answer(
     session_id: str, body: AnswerRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
 ) -> SessionView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
-        harness.apply_answer(state, Answer(**body.model_dump()))
+        harness.apply_answer(state, Answer(**body.model_dump(exclude={"private"})), private=body.private)
     return to_session_view(state, harness)
 
 
@@ -206,7 +210,9 @@ def revise_answer(
     owner: Owner,
 ) -> SessionView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
-        harness.revise_answer(state, Answer(question_id=question_id, **body.model_dump()))
+        harness.revise_answer(
+            state, Answer(question_id=question_id, **body.model_dump(exclude={"private"})), private=body.private
+        )
     return to_session_view(state, harness)
 
 
@@ -237,7 +243,7 @@ def save_supplements(
 ) -> SessionView:
     """미확인 정보를 저장한다(사용자 입력·검증 전). 초안에 반영은 다시 생성(generate)이다."""
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
-        harness.set_supplements(state, body.values)
+        harness.set_supplements(state, body.values, private=body.private)
     return to_session_view(state, harness)
 
 

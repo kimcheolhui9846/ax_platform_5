@@ -1,5 +1,6 @@
 """내부 상태 → API 응답 변환. 프론트가 바로 그릴 수 있는 값만 담는다. 모두 순수 함수다."""
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 
 from app.core.messages import GENERATION_FAILED_MESSAGE
 from app.core.results import GenerationResult, ResultAssumption
@@ -85,6 +86,7 @@ def build_summary(
     fields: Sequence[FieldPolicy],
     facts: Mapping[str, InfoItem],
     assumptions: Mapping[str, Assumption],
+    private: AbstractSet[str],
 ) -> list[SummaryItem]:
     """[순수] policy 순서대로 사실(없으면 AI 가정)을 요약 항목으로 만든다."""
     summary: list[SummaryItem] = []
@@ -101,6 +103,7 @@ def build_summary(
                 source_label=source_label(item.source),
                 confidence=item.confidence,
                 is_assumption=f.name not in facts,
+                private=f.name in private,
             )
         )
     return summary
@@ -151,6 +154,7 @@ def to_session_context(context: CarriedContext, labels: Mapping[str, str]) -> Se
 
 def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
     """can_generate는 비동기 생성을 도입할 때를 위해 남겨 둔 값이다(지금 생성은 동기라 항상 true)."""
+    private = harness.private(state)
     return SessionView(
         session_id=state.session_id,
         task_type=state.task_type,
@@ -163,10 +167,11 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
             cap=harness.question_cap(state),
             readiness=state.readiness,
         ),
-        summary=build_summary(harness.policy.fields, state.facts, state.assumptions),
+        summary=build_summary(harness.policy.fields, state.facts, state.assumptions, private),
         unknowns=label_unknowns(state.unknowns, harness.policy.labels),
         flow=plan_flow(harness.policy, state, harness.questions_left(state)),
-        supplements=supplement_items(harness.policy.supplement_fields, state.supplements),
+        supplements=supplement_items(harness.policy.supplement_fields, state.supplements, private),
+        private_names=sorted(private),
         supplements_changed=supplements_changed(state.supplements, state.versions[-1] if state.versions else None),
         context=to_session_context(state.context, harness.policy.labels) if state.context else None,
         can_generate=state.status is not SessionStatus.GENERATING,
@@ -187,10 +192,13 @@ def field_labels(fields: Sequence[FieldPolicy]) -> dict[str, str]:
     return {f.name: f.label for f in fields}
 
 
-def supplement_items(fields: Sequence[SupplementField], values: Mapping[str, InfoItem]) -> list[SupplementItem]:
+def supplement_items(
+    fields: Sequence[SupplementField], values: Mapping[str, InfoItem], private: AbstractSet[str]
+) -> list[SupplementItem]:
     """[순수] 정책 순서대로 보완 항목과 지금 값(없으면 None)."""
     return [
-        SupplementItem(name=f.name, label=f.label, example=f.example, value=values[f.name].value if f.name in values else None)
+        SupplementItem(name=f.name, label=f.label, example=f.example, value=values[f.name].value if f.name in values else None,
+            private=f.name in private)
         for f in fields
     ]
 
@@ -210,9 +218,9 @@ def to_result_view(
         validation=state.validation,
         stale=state.result_stale,
         version=version_summary(latest),
-        summary=build_summary(fields, latest.facts, latest.assumptions),
+        summary=build_summary(fields, latest.facts, latest.assumptions, frozenset(latest.private)),
         unknowns=label_unknowns(latest.unknowns, labels),
-        supplements=supplement_items(supplement_fields, latest.supplements),
+        supplements=supplement_items(supplement_fields, latest.supplements, frozenset(latest.private)),
     )
 
 
@@ -230,9 +238,9 @@ def to_version_view(
         latest=version.version == state.versions[-1].version,
         result=label_result(version.result, labels),
         validation=version.validation,
-        summary=build_summary(fields, version.facts, version.assumptions),
+        summary=build_summary(fields, version.facts, version.assumptions, frozenset(version.private)),
         unknowns=label_unknowns(version.unknowns, labels),
-        supplements=supplement_items(supplement_fields, version.supplements),
+        supplements=supplement_items(supplement_fields, version.supplements, frozenset(version.private)),
     )
 
 

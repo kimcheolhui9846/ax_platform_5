@@ -8,7 +8,7 @@ BASE = "/api/v1/coaching"
 
 
 def finished_product_session(client) -> str:
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "한글 파우치"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "한글 파우치"}).json()["session_id"]
     client.put(f"{BASE}/sessions/{sid}/supplements", json={"values": {"target_customer": "직장인"}})
     client.post(f"{BASE}/sessions/{sid}/generate")
     return sid
@@ -24,7 +24,7 @@ def test_preview_and_create_share_the_same_context():
     assert {"field": "product_and_customer", "label": "상품과 고객", "value": "한글 파우치"} in preview["items"]
 
     view = client.post(
-        f"{BASE}/tasks/branding/sessions", json={"raw_input": "브랜드 인상", "from_session_id": prev, "from_version": 1}
+        f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "브랜드 인상", "from_session_id": prev, "from_version": 1}
     ).json()
     assert view["context"] == preview
     carried = next(s for s in view["summary"] if s["field"] == "product_and_customer")
@@ -35,7 +35,7 @@ def test_preview_and_create_share_the_same_context():
 def test_marketing_takes_the_customer_from_a_supplement():
     client = api_client(create_app(provider=MockProvider()))
     prev = finished_product_session(client)
-    view = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"raw_input": "홍보 글", "from_session_id": prev}).json()
+    view = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"notice_acknowledged": True, "raw_input": "홍보 글", "from_session_id": prev}).json()
     item = next(s for s in view["summary"] if s["field"] == "target_customer")
     assert (item["value"], item["source"], item["source_label"]) == ("직장인", "previous_task", "이전 과제")
     assert all(f["field"] != "target_customer" or f["status"] != "upcoming" for f in view["flow"])
@@ -49,17 +49,17 @@ def test_unknown_or_foreign_previous_sessions_and_versions_are_404():
 
     for response in (
         other.get(f"{BASE}/tasks/branding/context", params={"session_id": prev}),
-        other.post(f"{BASE}/tasks/branding/sessions", json={"raw_input": "x", "from_session_id": prev}),
-        client.post(f"{BASE}/tasks/branding/sessions", json={"raw_input": "x", "from_session_id": "sess_nope"}),
+        other.post(f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "x", "from_session_id": prev}),
+        client.post(f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "x", "from_session_id": "sess_nope"}),
     ):
         assert (response.status_code, response.json()) == (404, {"detail": PREVIOUS_SESSION_NOT_FOUND_MESSAGE})
     missing = client.get(f"{BASE}/tasks/branding/context", params={"session_id": prev, "version": 9})
     assert (missing.status_code, missing.json()) == (404, {"detail": VERSION_NOT_FOUND_MESSAGE})
-    no_result = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "y"}).json()["session_id"]
+    no_result = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "y"}).json()["session_id"]
     for response in (
         client.get(f"{BASE}/tasks/branding/context", params={"session_id": no_result}),
         client.get(f"{BASE}/tasks/branding/context", params={"session_id": no_result, "version": 1}),
-        client.post(f"{BASE}/tasks/branding/sessions", json={"raw_input": "x", "from_session_id": no_result}),
+        client.post(f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "x", "from_session_id": no_result}),
     ):
         assert (response.status_code, response.json()) == (404, {"detail": RESULT_NOT_READY_MESSAGE})
     assert client.get(f"{BASE}/tasks/nope/context", params={"session_id": prev}).status_code == 404
@@ -68,7 +68,7 @@ def test_unknown_or_foreign_previous_sessions_and_versions_are_404():
 def test_delete_context_removes_carried_values_and_is_idempotent():
     client = api_client(create_app(provider=MockProvider()))
     prev = finished_product_session(client)
-    sid = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"raw_input": "홍보 글", "from_session_id": prev}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"notice_acknowledged": True, "raw_input": "홍보 글", "from_session_id": prev}).json()["session_id"]
 
     cleared = client.delete(f"{BASE}/sessions/{sid}/context")
 
@@ -82,7 +82,7 @@ def test_delete_context_removes_carried_values_and_is_idempotent():
 
 def test_sessions_without_a_previous_task_have_no_context():
     client = api_client(create_app(provider=MockProvider()))
-    view = client.post(f"{BASE}/tasks/branding/sessions", json={"raw_input": "x"}).json()
+    view = client.post(f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "x"}).json()
     assert view["context"] is None
 
 
@@ -91,7 +91,7 @@ def test_version_zero_is_rejected():
     prev = finished_product_session(client)
     assert client.get(f"{BASE}/tasks/branding/context", params={"session_id": prev, "version": 0}).status_code == 422
     created = client.post(
-        f"{BASE}/tasks/branding/sessions", json={"raw_input": "x", "from_session_id": prev, "from_version": 0}
+        f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "x", "from_session_id": prev, "from_version": 0}
     )
     assert created.status_code == 422
 
@@ -101,7 +101,7 @@ def test_provider_failure_while_clearing_leaves_the_session_as_it_was():
     app = create_app(provider=provider)
     client = api_client(app)
     prev = finished_product_session(client)
-    sid = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"raw_input": "홍보 글", "from_session_id": prev}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/marketing_content/sessions", json={"notice_acknowledged": True, "raw_input": "홍보 글", "from_session_id": prev}).json()["session_id"]
     # 다른 예시 보기 중 결과를 먼저 만들어 질문이 내려간 세션: 빼면 LLM 쉬운 질문으로 다시 묻는다
     state = app.state.store.get(sid)
     field = next(

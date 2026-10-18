@@ -58,7 +58,7 @@ def test_edit_rejects_empty_text_and_unknown_sections(harness):
 
 def test_edit_api():
     client = api_client(create_app(provider=MockProvider(), debug=True))
-    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"raw_input": "향초"}).json()["session_id"]
+    sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "향초"}).json()["session_id"]
     assert client.patch(f"{BASE}/sessions/{sid}/result/sections/1", json={"text": "x"}).json() == {
         "detail": RESULT_NOT_READY_MESSAGE
     }

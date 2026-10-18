@@ -156,3 +156,64 @@ def test_failure_and_validation_traces_are_redacted():
 
 def harness_state():
     return SampleHarness(SAMPLE_TASK_DIR, MockProvider()).start("향초")
+
+
+def _answer(state, text="답"):
+    from app.core.state import Answer, AnswerType
+
+    return Answer(question_id=state.pending_question.question_id, answer_type=AnswerType.FREE_TEXT, value=text)
+
+
+def test_start_records_the_notice_version_and_time(harness):
+    from datetime import datetime, timezone
+
+    from app.harness.privacy import NOTICE_VERSION
+
+    at = datetime(2026, 10, 18, tzinfo=timezone.utc)
+    state = harness.start("향초", notice_acknowledged_at=at)
+    assert (state.notice_version, state.notice_acknowledged_at) == (NOTICE_VERSION, at)
+
+
+def test_set_private_drops_the_override_when_it_matches_the_policy_default(harness):
+    harness.policy = harness.policy.model_copy(update={"private_fields": ["material"]})
+    state = harness.start("향초")
+    harness.set_supplements(state, {}, private={"material": False, "price": True})
+    assert state.private_overrides == {"material": False, "price": True}
+    harness.set_supplements(state, {}, private={"material": True, "price": False})
+    assert state.private_overrides == {}
+
+
+def test_private_only_revision_makes_the_result_stale(harness):
+    state = harness.start("향초")
+    qid = state.pending_question.question_id
+    field = state.pending_question.field
+    harness.apply_answer(state, _answer(state, "같은 답"))
+    harness.generate(state)
+    assert state.result_stale is False
+    harness.revise_answer(state, _answer_for(qid, "같은 답"), private=True)
+    assert field in harness.private(state)
+    assert state.result_stale is True
+    assert state.versions[-1].private == []
+
+
+def _answer_for(qid, text):
+    from app.core.state import Answer, AnswerType
+
+    return Answer(question_id=qid, answer_type=AnswerType.FREE_TEXT, value=text)
+
+
+def test_unknown_private_names_are_rejected_and_failed_answers_roll_privacy_back(harness):
+    from app.core.state import Answer, AnswerType
+    from app.harness.errors import HarnessError
+
+    state = harness.start("향초")
+    with pytest.raises(HarnessError, match="비공개로 정할 수 없는 항목입니다: nope"):
+        harness.set_supplements(state, {}, private={"nope": True})
+    assert state.private_overrides == {}
+
+    qid = state.pending_question.question_id
+    bad = Answer(question_id=qid, answer_type=AnswerType.OPTION, option_ids=["없는-선택지"])
+    before = dict(state.private_overrides)
+    with pytest.raises(Exception):
+        harness.apply_answer(state, bad, private=True)
+    assert state.private_overrides == before

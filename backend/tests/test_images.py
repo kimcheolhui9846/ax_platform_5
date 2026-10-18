@@ -119,7 +119,7 @@ def test_branding_and_marketing_turn_images_on_by_default():
 def test_generated_image_is_served_through_the_api():
     assets = InMemoryAssetStore()
     client = api_client(create_app(provider=MockProvider(), images=MockImageProvider(), assets=assets))
-    sid = client.post("/api/v1/coaching/tasks/branding/sessions", json={"raw_input": "한글 파우치 브랜드"}).json()["session_id"]
+    sid = client.post("/api/v1/coaching/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "한글 파우치 브랜드"}).json()["session_id"]
 
     result = client.post(f"/api/v1/coaching/sessions/{sid}/generate").json()
 
