@@ -10,7 +10,7 @@
 
 ## 지금 상태
 
-디자인 V2 화면 개발(묶음 0~4)과 디자이너 피드백 반영이 끝났다. 모든 AI 호출은 아직 Mock이다(비용 0).
+디자인 V2 화면 개발(묶음 0~4)과 디자이너 피드백 반영이 끝났다. 실제 Claude 제공자(`ClaudeProvider`)가 붙었고, 기본값은 여전히 Mock이다(`PROVIDER=mock`, 비용 0). 이미지·근거 자료는 아직 Mock·샘플이다.
 
 | 작업 | PR | 내용 |
 |---|---|---|
@@ -24,6 +24,7 @@
 | 디자인 피드백 | #17 | 생성 중·생성 실패 화면, 최신 아님 배너, 이미지 상자, 모드 설명, WBS·`scripts/wbs.py` |
 | 묶음 4 | #18 | 다음 과제로 이어가기(이전 결과의 기준 가져오기·빼기) |
 | 인수인계 | #19 | 이 문서, PR마다 갱신하는 규칙(`CLAUDE.md` 개발 방식) |
+| 실제 Claude 연결 | task/20 | `ClaudeProvider`(공식 SDK, 구조화 출력·시스템 캐시·거절 시 서버 측 대체), `PROVIDER=claude`·`CLAUDE_MODEL`·`CLAUDE_EFFORT`, `scripts/claude_smoke.py` |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -46,7 +47,10 @@
    - 프론트와 연결: 백엔드 CORS(버셀 도메인) + `VITE_API_BASE`, 또는 `vercel.json` `rewrites`로 `/api/:path*`를 렌더로 넘겨 같은 출처(이때 `VITE_API_BASE`는 비운다).
    - 서버 프로세스는 하나(세션 잠금이 프로세스 안 잠금이다).
 4. **실제 AI 연결** — WBS 6.1~6.3
-   - `app/providers/`에 Claude `LLMProvider` 구현, `factory.py`에 등록(`CLAUDE.md` "비용" 절). 테스트는 계속 Mock.
+   - LLM 연결은 끝났다(`app/providers/claude.py`). 테스트는 계속 Mock·가짜 클라이언트다. 실제로 켜려면(사용자가 직접, 키는 커밋 금지):
+     - `backend/.env`에 `PROVIDER=claude`와 `ANTHROPIC_API_KEY=…`를 넣는다. 모델·노력은 `CLAUDE_MODEL`(기본 `claude-opus-5-5`)·`CLAUDE_EFFORT`(기본 `medium`).
+     - 세션 하나 확인: `uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력).
+     - 비용 감(1M 토큰당 입력/출력): Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50. 튜닝 중에는 싼 모델로 돌린다.
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.
 5. **평가·발표** — WBS 7.1·7.2 (기획서 14장 지표).

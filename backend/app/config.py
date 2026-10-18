@@ -1,5 +1,6 @@
 """환경 설정. backend/.env 또는 환경 변수에서 읽는다. 실행 위치와 상관없이 backend/.env를 본다."""
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +16,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     provider: str = "mock"
+    claude_model: str = "claude-opus-5-5"  # PROVIDER=claude일 때 쓰는 모델
+    claude_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"  # 생각 깊이·비용
     image_provider: str = "mock"
     debug: bool = False  # true면 trace 엔드포인트를 연다. 로컬 개발은 .env.example대로 켠다.
     store: StoreKind = "memory"  # sqlite면 DATABASE_PATH 파일에 세션을 남긴다(서버를 다시 켜도 남는다)
