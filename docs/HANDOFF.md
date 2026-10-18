@@ -3,7 +3,7 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-18
-- main: `2efe2a3` (PR #22까지 머지)
+- main: `427793c` (PR #23까지 머지)
 - 테스트: 백엔드 545 passed, 프론트 437 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
@@ -83,7 +83,7 @@
 
 ## 작업 방식 (새 세션이 따를 절차)
 
-1. main에서 `task/<번호>-<이름>` 브랜치(다음 번호는 PR 번호와 같게, 지금은 19 다음).
+1. main에서 `task/<번호>-<이름>` 브랜치(다음 번호는 PR 번호와 같게, 지금은 24 다음).
 2. 계획: `superpowers:writing-plans`로 `docs/superpowers/plans/YYYY-MM-DD-<이름>.md`(Task마다 파일·인터페이스·테스트 코드·커밋 메시지). 커밋.
 3. 실행: `superpowers:subagent-driven-development`. Task마다 구현 서브에이전트 → 리뷰 서브에이전트(스펙·품질) → 지적이 있으면 같은 구현자에게 고치게 하고 범위를 좁힌 재리뷰. 마지막에 브랜치 전체 리뷰(가장 강한 모델) → 수정 한 번 → 재리뷰.
    - **리뷰 지적은 미루지 않고 전부 고친다**(튜닝 값만 예외). 계획 코드가 틀렸으면 계획을 고쳐 따른다.
