@@ -81,6 +81,7 @@ fields:
     options: [1만원 이하, 1~3만원, 3~5만원, 5만원 이상]
     easier_questions:
       - question: 비슷한 상품을 산다면 얼마까지 내겠어요?
+private_fields: [production_cost, sale_price]
 supplement_fields:
   - { name: target_customer, label: 고객, example: 일상 소지품을 정리하는 사용자 }
   - { name: material, label: 소재, example: 면 100% }

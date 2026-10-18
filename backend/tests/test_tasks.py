@@ -1,10 +1,11 @@
 import pytest
+import yaml
 
 from app.core.results import GenerationResult, ResultCard, sections_from_cards
 from app.core.state import CarriedContext, CoachingMode, SessionState
 from app.harness.errors import UnknownTaskError
 from app.harness.evals import load_scenarios, run_scenario
-from app.harness.policy import FieldKind
+from app.harness.policy import FieldKind, TaskPolicy
 from app.harness.prompting import STAGES, context_keys
 from app.harness.registry import TASK_TYPES, TASKS_DIR, HarnessRegistry, build_harness
 from app.harness.tasks.business_plan.validators import check_unsupported_market_claims
@@ -207,3 +208,25 @@ def test_system_prompt_is_identical_across_sessions(registry, task_type, stage):
     b = render(second, fields[1], 3, ["이전 질문", "또 다른 질문"], "두 번째 결과")
     assert a.system == b.system
     assert a.user != b.user
+
+
+def test_private_fields_must_be_fields_or_supplement_items():
+    from tests.conftest import SAMPLE_TASK_DIR
+
+    data = yaml.safe_load((SAMPLE_TASK_DIR / "policy.yaml").read_text(encoding="utf-8"))
+    data["private_fields"] = ["not_a_name"]
+    with pytest.raises(ValueError, match="private_fields"):
+        TaskPolicy.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    ("task_type", "expected"),
+    [
+        ("product_planning", ["production_cost", "sale_price"]),
+        ("business_plan", ["revenue_model", "production_cost", "sale_price", "budget"]),
+        ("marketing_content", ["price"]),
+        ("branding", []),
+    ],
+)
+def test_private_fields_starting_values(registry, task_type, expected):
+    assert registry.get(task_type).policy.private_fields == expected

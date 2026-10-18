@@ -75,6 +75,7 @@ fields:
     kind: default
     weight: 1
     default: 친근한 톤, 중간 길이
+private_fields: [price]
 supplement_fields:
   - { name: product_spec, label: 상품 사양, example: 한글 형태를 활용한 소형 파우치 }
   - { name: launch_date, label: 공개 일정, example: 일정 미정 }

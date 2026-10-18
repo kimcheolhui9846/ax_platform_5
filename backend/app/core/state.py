@@ -216,6 +216,7 @@ class SessionState(BaseModel):
     unknowns: list[str] = Field(default_factory=list)
     supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 미확인 정보 보완(사용자 입력·검증 전). 질문 흐름과 준비도에는 들지 않는다
     context: CarriedContext | None = None  # 이전 과제에서 가져온 기준(없으면 None)
+    private_overrides: dict[str, bool] = Field(default_factory=dict)  # 사용자가 바꾼 비공개 설정(정책 기본값보다 우선)
     easier_levels: dict[str, int] = Field(default_factory=dict)  # 다른 예시 보기 사다리 현재 단계
     conflicts: list[Conflict] = Field(default_factory=list)
     asked_questions: list[AskedQuestion] = Field(default_factory=list)

@@ -50,6 +50,7 @@ from app.core.state import (
 from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
+from app.harness.privacy import masked_state, outbound_prompt, private_names
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
@@ -760,9 +761,15 @@ class BaseHarness:
         if target is None:
             return result, []
         prompt = self.prompts.render(
-            "image", state=state, policy=self.policy, profile=state.profile, heading=target.heading, text=section_text(target)
+            "image",
+            state=masked_state(state, self.private(state)),
+            policy=self.policy,
+            profile=state.profile,
+            heading=target.heading,
+            text=section_text(target),
         )
-        trace_input = {"system": prompt.system, "user": prompt.user}
+        prompt, redactions = outbound_prompt(prompt)
+        trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
         try:
             image = self.images.generate(task_type=self.task_type, prompt=prompt)
         except ProviderError as exc:
@@ -803,6 +810,10 @@ class BaseHarness:
 
     # ── 내부 도우미 ───────────────────────────────────────────
 
+    def private(self, state: SessionState) -> frozenset[str]:
+        """[순수] 이 세션에서 AI에 보내지 않는 항목 이름(정책 기본값 + 사용자 설정)."""
+        return private_names(self.policy.private_fields, state.private_overrides)
+
     def _call_retrying_bad_output(
         self, state: SessionState, stage: str, response_model: type[M]
     ) -> M:
@@ -818,8 +829,10 @@ class BaseHarness:
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
         prompt = self.prompts.render(
-            stage, state=state, policy=self.policy, profile=state.profile, **context
+            stage, state=masked_state(state, self.private(state)), policy=self.policy, profile=state.profile, **context
         )
+        prompt, redactions = outbound_prompt(prompt)
+        trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
         try:
             response = self.provider.complete(
                 task_type=self.task_type, stage=stage, prompt=prompt, response_model=response_model
@@ -830,7 +843,7 @@ class BaseHarness:
             state.trace.append(
                 TraceEntry(
                     stage=stage,
-                    input={"system": prompt.system, "user": prompt.user},
+                    input=trace_input,
                     output={"error": str(exc)},
                     provider=self.provider.name,
                 )
@@ -839,7 +852,7 @@ class BaseHarness:
         state.trace.append(
             TraceEntry(
                 stage=stage,
-                input={"system": prompt.system, "user": prompt.user},
+                input=trace_input,
                 output=response.parsed.model_dump(mode="json"),
                 provider=self.provider.name,
                 model=response.model,
