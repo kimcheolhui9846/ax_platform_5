@@ -179,7 +179,7 @@ export function makeContext(overrides: Partial<SessionContext> = {}): SessionCon
     version: 2,
     title: "사업계획",
     summary: "가져올 내용 요약",
-    items: [{ field: "product_idea", label: "상품 아이디어", value: "수제 향초" }],
+    items: [{ field: "product_idea", label: "상품 아이디어", value: "수제 향초", private: false }],
     ...overrides,
   };
 }

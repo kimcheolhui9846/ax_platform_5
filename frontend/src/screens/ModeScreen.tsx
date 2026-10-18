@@ -43,7 +43,7 @@ export function ModeScreen({ form, draft, context, carryFailed, acknowledged, on
       {!acknowledged && (
         <div className="notice stack8">
           <p>요청 화면에서 외부 전송 안내를 확인해 주세요.</p>
-          <button type="button" className="btn" onClick={onEditRequest}>
+          <button type="button" className="btn" disabled={busy} onClick={onEditRequest}>
             요청 화면으로 가기
           </button>
         </div>

@@ -148,7 +148,10 @@ def to_session_context(context: CarriedContext, labels: Mapping[str, str]) -> Se
         version=context.version,
         title=context.title,
         summary=context.summary,
-        items=[ContextItem(field=i.field, label=labels.get(i.field, i.field), value=i.value) for i in context.items],
+        items=[
+            ContextItem(field=i.field, label=labels.get(i.field, i.field), value=i.value, private=i.private)
+            for i in context.items
+        ],
     )
 
 
@@ -223,9 +226,9 @@ def to_result_view(
         validation=state.validation,
         stale=state.result_stale,
         version=version_summary(latest),
-        summary=build_summary(fields, latest.facts, latest.assumptions, frozenset(latest.private)),
+        summary=build_summary(fields, latest.facts, latest.assumptions, frozenset(latest.private or ())),
         unknowns=label_unknowns(latest.unknowns, labels),
-        supplements=supplement_items(supplement_fields, latest.supplements, frozenset(latest.private)),
+        supplements=supplement_items(supplement_fields, latest.supplements, frozenset(latest.private or ())),
     )
 
 
@@ -243,9 +246,9 @@ def to_version_view(
         latest=version.version == state.versions[-1].version,
         result=label_result(version.result, labels),
         validation=version.validation,
-        summary=build_summary(fields, version.facts, version.assumptions, frozenset(version.private)),
+        summary=build_summary(fields, version.facts, version.assumptions, frozenset(version.private or ())),
         unknowns=label_unknowns(version.unknowns, labels),
-        supplements=supplement_items(supplement_fields, version.supplements, frozenset(version.private)),
+        supplements=supplement_items(supplement_fields, version.supplements, frozenset(version.private or ())),
     )
 
 

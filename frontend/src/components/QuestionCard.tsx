@@ -14,7 +14,7 @@ type Props = {
   defaultPrivate: boolean; // 이 질문의 항목이 지금 AI에 보내지 않음으로 정해져 있는지
   busy: boolean;
   onAnswer: (body: AnswerBody) => void;
-  onExample: (action: ExampleAction["action"]) => void;
+  onExample: (action: ExampleAction["action"], isPrivate: boolean) => void; // '다른 예시 보기'도 비공개 체크를 싣는다
   onEarlyDraft: () => void;
 };
 
@@ -35,7 +35,7 @@ export function QuestionCard({ question, kicker, request, defaultPrivate, busy, 
       <OptionList question={question} busy={busy} onChoose={(ids) => onAnswer({ answer_type: "option", option_ids: ids, private: hidden })} />
       <div className="help-row">
         {exampleActions(question).map(({ action, label }) => (
-          <button key={action} type="button" className="btn" disabled={busy} onClick={() => onExample(action)}>
+          <button key={action} type="button" className="btn" disabled={busy} onClick={() => onExample(action, hidden)}>
             {label}
           </button>
         ))}

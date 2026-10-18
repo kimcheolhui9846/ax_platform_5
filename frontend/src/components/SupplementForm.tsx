@@ -61,6 +61,7 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
             <PrivacyToggle
               label="AI에 보내지 않기"
               checked={hidden[item.name] ?? false}
+              disabled={busy}
               onChange={(checked) => setHidden((current) => ({ ...current, [item.name]: checked }))}
             />
           </div>

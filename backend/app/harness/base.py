@@ -183,8 +183,8 @@ def answers_changed(state: SessionState, latest: ResultVersion) -> bool:
 
 
 def privacy_changed(private: frozenset[str], latest: ResultVersion) -> bool:
-    """[코드·순수] 비공개 이름이 마지막 결과 버전을 만들 때와 다른지."""
-    return sorted(private) != latest.private
+    """[코드·순수] 비공개 이름이 마지막 결과 버전을 만들 때와 다른지. 기록이 없는 옛 버전은 다르다고 보지 않는다."""
+    return latest.private is not None and sorted(private) != latest.private
 
 
 def generate_reason(state: SessionState) -> VersionReason:
@@ -339,12 +339,14 @@ class BaseHarness:
         """[코드] 이전 과제에서 가져온 값을 사실로 넣는다(출처 previous_task). 그 필드는 묻지 않는다.
 
         진단 전에 넣으므로 처음 입력 필드(raw_input_field)도 가져온 값이 이긴다. 새 요청 글은 처음 입력
-        (state.raw_input)으로 프롬프트에 남는다.
+        (state.raw_input)으로 프롬프트에 남는다. 이전 작업에서 비공개였던 값은 이 세션에서도 비공개로 둔다.
         """
         if state.context is None:
             return
         for item in state.context.items:
             state.facts[item.field] = InfoItem(value=item.value, source=InfoSource.PREVIOUS_TASK)
+            if item.private:
+                self._set_private(state, item.field, True)
 
     def diagnose(self, state: SessionState) -> None:
         """[LLM] 처음 입력에서 항목을 뽑는다. 뽑은 값은 확인 전이므로 가정으로만 둔다."""
@@ -706,7 +708,8 @@ class BaseHarness:
             raise HarnessError(f"보완할 수 없는 항목입니다: {', '.join(unknown)}")
         wanted = private or {}
         # 이름을 먼저 모두 확인하므로 아래 _set_private는 중간에 실패하지 않는다(_atomic 밖이어도 안전하다)
-        unknown_private = sorted(set(wanted) - self._private_settable())
+        # 보완 정보 요청은 보완 항목의 비공개만 정한다(필드는 답·수정 요청으로 정한다)
+        unknown_private = sorted(set(wanted) - set(self.policy.supplement_labels))
         if unknown_private:
             raise HarnessError(private_unknown_message(unknown_private))
         merged = apply_supplements(state.supplements, values)

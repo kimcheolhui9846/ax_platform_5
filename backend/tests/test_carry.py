@@ -26,6 +26,7 @@ def test_same_name_wins_then_carry_over_in_order_and_facts_before_supplements():
         supplements={"target_customer": info("학생", InfoSource.USER_SUPPLEMENT), "tone_and_manner": info("담백하게", InfoSource.USER_SUPPLEMENT)},
         fields=FIELDS,
         carry_over={"product_and_customer": "product", "product_idea": "product", "tone_and_manner": "tone"},
+        private=frozenset(),
     )
     assert items == [
         CarriedItem(field="product", value="한글 파우치", from_name="product_idea"),
@@ -35,7 +36,19 @@ def test_same_name_wins_then_carry_over_in_order_and_facts_before_supplements():
 
 
 def test_nothing_to_carry_is_an_empty_list():
-    assert carry_values({}, {}, FIELDS, {}) == []
+    assert carry_values({}, {}, FIELDS, {}, frozenset()) == []
+
+
+def test_values_that_were_private_in_the_source_stay_marked_private():
+    items = carry_values(
+        facts={"product_idea": info("비밀 상품")},
+        supplements={"target_customer": info("비밀 고객", InfoSource.USER_SUPPLEMENT)},
+        fields=FIELDS,
+        carry_over={"product_idea": "product"},
+        private=frozenset({"product_idea", "target_customer"}),
+    )
+    assert [(i.field, i.private) for i in items] == [("product", True), ("target_customer", True)]
+    assert carry_values({"product": info("a")}, {}, FIELDS, {}, frozenset())[0].private is False
 
 
 def test_summarize_flattens_spaces_and_clips():
@@ -61,12 +74,34 @@ def test_build_context_names_the_source_version_and_summarizes_the_first_section
     state, version = source_state()
     harness.policy.carry_over = {"product_idea": harness.policy.raw_input_field}
 
-    context = build_context(state, version, "상품기획", harness.policy)
+    context = build_context(state, version, "상품기획", harness.policy, frozenset())
 
     assert (context.session_id, context.task_type, context.version) == ("sess_prev", "product_planning", 2)
     assert context.title == "상품기획 초안 V2"
     assert context.summary == "작은 물건을 정리하는 한글 파우치"
     assert [i.from_name for i in context.items] == ["product_idea"]
+
+
+def test_build_context_counts_names_private_in_the_version_or_now_in_the_source(harness):
+    state, version = source_state()
+    harness.policy.carry_over = {"product_idea": harness.policy.raw_input_field}
+    by_version = version.model_copy(update={"private": ["product_idea"]})
+
+    assert build_context(state, by_version, "상품기획", harness.policy, frozenset()).items[0].private is True
+    assert build_context(state, version, "상품기획", harness.policy, frozenset({"product_idea"})).items[0].private is True
+    assert build_context(state, version, "상품기획", harness.policy, frozenset()).items[0].private is False
+    old = version.model_copy(update={"private": None})  # 비공개 기록이 없는 옛 버전
+    assert build_context(state, old, "상품기획", harness.policy, frozenset()).items[0].private is False
+
+
+def test_carried_private_items_are_private_in_the_new_session(harness):
+    target = harness.policy.raw_input_field
+    context = CarriedContext(
+        session_id="sess_prev", task_type="product_planning", version=1, title="t", summary="s",
+        items=[CarriedItem(field=target, value="비밀 값", from_name="product_idea", private=True)],
+    )
+    state = harness.start("새 요청 글", context=context)
+    assert target in harness.private(state)
 
 
 def carried(harness, field: str, value: str) -> CarriedContext:
@@ -105,6 +140,7 @@ def test_default_facts_of_the_previous_session_are_not_carried():
         supplements={},
         fields=FIELDS,
         carry_over={},
+        private=frozenset(),
     )
     assert items == []
 

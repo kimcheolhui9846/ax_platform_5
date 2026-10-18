@@ -115,6 +115,7 @@ class CarriedItem(BaseModel):
     field: str
     value: str
     from_name: str
+    private: bool = False  # 이전 작업에서 비공개였던 값(새 세션에서도 비공개로 둔다)
 
 
 class CarriedContext(BaseModel):
@@ -144,7 +145,8 @@ class ResultVersion(BaseModel):
     unknowns: list[str] = Field(default_factory=list)
     supplements: dict[str, InfoItem] = Field(default_factory=dict)  # 그 버전에 반영한 보완 정보
     saved: bool = False  # 저장 표시(결과물 목록에 모인다)
-    private: list[str] = Field(default_factory=list)  # 그 버전을 만들 때 비공개였던 이름(정렬)
+    # 그 버전을 만들 때 비공개였던 이름(정렬). None은 비공개 기록을 남기기 전에 만든 옛 버전이다(새 버전은 언제나 리스트)
+    private: list[str] | None = None
 
     @classmethod
     def snapshot(
@@ -157,7 +159,7 @@ class ResultVersion(BaseModel):
         assumptions: Mapping[str, Assumption],
         unknowns: Sequence[str],
         supplements: Mapping[str, InfoItem],
-        private: Sequence[str] = (),
+        private: Sequence[str] | None = (),
     ) -> "ResultVersion":
         """그때의 결과·검증·기준을 복사해 버전 하나를 만든다. 뒤에 세션이 바뀌어도 이 버전은 그대로다."""
         return cls(
@@ -170,7 +172,7 @@ class ResultVersion(BaseModel):
             assumptions={name: item.model_copy() for name, item in assumptions.items()},
             unknowns=list(unknowns),
             supplements={name: item.model_copy() for name, item in supplements.items()},
-            private=sorted(private),
+            private=None if private is None else sorted(private),
         )
 
     def derived(

@@ -32,7 +32,7 @@ export type Action =
   | { type: "tasksLoaded"; seq: number; tasks: TaskSummary[] }
   | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
   | { type: "formLoaded"; seq: number; form: TaskForm }
-  | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; notice: string | null }
+  | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; noticeConsumed: string | null; notice: string | null } // noticeConsumed: 세션을 새로 만든 과제(그 과제의 안내 확인을 지운다)
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
@@ -167,7 +167,8 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         route: action.next ?? done.route,
         session: action.session,
         sessionOutdated: false,
-        notices: { ...done.notices, [action.session.task_type]: false }, // 세션을 만들 때마다 안내를 새로 확인한다
+        // 세션을 새로 만들 때마다 안내를 새로 확인한다(기존 세션 열기·답하기는 확인을 그대로 둔다)
+        notices: action.noticeConsumed === null ? done.notices : { ...done.notices, [action.noticeConsumed]: false },
         result: matchingResult(done.result, action.session),
         toast: action.notice ?? done.toast,
       };

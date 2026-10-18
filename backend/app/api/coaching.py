@@ -86,7 +86,8 @@ def _carried(
     found = source.versions[-1] if version is None else find_version(source.versions, version)
     if found is None:
         raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
-    return build_context(source, found, registry.get(source.task_type).policy.title, target)
+    source_harness = registry.get(source.task_type)
+    return build_context(source, found, source_harness.policy.title, target, source_harness.private(source))
 
 
 @contextmanager
@@ -147,14 +148,15 @@ def preview_context(
 def create_session(
     task_type: str, body: CreateSessionRequest, registry: Registry, store: Store, owner: Owner
 ) -> SessionView:
-    if not body.notice_acknowledged:
-        raise HTTPException(422, NOTICE_REQUIRED_MESSAGE)
+    # 없는 과제·남의 이전 작업은 404가 먼저다(동의 여부보다 앞선다)
     harness = _harness(registry, task_type)
     context = (
         _carried(registry, store, owner, harness.policy, body.from_session_id, body.from_version)
         if body.from_session_id is not None
         else None
     )
+    if not body.notice_acknowledged:
+        raise HTTPException(422, NOTICE_REQUIRED_MESSAGE)
     state = harness.start(body.raw_input, body.mode, owner_id=owner, context=context, notice_acknowledged_at=utcnow())
     store.save(state)
     return to_session_view(state, harness)

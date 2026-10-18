@@ -258,8 +258,8 @@ export const CONTEXT: SessionContext = {
   title: "사업계획 초안 V2",
   summary: "한글 디자인 소품을 온라인으로 파는 1인 사업. 첫 상품은 작은 소지품을 정리하는 파우치로 시작한다.",
   items: [
-    { field: "product_idea", label: "상품 아이디어", value: "한글을 활용한 파우치" },
-    { field: "user", label: "사용자", value: "작은 소지품을 들고 다니는 직장인" },
+    { field: "product_idea", label: "상품 아이디어", value: "한글을 활용한 파우치", private: false },
+    { field: "user", label: "사용자", value: "작은 소지품을 들고 다니는 직장인", private: false },
   ],
 };
 

@@ -29,6 +29,8 @@ from tests.conftest import SAMPLE_TASK_DIR, SampleHarness
         ("주민 900101 1234567", "주민 [주민번호]", "resident"),
         ("주민 900101 - 1234567", "주민 [주민번호]", "resident"),
         ("카드 4111111111111111", "카드 [카드번호]", "card"),
+        # 구분 없는 16자리(앞자리 3-6)는 Luhn 검사 없이 모두 가린다(주문번호 오탐을 받아들이고 놓치지 않는 쪽)
+        ("카드 4111111111111112", "카드 [카드번호]", "card"),
         ("번호 010-1234-5678-9", "번호 [계좌번호]", "account"),
     ],
 )
@@ -269,3 +271,33 @@ def test_private_only_revision_reverted_makes_the_result_current_again(harness):
     assert state.result_stale is True
     harness.revise_answer(state, _answer_for(qid, "같은 답"), private=False)
     assert state.result_stale is False
+
+
+def test_old_versions_without_a_privacy_snapshot_stay_current_when_privacy_changes(harness):
+    from app.core.state import SessionState
+    from app.harness.base import privacy_changed
+
+    state = harness.start("향초")
+    harness.apply_answer(state, _answer(state))
+    harness.generate(state)
+    data = state.model_dump(mode="json")
+    for version in data["versions"]:
+        del version["private"]  # 비공개 기록을 남기기 전에 만든 버전
+    old = SessionState.model_validate(data)
+    assert old.versions[-1].private is None
+    assert privacy_changed(frozenset({"material"}), old.versions[-1]) is False
+
+    harness.set_supplements(old, {}, private={"material": True})
+    assert old.result_stale is False
+    harness.generate(old)
+    assert old.versions[-1].private == ["material"]  # 새 버전은 언제나 기록을 남긴다
+
+
+def test_supplements_privacy_rejects_field_names(harness):
+    from app.harness.errors import HarnessError
+
+    state = harness.start("향초")
+    field = state.pending_question.field
+    with pytest.raises(HarnessError, match=f"비공개로 정할 수 없는 항목입니다: {field}"):
+        harness.set_supplements(state, {}, private={field: True})
+    assert state.private_overrides == {}

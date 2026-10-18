@@ -436,6 +436,8 @@ export interface components {
             label: string;
             /** Value */
             value: string;
+            /** Private */
+            private: boolean;
         };
         /** CreateSessionRequest */
         CreateSessionRequest: {

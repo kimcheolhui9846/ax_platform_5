@@ -266,6 +266,12 @@ describe("SupplementForm", () => {
     expect(saving).toContain('<button type="button" class="btn" disabled="">취소</button>');
   });
 
+  it("저장 중에는 비공개 체크 칸도 바꿀 수 없다", () => {
+    const saving = renderToString(<SupplementForm titleId="t" items={items} busy={true} onSave={noop} onCancel={noop} />);
+    expect(saving.match(/<input type="checkbox"[^>]*disabled=""/g)).toHaveLength(2);
+    expect(html).not.toMatch(/<input type="checkbox"[^>]*disabled=""/);
+  });
+
   it("항목마다 AI에 보내지 않기 체크 칸이 있고, 비공개 항목은 체크돼 있다", () => {
     expect(html.match(/AI에 보내지 않기/g)).toHaveLength(2);
     const hidden = renderToString(
@@ -457,8 +463,8 @@ describe("ContextBox", () => {
 
   it("라벨·제목·요약·항목 한 줄·제외 버튼", () => {
     const rendered = html(makeContext({ items: [
-      { field: "a", label: "상품", value: "향초" },
-      { field: "b", label: "고객", value: "집들이" },
+      { field: "a", label: "상품", value: "향초", private: false },
+      { field: "b", label: "고객", value: "집들이", private: false },
     ] }));
     expect(rendered).toContain("이전 작업에서 가져온 기준");
     expect(rendered).toContain("사업계획");

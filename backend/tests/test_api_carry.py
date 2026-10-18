@@ -21,7 +21,7 @@ def test_preview_and_create_share_the_same_context():
     preview = client.get(f"{BASE}/tasks/branding/context", params={"session_id": prev}).json()
     assert preview["title"] == "상품기획 초안 V1"
     assert preview["version"] == 1
-    assert {"field": "product_and_customer", "label": "상품과 고객", "value": "한글 파우치"} in preview["items"]
+    assert {"field": "product_and_customer", "label": "상품과 고객", "value": "한글 파우치", "private": False} in preview["items"]
 
     view = client.post(
         f"{BASE}/tasks/branding/sessions", json={"notice_acknowledged": True, "raw_input": "브랜드 인상", "from_session_id": prev, "from_version": 1}

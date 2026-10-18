@@ -11,7 +11,8 @@ from app.providers.base import Prompt
 
 _T = TypeVar("_T", bound=InfoItem)
 
-NOTICE_VERSION = "2026-10-18"  # 외부 전송 안내 문구 버전(문구가 바뀌면 올린다)
+# 외부 전송 안내 문구 버전. frontend/src/lib/privacy.ts의 NOTICE_TEXT를 바꾸면 이 값도 올린다(짝)
+NOTICE_VERSION = "2026-10-18"
 
 PRIVATE_MARK = "[비공개 입력 · AI에 보내지 않음]"
 

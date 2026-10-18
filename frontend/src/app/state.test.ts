@@ -58,9 +58,9 @@ describe("reducer", () => {
   it("기다리는 요청의 응답만 받는다", () => {
     const session = makeSession();
     const state = waiting(initialState(question), 2);
-    expect(reducer(state, { type: "sessionLoaded", seq: 1, session, next: null, notice: null })).toBe(state);
+    expect(reducer(state, { type: "sessionLoaded", seq: 1, session, next: null, noticeConsumed: null, notice: null })).toBe(state);
 
-    const done = reducer(state, { type: "sessionLoaded", seq: 2, session, next: null, notice: null });
+    const done = reducer(state, { type: "sessionLoaded", seq: 2, session, next: null, noticeConsumed: null, notice: null });
     expect(done.session).toBe(session);
     expect(isBusy(done)).toBe(false);
   });
@@ -68,28 +68,34 @@ describe("reducer", () => {
   it("세션 묶음을 떠나면 기다리던 응답을 버린다", () => {
     const left = reducer(waiting(initialState(question), 1), { type: "navigated", route: HOME });
     expect(isBusy(left)).toBe(false);
-    expect(reducer(left, { type: "sessionLoaded", seq: 1, session: makeSession(), next: question, notice: null })).toBe(left);
+    expect(reducer(left, { type: "sessionLoaded", seq: 1, session: makeSession(), next: question, noticeConsumed: null, notice: null })).toBe(left);
   });
 
   it("같은 세션 안에서 옮기면 기다리던 응답을 받는다", () => {
     const moved = reducer(waiting(initialState(question), 1), { type: "navigated", route: confirm });
     expect(isBusy(moved)).toBe(true);
 
-    const done = reducer(moved, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, notice: null });
+    const done = reducer(moved, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: null, notice: null });
     expect(done.route).toEqual(confirm);
     expect(done.session?.session_id).toBe("sess_1");
   });
 
   it("응답이 다음 화면을 정한다", () => {
     const mode: Route = { name: "mode", task: "product_planning", from: null };
-    const done = reducer(waiting(initialState(mode), 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: question, notice: null });
+    const done = reducer(waiting(initialState(mode), 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: question, noticeConsumed: null, notice: null });
     expect(done.route).toEqual(question);
   });
 
-  it("세션을 받으면 그 과제의 안내 확인을 지운다(만들 때마다 새로 확인)", () => {
+  it("세션을 새로 만든 응답만 그 과제의 안내 확인을 지운다(만들 때마다 새로 확인)", () => {
     const state = { ...waiting(initialState(question), 1), notices: { product_planning: true, branding: true } };
-    const done = reducer(state, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, notice: null });
-    expect(done.notices).toEqual({ product_planning: false, branding: true });
+    const created = reducer(state, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: "product_planning", notice: null });
+    expect(created.notices).toEqual({ product_planning: false, branding: true });
+  });
+
+  it("기존 세션 열기·답하기 응답은 안내 확인을 그대로 둔다", () => {
+    const state = { ...waiting(initialState(question), 1), notices: { product_planning: true, branding: true } };
+    const opened = reducer(state, { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: null, notice: null });
+    expect(opened.notices).toEqual({ product_planning: true, branding: true });
   });
 
   it("알림이 있는 세션 응답은 알림을 띄운다", () => {
@@ -98,6 +104,7 @@ describe("reducer", () => {
       seq: 1,
       session: makeSession({ next_question: null }),
       next: null,
+      noticeConsumed: null,
       notice: "더 물어볼 질문이 없어요.",
     });
     expect(done.toast).toBe("더 물어볼 질문이 없어요.");
@@ -151,6 +158,7 @@ describe("reducer", () => {
       seq: 3,
       session: makeSession({ next_question: null, has_result: true }),
       next: null,
+      noticeConsumed: null,
       notice: null,
     });
     expect(fresh.sessionOutdated).toBe(false);
@@ -159,7 +167,7 @@ describe("reducer", () => {
 
   it("결과가 없는 세션을 받으면 남은 결과를 버린다", () => {
     const state: AppState = { ...initialState(question), result: makeResult() };
-    const done = reducer(waiting(state, 1), { type: "sessionLoaded", seq: 1, session: makeSession({ has_result: false }), next: null, notice: null });
+    const done = reducer(waiting(state, 1), { type: "sessionLoaded", seq: 1, session: makeSession({ has_result: false }), next: null, noticeConsumed: null, notice: null });
     expect(done.result).toBeNull();
   });
 

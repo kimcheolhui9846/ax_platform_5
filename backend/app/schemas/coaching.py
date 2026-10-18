@@ -78,6 +78,7 @@ class ContextItem(ContractModel):
     field: str
     label: str
     value: str
+    private: bool  # 이전 작업에서 비공개였다(이 세션에서도 비공개로 둔다)
 
 
 class SessionContext(ContractModel):
@@ -144,7 +145,7 @@ class SupplementsRequest(BaseModel):
     """{항목 이름: 값 | null}. null·빈 값이면 그 항목을 지운다."""
 
     values: dict[str, Annotated[str, Field(max_length=250)] | None]
-    private: dict[str, bool] = Field(default_factory=dict)  # {항목 이름: 비공개 여부}
+    private: dict[str, bool] = Field(default_factory=dict)  # {보완 항목 이름: 비공개 여부}(다른 이름은 422)
 
 
 class SessionView(ContractModel):

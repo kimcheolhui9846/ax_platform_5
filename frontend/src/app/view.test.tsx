@@ -346,6 +346,15 @@ describe("이어가기 화면", () => {
     for (const button of modeButtons(main)) expect(button).toContain('disabled=""');
   });
 
+  it("처리 중에는 '요청 화면으로 가기'도 누를 수 없다", () => {
+    const back = (busy: boolean) =>
+      /<button[^>]*>요청 화면으로 가기<\/button>/.exec(
+        draw({ kind: "mode", task, form, draft: "수제 향초", context: null, carryFailed: false, noticeAcknowledged: false }, busy).main,
+      )?.[0];
+    expect(back(true)).toContain('disabled=""');
+    expect(back(false)).not.toContain('disabled=""');
+  });
+
   it("보완 정보 저장은 항목별 비공개 변경을 함께 넘긴다", () => {
     const calls: unknown[][] = [];
     const spy = { ...NOOP_HANDLERS, saveSupplements: (...args: unknown[]) => calls.push(args) };
