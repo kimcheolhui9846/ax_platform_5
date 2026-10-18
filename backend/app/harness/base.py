@@ -503,6 +503,7 @@ class BaseHarness:
             self._apply_reply(state, question, answer.answer_type, fact)
             if private is not None:
                 self._set_private(state, question.field, private)
+                self._restale(state)
             _mark_answered(record, answer.answer_type, fact[0] if fact else None)
             if fact is not None:
                 _supersede_others(state.asked_questions, record)
@@ -519,6 +520,7 @@ class BaseHarness:
             self._set_fact(state, field, value, source)
             if private is not None:
                 self._set_private(state, field, private)
+                self._restale(state)
             _mark_answered(record, answer.answer_type, value)
             _supersede_others(state.asked_questions, record)
             pending = state.pending_question
@@ -696,13 +698,14 @@ class BaseHarness:
     ) -> None:
         """미확인 정보를 저장한다(사용자 입력·검증 전). 다음 생성에 반영된다.
 
-        값이 바뀌면 수정처럼 FAILED를 푼다. 결과가 있으면 최신 여부를 답과 보완 정보가 마지막 버전과 다른지로 다시
+        값 또는 비공개 설정이 바뀌면 수정처럼 FAILED를 푼다. 결과가 있으면 최신 여부를 답과 보완 정보가 마지막 버전과 다른지로 다시
         정한다(바꿨다 되돌려 같아지면 다시 최신, 답이 바뀐 채면 낡은 채). 결과가 없으면 최신 여부는 건드리지 않는다.
         """
         unknown = sorted(set(values) - set(self.policy.supplement_labels))
         if unknown:
             raise HarnessError(f"보완할 수 없는 항목입니다: {', '.join(unknown)}")
         wanted = private or {}
+        # 이름을 먼저 모두 확인하므로 아래 _set_private는 중간에 실패하지 않는다(_atomic 밖이어도 안전하다)
         unknown_private = sorted(set(wanted) - self._private_settable())
         if unknown_private:
             raise HarnessError(private_unknown_message(unknown_private))
@@ -727,8 +730,6 @@ class BaseHarness:
             state.private_overrides.pop(name, None)
         else:
             state.private_overrides[name] = value
-        if state.versions and privacy_changed(self.private(state), state.versions[-1]):
-            state.result_stale = True
 
     def _restale(self, state: SessionState) -> None:
         """[코드] 결과가 있으면 최신 여부를 답·보완 정보·비공개 설정이 마지막 버전과 다른지로 다시 정한다."""

@@ -197,8 +197,13 @@ def supplement_items(
 ) -> list[SupplementItem]:
     """[순수] 정책 순서대로 보완 항목과 지금 값(없으면 None)."""
     return [
-        SupplementItem(name=f.name, label=f.label, example=f.example, value=values[f.name].value if f.name in values else None,
-            private=f.name in private)
+        SupplementItem(
+            name=f.name,
+            label=f.label,
+            example=f.example,
+            value=values[f.name].value if f.name in values else None,
+            private=f.name in private,
+        )
         for f in fields
     ]
 

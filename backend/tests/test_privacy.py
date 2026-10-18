@@ -214,6 +214,58 @@ def test_unknown_private_names_are_rejected_and_failed_answers_roll_privacy_back
     qid = state.pending_question.question_id
     bad = Answer(question_id=qid, answer_type=AnswerType.OPTION, option_ids=["없는-선택지"])
     before = dict(state.private_overrides)
-    with pytest.raises(Exception):
+    with pytest.raises(HarnessError):
         harness.apply_answer(state, bad, private=True)
     assert state.private_overrides == before
+
+
+def test_failure_inside_the_atomic_block_rolls_privacy_back(harness, monkeypatch):
+    from app.providers.base import ProviderError
+
+    state = harness.start("향초")
+    before = state.model_dump(exclude={"trace"})
+
+    def boom(_state):
+        raise ProviderError("x")
+
+    monkeypatch.setattr(harness, "advance", boom)
+    with pytest.raises(ProviderError):
+        harness.apply_answer(state, _answer(state), private=True)
+    assert state.private_overrides == {}
+    assert state.model_dump(exclude={"trace"}) == before
+
+
+def test_easier_with_private_then_revert_makes_the_result_current_again(harness):
+    from app.core.state import Answer, AnswerType
+
+    state = harness.start("향초")
+    harness.generate(state)
+    harness.resume(state)
+    assert state.pending_question is not None
+    easier = Answer(question_id=state.pending_question.question_id, answer_type=AnswerType.EASIER)
+    harness.apply_answer(state, easier, private=True)
+    assert state.result_stale is True
+    easier = Answer(question_id=state.pending_question.question_id, answer_type=AnswerType.EASIER)
+    harness.apply_answer(state, easier, private=False)
+    assert state.result_stale is False
+
+
+def test_supplement_privacy_revert_makes_the_result_current_again(harness):
+    state = harness.start("향초")
+    harness.apply_answer(state, _answer(state))
+    harness.generate(state)
+    harness.set_supplements(state, {}, private={"material": True})
+    assert state.result_stale is True
+    harness.set_supplements(state, {}, private={"material": False})
+    assert state.result_stale is False
+
+
+def test_private_only_revision_reverted_makes_the_result_current_again(harness):
+    state = harness.start("향초")
+    qid = state.pending_question.question_id
+    harness.apply_answer(state, _answer(state, "같은 답"))
+    harness.generate(state)
+    harness.revise_answer(state, _answer_for(qid, "같은 답"), private=True)
+    assert state.result_stale is True
+    harness.revise_answer(state, _answer_for(qid, "같은 답"), private=False)
+    assert state.result_stale is False
