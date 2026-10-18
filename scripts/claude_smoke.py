@@ -13,6 +13,7 @@ from app.config import settings  # noqa: E402
 from app.core.state import Answer, AnswerType  # noqa: E402
 from app.harness.errors import GenerationFailed  # noqa: E402
 from app.harness.registry import build_harness  # noqa: E402
+from app.providers.base import ProviderError  # noqa: E402
 from app.providers.claude import ClaudeProvider  # noqa: E402
 
 DEFAULT_TASK = "product_planning"
@@ -30,9 +31,14 @@ def main(argv: list[str]) -> int:
     raw = argv[2] if len(argv) > 2 else DEFAULT_REQUEST
     print(f"과제 {task} · 모델 {settings.claude_model} · 노력 {settings.claude_effort}")
     harness = build_harness(task, ClaudeProvider(settings.claude_model, settings.claude_effort))
-    state = harness.start(raw)
-    if state.pending_question is not None:
-        harness.apply_answer(state, Answer(question_id=state.pending_question.question_id, answer_type=AnswerType.SKIP))
+    try:
+        state = harness.start(raw)
+        if state.pending_question is not None:
+            question_id = state.pending_question.question_id
+            harness.apply_answer(state, Answer(question_id=question_id, answer_type=AnswerType.SKIP))
+    except ProviderError as exc:  # 진단·다음 질문 호출 실패(원문은 출력하지 않는다)
+        print(f"질문 단계 실패: {type(exc).__name__}: {exc}")
+        return 1
     try:
         harness.generate(state)
     except GenerationFailed:
