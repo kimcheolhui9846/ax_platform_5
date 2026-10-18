@@ -50,7 +50,7 @@ from app.core.state import (
 from app.harness.errors import GenerationFailed, HarnessError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
-from app.harness.privacy import masked_state, outbound_prompt, private_names
+from app.harness.privacy import masked_state, outbound_prompt, private_names, redact
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
@@ -138,10 +138,8 @@ def merge_assumptions(
 
 def _validation_trace(report: ValidationReport) -> TraceEntry:
     """[코드·순수] 검증 결과 요약 기록. LLM 검토 호출 기록과 kind로 구분한다."""
-    return TraceEntry(
-        stage="validate",
-        output={"kind": "summary", "issues": [i.model_dump() for i in report.issues]},
-    )
+    issues = [{**i.model_dump(), "message": redact(i.message)[0]} for i in report.issues]
+    return TraceEntry(stage="validate", output={"kind": "summary", "issues": issues})
 
 
 def reply_fact(question: Question, answer: Answer) -> tuple[str, InfoSource] | None:
@@ -624,7 +622,7 @@ class BaseHarness:
         FAILED는 다음 답변·수정·성공한 생성까지 이어진다.
         """
         if not isinstance(exc, ProviderError):  # ProviderError는 _call이 이미 trace에 남겼다
-            state.trace.append(TraceEntry(stage="generate", output={"error": repr(exc)}))
+            state.trace.append(TraceEntry(stage="generate", output={"error": redact(repr(exc))[0]}))
         state.status = SessionStatus.FAILED
 
     def save_version(self, state: SessionState, number: int) -> ResultVersion | None:
@@ -762,7 +760,7 @@ class BaseHarness:
             return result, []
         prompt = self.prompts.render(
             "image",
-            state=masked_state(state, self.private(state)),
+            state=masked_state(state, self.private(state), self.policy.raw_input_field),
             policy=self.policy,
             profile=state.profile,
             heading=target.heading,
@@ -829,7 +827,7 @@ class BaseHarness:
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
         prompt = self.prompts.render(
-            stage, state=masked_state(state, self.private(state)), policy=self.policy, profile=state.profile, **context
+            stage, state=masked_state(state, self.private(state), self.policy.raw_input_field), policy=self.policy, profile=state.profile, **context
         )
         prompt, redactions = outbound_prompt(prompt)
         trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}

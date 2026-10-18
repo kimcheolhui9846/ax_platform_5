@@ -4,18 +4,32 @@
 """
 import re
 from collections.abc import Iterable, Mapping
+from typing import TypeVar
 
-from app.core.state import SessionState
+from app.core.state import InfoItem, SessionState
 from app.providers.base import Prompt
+
+_T = TypeVar("_T", bound=InfoItem)
 
 PRIVATE_MARK = "[비공개 입력 · AI에 보내지 않음]"
 
+_BIRTH = r"(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])"
+
 # 겹치면 앞 줄이 먼저 바꾼다(주민번호·카드번호가 전화번호·계좌번호로 잘못 잡히지 않게)
 _PATTERNS: tuple[tuple[str, str, re.Pattern[str]], ...] = (
-    ("resident", "[주민번호]", re.compile(r"(?<!\d)\d{6}-?[1-8]\d{6}(?!\d)")),
-    ("card", "[카드번호]", re.compile(r"(?<!\d)\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}(?!\d)")),
-    ("phone", "[전화번호]", re.compile(r"(?<!\d)(?:01[016789]|0\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)")),
-    ("account", "[계좌번호]", re.compile(r"(?<!\d)\d{2,6}-\d{2,6}-\d{2,6}(?:-\d{1,6})?(?!\d)")),
+    # 생년월일이 그럴듯해야 한다(월 01-12, 일 01-31). 구분 없이 붙은 글은 한국 바코드 접두 880을 뺀다(EAN-13 오탐)
+    ("resident", "[주민번호]", re.compile(
+        r"(?<!\d)(?:\d{2}" + _BIRTH + r" ?- ?|(?!880)\d{2}" + _BIRTH + r" ?)[1-8]\d{6}(?!\d)")),
+    ("card", "[카드번호]", re.compile(r"(?<!\d)(?:\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}|[3-6]\d{15})(?!\d)")),
+    # 국제식(+82)·괄호 지역번호·대표번호(15xx-xxxx 등)도 전화번호다. 뒤에 숫자가 더 붙으면 전화번호가 아니다
+    ("phone", "[전화번호]", re.compile(
+        r"(?<!\d)(?:\+82[-. ]?0?\d{1,2}[-. ]?\d{3,4}[-. ]?\d{4}"
+        r"|\(0\d{1,2}\) ?\d{3,4}[-. ]?\d{4}"
+        r"|1(?:544|566|577|588|599|600|644|661|666|670|688|833|899)-\d{4}"
+        r"|(?:01[016789]|0\d{1,2})[-. ]?\d{3,4}[-. ]?\d{4})(?!\d|-\d)")),
+    # 숫자가 모두 10자리 이상이고 마지막 묶음이 4자리 이상이어야 한다(날짜 2026-10-18·품번 12-34-56 제외)
+    ("account", "[계좌번호]", re.compile(
+        r"(?<!\d)(?=(?:\d-?){10,})\d{2,6}-\d{2,6}-(?:\d{4,8}|\d{2,8}-\d{1,6})(?!\d|-\d)")),
     ("email", "[이메일]", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
 )
 
@@ -38,17 +52,22 @@ def private_names(defaults: Iterable[str], overrides: Mapping[str, bool]) -> fro
     return frozenset(names)
 
 
-def _mask(items, private):
+def _mask(items: Mapping[str, _T], private: frozenset[str]) -> dict[str, _T]:
     return {name: (item.model_copy(update={"value": PRIVATE_MARK}) if name in private else item) for name, item in items.items()}
 
 
-def masked_state(state: SessionState, private: frozenset[str]) -> SessionState:
-    """[순수] 비공개 이름의 사실·가정·보완 정보·가져온 값을 표시 글로 바꾼 복사본(프롬프트 렌더용)."""
-    update = {
+def masked_state(state: SessionState, private: frozenset[str], raw_input_field: str | None) -> SessionState:
+    """[순수] 비공개 이름의 사실·가정·보완 정보·가져온 값을 표시 글로 바꾼 복사본(프롬프트 렌더용).
+
+    처음 입력 필드가 비공개면 요청 글(raw_input)도 가린다(프롬프트의 '처음 입력한 내용').
+    """
+    update: dict[str, object] = {
         "facts": _mask(state.facts, private),
         "assumptions": _mask(state.assumptions, private),
         "supplements": _mask(state.supplements, private),
     }
+    if raw_input_field is not None and raw_input_field in private:
+        update["raw_input"] = PRIVATE_MARK
     if state.context is not None:
         items = [i.model_copy(update={"value": PRIVATE_MARK}) if i.field in private else i for i in state.context.items]
         update["context"] = state.context.model_copy(update={"items": items})
