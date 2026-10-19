@@ -39,6 +39,24 @@
 
 진행 현황은 [`docs/WBS.xlsx`](docs/WBS.xlsx)에 있고, PR을 머지할 때마다 갱신합니다.
 
+## 인수 기업이 알아야 할 것
+
+프로토타입은 비용 0으로 만들었다. 실제로 운영하려면 아래를 정하고 바꾼다. 자세한 절차는 링크한 문서에 있다.
+
+| 무엇 | 지금 | 바꾸는 법 | 문서 |
+|---|---|---|---|
+| **계정·키** | 배포(버셀·렌더)와 API 키가 개발자 개인 것 | 인수 기업 계정으로 다시 배포하고 개인 키는 폐기 | [`docs/HANDOFF.md`](docs/HANDOFF.md) "개인 계정·키·로컬 데이터", [`docs/DEPLOY.md`](docs/DEPLOY.md) |
+| **실제 AI 호출** | Mock(`PROVIDER=mock`) | `PROVIDER=claude` + 환경 변수 `ANTHROPIC_API_KEY`, 모델 `CLAUDE_MODEL`·노력 `CLAUDE_EFFORT`. 먼저 `scripts/claude_smoke.py`로 확인 | [`backend/.env.example`](backend/.env.example) |
+| **품질부터 잰다** | 실제 모델로 잰 적 없음 | 과제별 평가 시나리오(`evals/`)를 실제 모델로 돌려 형식 실패·거절·규칙 위반·품질·비용을 잰 뒤에 튜닝·아키텍처를 정한다 | [`docs/HARNESS-ROADMAP.md`](docs/HARNESS-ROADMAP.md) 0단계 |
+| **단계별 모델 라우팅** | 구현됨, 기본 꺼짐 | `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`(JSON). 측정 뒤 약한 단계만 올리거나 가벼운 단계를 싸게 | 로드맵 1단계 |
+| **디코딩 제약·LoRA** | 하지 않음(Claude API로는 불가) | 오픈 가중치 모델 서버를 붙일 때 `app/providers/`에 제공자를 더한다. 조건은 로드맵에 | 로드맵 2·3단계 |
+| **과제 하네스 튜닝** | 과제 폴더마다 정책·프롬프트·검증·시나리오 | `backend/app/harness/tasks/<과제>/`만 고친다. 고친 뒤 `uv run --directory backend pytest` | [`CLAUDE.md`](CLAUDE.md) "과제 하네스를 고칠 때" |
+| **외부 전송 보호** | 개인정보 자동 가림, 비공개 항목, 고지 동의, 프롬프트 주입 기본 방어 | 고지문을 바꾸면 `NOTICE_VERSION`을 올린다. AI 업체와 데이터 보관·학습 계약, 개인정보 처리방침은 인수 기업이 정한다 | HANDOFF "남겨 둔 것·알려진 한계" |
+| **데이터 보관** | 무료 렌더라 다시 시작하면 지워짐, SQLite 평문 | 유료 디스크 또는 DB, 저장 시 암호화(키 관리), 로그인 뒤 보관 기간·삭제 | [`docs/DEPLOY.md`](docs/DEPLOY.md) "나중에 바꿀 것" |
+| **로그인** | 브라우저 익명 ID(`X-Client-Id`) | `backend/app/api/owner.py`의 `current_owner` 하나만 바꾼다 | CLAUDE.md 하네스 원칙 |
+| **이미지·웹 검색** | 자리표시 이미지, 근거 자료 샘플 | `ImageProvider`(`app/providers/image.py`), `find_evidence` 단계만 바꾼다 | CLAUDE.md |
+| **비용 습관** | 테스트는 늘 Mock | 실제 호출 테스트는 따로 돌리고, `llm_validation`(생성마다 호출 하나 더)은 필요할 때만 켠다 | CLAUDE.md "비용" |
+
 ## 문서
 
 | 문서 | 내용 |

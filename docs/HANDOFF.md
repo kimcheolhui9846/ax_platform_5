@@ -3,8 +3,8 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-19
-- main: `4379c9c` (PR #24까지 머지)
-- 테스트: 백엔드 609 passed, 프론트 437 passed, 빌드 OK
+- main: `a6ca0fa` (PR #25까지 머지)
+- 테스트: 백엔드 623 passed, 프론트 437 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -31,6 +31,8 @@
 | README 정리 | #23 | 바로 보기 주소, 된 것, 남은 일(맡을 사람·상의할 점) |
 | 외부 전송 보호 | #24 | 외부 AI로 나가는 프롬프트의 개인정보 가림(주민번호·카드·계좌·전화·이메일), 비공개 항목(정책 `private_fields` + 사용자 체크) 제외, 세션 생성 때 외부 전송 고지 동의, 비공개만 바뀌어도 결과 최신 아님, 기준 표 'AI에 보내지 않음' 표시 |
 | 프롬프트 주입 기본 방어 | #25 | 바깥 값을 `<user_input>` 태그로 감싸고 system에 자료 취급 지시, AI 출력에 system 줄이 그대로 섞이면 422 |
+| 단계별 모델 라우팅(기본 꺼짐) | #26 | `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`(JSON)로 단계마다 모델·노력을 다르게(`providers/routing.py`, `RoutedProvider`). 비어 있으면 모든 단계가 `CLAUDE_MODEL`·`CLAUDE_EFFORT` |
+| 하네스 성능 로드맵·인수 안내(README) | #26 | `docs/HARNESS-ROADMAP.md`(측정 → 라우팅 → 선택 단계), README "인수 기업이 알아야 할 것" |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -49,7 +51,8 @@
      - 참고 단가(1M 토큰당 입력/출력): Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50.
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.
-5. **평가·발표** — WBS 7.1·7.2 (기획서 14장 지표).
+5. **인수 팀: 로드맵 0단계 측정 → 라우팅 설정** — 실제 모델로 평가 시나리오를 돌려 `docs/HARNESS-ROADMAP.md` 0단계 표를 채운 뒤, 필요할 때만 `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`를 켠다.
+6. **평가·발표** — WBS 7.1·7.2 (기획서 14장 지표).
 
 ## 개인 계정·키·로컬 데이터 (인수 시 교체·삭제)
 
