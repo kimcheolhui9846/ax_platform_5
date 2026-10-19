@@ -13,7 +13,7 @@
 - 항목: {{ field.name }} ({{ field.label }})
 - 어렵다고 한 질문:
 {% for q in previous %}
-  - {{ q }}
+  - {{ q | inline }}
 {% else %}
   - (없음)
 {% endfor %}

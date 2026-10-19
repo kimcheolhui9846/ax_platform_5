@@ -13,7 +13,7 @@ text에는 "이 중 가장 가까운 걸 고르거나 고쳐 주세요"처럼 �
 - 항목: {{ field.name }} ({{ field.label }})
 - 이미 제시한 후보:
 {% for c in previous %}
-  - {{ c }}
+  - {{ c | inline }}
 {% else %}
   - (없음)
 {% endfor %}

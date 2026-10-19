@@ -9,6 +9,6 @@
 {% include "_context.md" %}
 
 ## 그림으로 보여 줄 섹션
-{{ heading }}
-{{ text }}
+{{ heading | inline }}
+{{ text | block }}
 {% endblock %}
