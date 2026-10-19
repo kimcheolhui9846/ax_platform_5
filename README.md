@@ -37,7 +37,7 @@
 | **근거 자료 웹 검색** — 지금은 상품기획 샘플 2건 | 인수 기업 | 바꿀 자리(`find_evidence`)만 있음 | 웹 검색 서비스 선택, 출처 표시·검증 방식. 바꾸는 법은 → 아래 '인수 기업이 알아야 할 것' |
 | **데이터 보관** — 지금은 재시작하면 지워짐 | 인수 기업 | 무료 플랜 | 유료 서버·디스크 또는 DB 중 무엇으로 갈지 → 아래 '인수 기업이 알아야 할 것' |
 | **보안·개인정보** | 인수 기업 | 보내기 전 거르기·고지 동의 동작(Mock) | AI 업체 계약·처리방침·암호화·보관 기간 등 무엇을 정할지 → 아래 '인수 기업이 알아야 할 것'. 이 표에서는 실제 모델로 주입 공격 평가와 자유 문장 속 비밀 처리를 상의한다 |
-| **평가·발표** | 팀 | 예정 | 기획서 14장 지표 중 무엇을 보여 줄지, 시연 시나리오 |
+| **평가·발표** | 팀 | 시연 순서([`docs/DEMO.md`](docs/DEMO.md))·평가 계획([`docs/EVALUATION.md`](docs/EVALUATION.md))·지표 표 도구 준비 | 사용성 테스트 참가자·일정(비용 0, Mock으로 질문 흐름을 잰다), 발표에서 보여 줄 지표 |
 
 진행 현황은 [`docs/WBS.xlsx`](docs/WBS.xlsx)에 있고, PR을 머지할 때마다 갱신합니다.
 
@@ -99,6 +99,8 @@
 | [`docs/HANDOFF.md`](docs/HANDOFF.md) | 지금 상태, 다음 할 일, 작업 방식, 인수 시 교체할 계정·키 |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | 무료 배포(버셀·렌더) 절차와 한계 |
 | [`docs/HARNESS-ROADMAP.md`](docs/HARNESS-ROADMAP.md) | 하네스 성능 저하 대응 로드맵(측정 → 라우팅 → 디코딩 제약 → LoRA) |
+| [`docs/DEMO.md`](docs/DEMO.md) | 시연 순서(Mock), 시연 전 확인, 받을 만한 질문 |
+| [`docs/EVALUATION.md`](docs/EVALUATION.md) | 평가 계획: 기획서 14장 지표를 무엇으로 재나, 지금 할 수 있는 사용성 테스트, 비교 실험 |
 | [`docs/WBS.xlsx`](docs/WBS.xlsx) | 작업 현황(팀 공유용) |
 | [`docs/planning/`](docs/planning/) | 기획서·하네스 설계서 |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/), [`docs/superpowers/plans/`](docs/superpowers/plans/) | 설계와 작업별 구현 계획 |

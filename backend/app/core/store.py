@@ -21,6 +21,7 @@ class SessionStore(Protocol):
     - save는 복사본을 저장한다. 저장 뒤 원래 객체를 바꿔도 새지 않는다. 저장할 때 updated_at을 지금으로 바꾼다.
     - list_by_owner는 그 사용자의 세션 복사본을 최근에 저장한 순서로 돌려준다. 목록은 요약만 쓰므로 무거운
       trace(단계별 프롬프트·응답)는 빼고 읽는다(get은 그대로 준다).
+    - list_all은 모든 사용자의 세션을 같은 방식(최근 순서, trace 없음)으로 돌려준다. 평가 통계(scripts/session_stats.py)만 쓴다.
     """
 
     def get(self, session_id: str) -> SessionState | None: ...
@@ -28,6 +29,8 @@ class SessionStore(Protocol):
     def save(self, state: SessionState) -> None: ...
 
     def list_by_owner(self, owner_id: str) -> list[SessionState]: ...
+
+    def list_all(self) -> list[SessionState]: ...
 
 
 class InMemorySessionStore:
@@ -45,8 +48,14 @@ class InMemorySessionStore:
         self._sessions[state.session_id] = state.model_copy(deep=True)
 
     def list_by_owner(self, owner_id: str) -> list[SessionState]:
-        owned = [s for s in self._sessions.values() if s.owner_id == owner_id]
-        newest = sorted(owned, key=lambda s: s.updated_at, reverse=True)
+        return self._listed([s for s in self._sessions.values() if s.owner_id == owner_id])
+
+    def list_all(self) -> list[SessionState]:
+        return self._listed(list(self._sessions.values()))
+
+    @staticmethod
+    def _listed(states: list[SessionState]) -> list[SessionState]:
+        newest = sorted(states, key=lambda s: s.updated_at, reverse=True)
         return [s.model_copy(update={"trace": []}).model_copy(deep=True) for s in newest]
 
 
@@ -102,6 +111,11 @@ class SqliteSessionStore:
                 "SELECT json_remove(data, '$.trace') FROM sessions WHERE owner_id = ? ORDER BY updated_at DESC",
                 (owner_id,),
             ).fetchall()
+        return [SessionState.model_validate_json(row[0]) for row in rows]
+
+    def list_all(self) -> list[SessionState]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT json_remove(data, '$.trace') FROM sessions ORDER BY updated_at DESC").fetchall()
         return [SessionState.model_validate_json(row[0]) for row in rows]
 
 
