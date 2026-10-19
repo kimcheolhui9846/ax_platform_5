@@ -57,7 +57,7 @@ from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.untrusted import leaked_lines, output_texts
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
-from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
+from app.providers.base import LLMProvider, ProviderBusy, ProviderError, ProviderOutputError
 from app.providers.image import ImageProvider, MockImageProvider
 
 logger = logging.getLogger(__name__)
@@ -609,6 +609,7 @@ class BaseHarness:
         먼저 계산하고 마지막에 반영한다. 실패하면 질문·입력은 그대로 두고 FAILED로만 표시한다.
         사용자에게 보일 문구는 하네스가 정하지 않는다. 뷰가 FAILED 상태에서 만든다.
         HarnessError(사용자 입력·규칙 문제)는 세션을 되돌린 채 그대로 올린다(API 422).
+        ProviderBusy(호출 자리가 없음)도 생성 실패가 아니므로 되돌린 채 올린다(API 503).
         """
         try:
             with _atomic(state):
@@ -624,7 +625,7 @@ class BaseHarness:
                 result, image_issues = self.illustrate(state, result)
                 report = self.validate(state, result)
                 report = report.model_copy(update={"issues": [*report.issues, *image_issues]})
-        except HarnessError:
+        except (HarnessError, ProviderBusy):
             raise
         except Exception as exc:
             self._fail_generation(state, exc)

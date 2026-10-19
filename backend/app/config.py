@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import NonNegativeFloat, PositiveInt, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from app.core.store import StoreKind
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     claude_stage_models: Annotated[dict[str, str], NoDecode] = {}
     claude_stage_efforts: Annotated[dict[str, Effort], NoDecode] = {}
     image_provider: str = "mock"
+    # AI 동시 호출 상한(LLM·이미지 합쳐서). 자리를 이 시간 안에 못 얻으면 503. app/providers/limit.py
+    ai_max_concurrent_calls: PositiveInt = 4
+    ai_queue_wait_seconds: NonNegativeFloat = 10
     debug: bool = False  # true면 trace 엔드포인트를 연다. 로컬 개발은 .env.example대로 켠다.
     store: StoreKind = "memory"  # sqlite면 DATABASE_PATH 파일에 세션을 남긴다(서버를 다시 켜도 남는다)
     database_path: Path = DEFAULT_DATABASE_PATH

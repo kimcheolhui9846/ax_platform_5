@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.messages import (
+    AI_BUSY_MESSAGE,
     GENERATION_FAILED_MESSAGE,
     HTTP_ERROR_FALLBACK_MESSAGE,
     HTTP_STATUS_MESSAGES,
@@ -24,7 +25,9 @@ from app.core.messages import (
     PROVIDER_FAILED_MESSAGE,
 )
 from app.harness.errors import GenerationFailed, HarnessError
-from app.providers.base import ProviderError
+from app.providers.base import ProviderBusy, ProviderError
+
+BUSY_RETRY_AFTER_SECONDS = 5
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +68,10 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HarnessError)
     async def harness_error(request: Request, exc: HarnessError) -> JSONResponse:
         return _error(422, str(exc))
+
+    @app.exception_handler(ProviderBusy)  # 처리기는 예외 MRO 순서로 찾으므로 ProviderError(502)보다 먼저다
+    async def provider_busy(request: Request, exc: ProviderBusy) -> JSONResponse:
+        return _error(503, AI_BUSY_MESSAGE, {"Retry-After": str(BUSY_RETRY_AFTER_SECONDS)})
 
     @app.exception_handler(ProviderError)
     async def provider_error(request: Request, exc: ProviderError) -> JSONResponse:
