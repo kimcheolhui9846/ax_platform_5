@@ -43,7 +43,9 @@ def test_tests_never_touch_a_real_database():
     assert isinstance(create_app().state.store, InMemorySessionStore)
 
 
-def test_stage_settings_default_empty():
+def test_stage_settings_default_empty(monkeypatch):
+    monkeypatch.delenv("CLAUDE_STAGE_MODELS", raising=False)
+    monkeypatch.delenv("CLAUDE_STAGE_EFFORTS", raising=False)
     settings = Settings(_env_file=None)
     assert settings.claude_stage_models == {} and settings.claude_stage_efforts == {}
 
