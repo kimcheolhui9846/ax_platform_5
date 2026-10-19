@@ -3,6 +3,7 @@
 단계 하나 = 메서드 하나다. 과제 하네스(tasks/<task>/harness.py)는 바꾸고 싶은
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
+import logging
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
@@ -58,6 +59,8 @@ from app.harness.untrusted import leaked_lines, output_texts
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
 from app.providers.image import ImageProvider, MockImageProvider
+
+logger = logging.getLogger(__name__)
 
 M = TypeVar("M", bound=BaseModel)
 
@@ -858,7 +861,7 @@ class BaseHarness:
         """[LLM] AI 검토는 보조 수단이다. 실패해도 경고 하나로 줄이고 결과는 살린다."""
         try:
             return self._call(state, "validate", LLMReview, result_text=result.full_text).issues
-        except ProviderError:
+        except (ProviderError, PromptLeakError):
             return [ValidationIssue(rule="llm_review_unavailable", message="AI 검토를 하지 못했습니다.")]
 
     # ── 내부 도우미 ───────────────────────────────────────────
@@ -904,6 +907,7 @@ class BaseHarness:
             raise
         leaked = leaked_lines(prompt.system, output_texts(response.parsed))
         if leaked:  # 새어 나온 출력은 trace에도 싣지 않는다
+            logger.warning("프롬프트 유출 차단: stage=%s task_type=%s lines=%d", stage, self.task_type, len(leaked))
             state.trace.append(
                 TraceEntry(
                     stage=stage,

@@ -13,7 +13,7 @@ BASE = "/api/v1/coaching"
 
 
 def _replace_nth_string(value, text, n):
-    """n번째(0부터) 문자열 값을 text로 바꾼 사본. n은 한 칸씩 줄여 가며 넘긴다."""
+    """value 안의 n번째(0부터, 깊이 우선 순서) 문자열을 text로 바꾼 사본."""
     counter = [n]
 
     def walk(item):
@@ -100,6 +100,7 @@ def test_easier_question_leak_raises_and_keeps_session(reply):
 
     assert provider.leaked is not None
     assert _snapshot(state) == before
+    assert state.trace[-1].output["error"] == "prompt_leak"
 
 
 def test_no_leak_generates_normally():
@@ -121,3 +122,64 @@ def test_api_generate_leak_is_422():
 
     assert response.status_code == 422
     assert response.json() == {"detail": PROMPT_LEAK_MESSAGE}
+
+
+def test_validate_leak_becomes_warning_and_keeps_result():
+    provider = LeakingProvider({"validate"})
+    harness = SampleHarness(SAMPLE_TASK_DIR, provider)
+    harness.policy.llm_validation = True
+    state = harness.start("향초")
+
+    harness.generate(state)
+
+    assert provider.leaked is not None
+    assert state.status is SessionStatus.COMPLETED
+    assert len(state.versions) == 1
+    assert "llm_review_unavailable" in [i.rule for i in state.validation.issues]
+    leaks = [t for t in state.trace if t.stage == "validate" and t.output.get("error") == "prompt_leak"]
+    assert len(leaks) == 1
+
+
+def test_leak_is_logged_without_content(caplog):
+    provider = LeakingProvider({"generate"})
+    harness = SampleHarness(SAMPLE_TASK_DIR, provider)
+    state = harness.start("향초")
+    with caplog.at_level("WARNING"), pytest.raises(PromptLeakError):
+        harness.generate(state)
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "generate" in messages and provider.leaked not in messages
+
+
+def test_api_session_creation_leak_is_422_and_saves_nothing():
+    client = api_client(create_app(provider=LeakingProvider({"diagnose"}), debug=True))
+
+    response = client.post(
+        f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "수제 향초"}
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": PROMPT_LEAK_MESSAGE}
+    assert client.get(f"{BASE}/sessions").json() == []
+
+
+def test_api_easier_answer_leak_is_422_and_keeps_session():
+    provider = LeakingProvider()
+    client = api_client(create_app(provider=provider, debug=True))
+    view = client.post(
+        f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "수제 향초"}
+    ).json()
+    sid = view["session_id"]
+    provider.leak_stages = {"easier_question"}
+    response = None
+    for _ in range(8):
+        before = client.get(f"{BASE}/sessions/{sid}").json()
+        question = before["next_question"]
+        response = client.post(
+            f"{BASE}/sessions/{sid}/answers", json={"question_id": question["question_id"], "answer_type": "easier"}
+        )
+        if response.status_code == 422:
+            break
+        assert response.status_code == 200, response.text
+    assert response.status_code == 422
+    assert response.json() == {"detail": PROMPT_LEAK_MESSAGE}
+    assert client.get(f"{BASE}/sessions/{sid}").json() == before

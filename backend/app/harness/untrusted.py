@@ -19,8 +19,8 @@ def _escape(value: object) -> str:
 
 
 def inline(value: object) -> str:
-    """[순수] 한 줄 값. 줄바꿈을 공백 하나로 바꾸고 태그로 감싼다."""
-    flat = " ".join(_escape(value).replace("\r\n", "\n").replace("\r", "\n").split("\n"))
+    """[순수] 한 줄 값. 모든 줄 경계(U+2028 등 포함)를 공백 하나로 바꾸고 태그로 감싼다."""
+    flat = " ".join(_escape(value).splitlines())
     return f"{TAG_OPEN}{flat}{TAG_CLOSE}"
 
 
