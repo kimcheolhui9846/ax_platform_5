@@ -12,7 +12,7 @@ from app.providers.base import LLMProvider, Prompt, ProviderResponse
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 # 하네스 단계(prompting.STAGES)에서 image를 뺀 것. 이미지는 ImageProvider가 맡는다. 짝은 test_routing이 지킨다.
-ROUTABLE_STAGES = ("diagnose", "easier_question", "propose_value", "generate", "validate")
+ROUTABLE_STAGES = ("diagnose", "easier_question", "propose_value", "generate", "generate_part", "validate")
 
 
 def stage_targets(

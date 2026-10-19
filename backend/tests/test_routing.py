@@ -13,7 +13,7 @@ PROMPT = Prompt(system="고정", user="맥락")
 
 
 def test_routable_stages_exclude_image():
-    assert ROUTABLE_STAGES == ("diagnose", "easier_question", "propose_value", "generate", "validate")
+    assert ROUTABLE_STAGES == ("diagnose", "easier_question", "propose_value", "generate", "generate_part", "validate")
 
 
 def test_stage_targets_empty_settings_route_nothing():
