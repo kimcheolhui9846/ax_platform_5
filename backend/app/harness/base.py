@@ -4,6 +4,7 @@
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
@@ -42,6 +43,7 @@ from app.core.state import (
     HarnessProfile,
     InfoItem,
     InfoSource,
+    PartCache,
     Question,
     QuestionOption,
     ResultVersion,
@@ -51,13 +53,14 @@ from app.core.state import (
 )
 from app.harness.errors import GenerationFailed, HarnessError, PromptLeakError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
+from app.harness.parallel import PartResult, check_parts, merge_parts, part_models, prompt_key
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.privacy import NOTICE_VERSION, masked_state, outbound_prompt, private_names, redact
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
 from app.harness.untrusted import leaked_lines, output_texts
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
-from app.providers.base import LLMProvider, ProviderBusy, ProviderError, ProviderOutputError
+from app.providers.base import LLMProvider, Prompt, ProviderBusy, ProviderError, ProviderOutputError
 from app.providers.image import ImageProvider, MockImageProvider
 
 logger = logging.getLogger(__name__)
@@ -255,15 +258,18 @@ def _settle_status(state: SessionState) -> None:
     state.status = question_status(state.pending_question, state.result_stale)
 
 
+_KEPT_ON_ROLLBACK = frozenset({"trace", "generation_parts"})
+
+
 @contextmanager
 def _atomic(state: SessionState) -> Iterator[None]:
-    """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)만 남긴다."""
+    """블록이 예외로 끝나면 state를 시작 때로 되돌린다. 실패 기록(trace)과 병렬 생성의 끝난 조각만 남긴다."""
     snapshot = state.model_copy(deep=True)
     try:
         yield
     except Exception:
         for name in SessionState.model_fields:
-            if name != "trace":
+            if name not in _KEPT_ON_ROLLBACK:
                 setattr(state, name, getattr(snapshot, name))
         raise
 
@@ -301,6 +307,10 @@ class BaseHarness:
         self.assets = assets or InMemoryAssetStore()
         self.prompts = PromptRenderer(task_dir / "prompts")
         self.result_model = TaskResult[self.content_model]
+        parallel = self.policy.parallel_generation
+        if parallel is not None:
+            check_parts(parallel, self.content_model)
+        self.part_models = {} if parallel is None else part_models(parallel, self.content_model)
 
     @property
     def task_type(self) -> str:
@@ -610,12 +620,15 @@ class BaseHarness:
         사용자에게 보일 문구는 하네스가 정하지 않는다. 뷰가 FAILED 상태에서 만든다.
         HarnessError(사용자 입력·규칙 문제)는 세션을 되돌린 채 그대로 올린다(API 422).
         ProviderBusy(호출 자리가 없음)도 생성 실패가 아니므로 되돌린 채 올린다(API 503).
+        정책에 parallel_generation이 있으면 결과 항목을 조각으로 나눠 동시에 부른다(_generate_parts).
         """
         try:
             with _atomic(state):
                 state.status = SessionStatus.GENERATING
-                result = to_generation_result(
-                    self._call_retrying_bad_output(state, "generate", self.result_model)
+                result = (
+                    self._generate_parts(state)
+                    if self.policy.parallel_generation is not None
+                    else to_generation_result(self._call_retrying_bad_output(state, "generate", self.result_model))
                 )
                 result.assumptions = merge_assumptions(
                     result.assumptions, state.assumptions, self.policy.labels
@@ -632,6 +645,7 @@ class BaseHarness:
             raise GenerationFailed from exc
         self._drop_unanswered(state)
         state.trace.append(_validation_trace(report))
+        state.generation_parts = {}
         state.result = result
         state.result_stale = False
         state.validation = report
@@ -883,13 +897,78 @@ class BaseHarness:
         except ProviderOutputError:
             return self._call(state, stage, response_model)
 
+    def _generate_parts(self, state: SessionState) -> GenerationResult:
+        """[LLM] 조각마다 generate_part를 동시에 부르고 코드로 합친다(harness/parallel.py).
+
+        나갈 프롬프트가 캐시(state.generation_parts)와 같은 조각은 부르지 않는다. 끝난 조각은 바로 캐시에 두므로
+        다른 조각이 실패해도 남는다(_atomic이 되돌리지 않는다). 스레드는 세션을 바꾸지 않고, trace는 조각 순서대로 붙인다.
+        실패하면 조각 순서에서 첫 실패를 그대로 올린다(붐빔 503, 유출 422, 그 밖은 generate가 FAILED로).
+        """
+        parallel = self.policy.parallel_generation
+        assert parallel is not None
+        outputs: dict[str, PartResult] = {}
+        pending: dict[str, tuple[Prompt, dict[str, Any], str]] = {}
+        for part in parallel.parts:
+            prompt, trace_input = self._outbound(state, "generate_part", part=part)
+            key = prompt_key(prompt)
+            cached = state.generation_parts.get(part.name)
+            if cached is not None and cached.prompt_key == key:
+                outputs[part.name] = self.part_models[part.name].model_validate(cached.output)
+                state.trace.append(TraceEntry(stage="generate_part", input={"part": part.name}, output={"cached": True}))
+            else:
+                pending[part.name] = (prompt, trace_input, key)
+        traces: dict[str, list[TraceEntry]] = {name: [] for name in pending}
+        errors: dict[str, Exception] = {}
+        with ThreadPoolExecutor(max_workers=parallel.max_workers) as pool:
+            futures = {
+                pool.submit(
+                    self._send_retrying_bad_output, "generate_part", prompt, trace_input, self.part_models[name], traces[name]
+                ): name
+                for name, (prompt, trace_input, _) in pending.items()
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    outputs[name] = future.result()
+                except Exception as exc:
+                    errors[name] = exc
+                else:
+                    state.generation_parts[name] = PartCache(
+                        prompt_key=pending[name][2], output=outputs[name].model_dump(mode="json")
+                    )
+        for name in pending:
+            state.trace.extend(traces[name])
+        for part in parallel.parts:
+            if part.name in errors:
+                raise errors[part.name]
+        return merge_parts([outputs[p.name] for p in parallel.parts], self.content_model)
+
     def _call(self, state: SessionState, stage: str, response_model: type[M], **context: Any) -> M:
         """프롬프트를 렌더링해 Provider를 부르고, 성공이든 실패든 trace에 남긴다."""
+        prompt, trace_input = self._outbound(state, stage, **context)
+        return self._send(stage, prompt, trace_input, response_model, state.trace)
+
+    def _outbound(self, state: SessionState, stage: str, **context: Any) -> tuple[Prompt, dict[str, Any]]:
+        """[코드] 나갈 프롬프트(비공개 가림·개인정보 가림을 거친 것)와 trace에 남길 입력."""
         prompt = self.prompts.render(
             stage, state=masked_state(state, self.private(state), self.policy.raw_input_field), policy=self.policy, profile=state.profile, **context
         )
         prompt, redactions = outbound_prompt(prompt)
-        trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
+        return prompt, {"system": prompt.system, "user": prompt.user, "redactions": redactions}
+
+    def _send_retrying_bad_output(
+        self, stage: str, prompt: Prompt, trace_input: dict[str, Any], response_model: type[M], trace: list[TraceEntry]
+    ) -> M:
+        """스키마를 지키지 않은 응답이면 한 번만 다시 보낸다(_call_retrying_bad_output과 같다)."""
+        try:
+            return self._send(stage, prompt, trace_input, response_model, trace)
+        except ProviderOutputError:
+            return self._send(stage, prompt, trace_input, response_model, trace)
+
+    def _send(
+        self, stage: str, prompt: Prompt, trace_input: dict[str, Any], response_model: type[M], trace: list[TraceEntry]
+    ) -> M:
+        """Provider를 부르고 성공이든 실패든 trace에 남긴다. 세션은 건드리지 않는다(조각 스레드에서도 부른다)."""
         try:
             response = self.provider.complete(
                 task_type=self.task_type, stage=stage, prompt=prompt, response_model=response_model
@@ -897,7 +976,7 @@ class BaseHarness:
             if response.parsed is None:
                 raise ProviderOutputError(f"{stage} 단계 응답에 구조화된 결과가 없습니다.")
         except ProviderError as exc:
-            state.trace.append(
+            trace.append(
                 TraceEntry(
                     stage=stage,
                     input=trace_input,
@@ -909,7 +988,7 @@ class BaseHarness:
         leaked = leaked_lines(prompt.system, output_texts(response.parsed))
         if leaked:  # 새어 나온 출력은 trace에도 싣지 않는다
             logger.warning("프롬프트 유출 차단: stage=%s task_type=%s lines=%d", stage, self.task_type, len(leaked))
-            state.trace.append(
+            trace.append(
                 TraceEntry(
                     stage=stage,
                     input=trace_input,
@@ -920,7 +999,7 @@ class BaseHarness:
                 )
             )
             raise PromptLeakError(PROMPT_LEAK_MESSAGE)
-        state.trace.append(
+        trace.append(
             TraceEntry(
                 stage=stage,
                 input=trace_input,

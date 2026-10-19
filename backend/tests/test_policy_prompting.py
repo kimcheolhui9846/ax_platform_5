@@ -16,6 +16,7 @@ from app.core.state import (
 )
 from app.harness.policy import FieldKind, load_policy
 from app.harness.prompting import STAGES, PromptContextError, PromptRenderer, context_keys
+from tests.conftest import SAMPLE_PART
 
 SAMPLE_DIR = Path(__file__).parent / "fixtures" / "sample_task"
 
@@ -99,6 +100,7 @@ def sample_values() -> dict:
         "result_text": "결과 본문",
         "heading": "섹션 제목",
         "text": "섹션 본문",
+        "part": SAMPLE_PART,
     }
 
 

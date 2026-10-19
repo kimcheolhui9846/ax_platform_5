@@ -3,8 +3,8 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-19
-- main: `d8d8771` (PR #26까지 머지)
-- 테스트: 백엔드 647 passed, 프론트 437 passed, 빌드 OK
+- main: `7ed388a` (PR #27까지 머지)
+- 테스트: 백엔드 689 passed, 프론트 437 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -34,6 +34,7 @@
 | 단계별 모델 라우팅(기본 꺼짐) | #26 | `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`(JSON)로 단계마다 모델·노력을 다르게(`providers/routing.py`, `RoutedProvider`). 비어 있으면 모든 단계가 `CLAUDE_MODEL`·`CLAUDE_EFFORT` |
 | 하네스 성능 로드맵·인수 안내(README) | #26 | `docs/HARNESS-ROADMAP.md`(측정 → 라우팅 → 선택 단계), README "인수 기업이 알아야 할 것" |
 | AI 동시 호출 상한 | #27 | LLM·이미지 호출을 자리 수(`AI_MAX_CONCURRENT_CALLS`, 기본 4)로 묶는다(`providers/limit.py`). 자리를 `AI_QUEUE_WAIT_SECONDS`(기본 10초) 안에 못 얻으면 503 + `Retry-After`, 세션은 그대로(생성도 `FAILED`가 되지 않는다). 메모리·스레드 부하가 사용자 수가 아니라 설정값에 묶인다 |
+| 병렬 생성(기본 꺼짐)·설계 고민 기록(README) | #28 | 정책 `parallel_generation`으로 결과 항목을 조각으로 나눠 `generate_part`를 동시에 부르고 코드로 합친다(`harness/parallel.py`). 끝난 조각은 세션 캐시(프롬프트 해시)에 남아 실패한 조각만 다시 부른다. 모든 과제에서 꺼 둠. README "설계 고민 기록"(메모리·동시 호출·n중 파이프라인·병렬·종합 방식), 로드맵 0단계 측정표·3-1절 |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -53,7 +54,7 @@
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.
    - 실제 호출을 켜면 동시 호출 상한(`AI_MAX_CONCURRENT_CALLS`·`AI_QUEUE_WAIT_SECONDS`)을 서버 메모리와 API 사용 한도(분당 요청)에 맞춘다. 상한은 프로세스 하나 기준이다.
-5. **인수 팀: 로드맵 0단계 측정 → 라우팅 설정** — 실제 모델로 평가 시나리오를 돌려 `docs/HARNESS-ROADMAP.md` 0단계 표를 채운 뒤, 필요할 때만 `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`를 켠다.
+5. **인수 팀(또는 팀이 비용을 내서): 로드맵 0단계 측정 → 라우팅·병렬 생성 설정** — 실제 모델로 평가 시나리오를 돌려 `docs/HARNESS-ROADMAP.md` 0단계 표(병렬 생성 측정표 포함)를 채운 뒤, 필요할 때만 `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`나 과제 정책의 `parallel_generation`을 켠다. 병렬이 어긋나면 '미리 모아 두고 한 번에 종합'(설계 문서 7장)을 구현한다.
 6. **평가·발표** — WBS 7.1·7.2 (기획서 14장 지표).
 
 ## 개인 계정·키·로컬 데이터 (인수 시 교체·삭제)

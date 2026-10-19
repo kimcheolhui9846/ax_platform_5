@@ -14,6 +14,7 @@ from app.harness.tasks.marketing_content.validators import check_cta_present, ch
 from app.harness.tasks.product_planning.validators import MAX_CORE_FEATURES, check_mvp_not_too_big
 from app.harness.validation import find_terms
 from app.providers.mock import MockProvider
+from tests.conftest import SAMPLE_PART
 
 
 @pytest.fixture(scope="module")
@@ -61,6 +62,7 @@ def test_every_stage_template_renders(registry, task_type, stage, summary):
         "result_text": "결과",
         "heading": "섹션 제목",
         "text": "섹션 본문",
+        "part": SAMPLE_PART,
     }
     prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert prompt.system.strip() and prompt.user.strip()
@@ -200,6 +202,7 @@ def test_system_prompt_is_identical_across_sessions(registry, task_type, stage):
             "previous": previous,
             "result_text": result_text,
             "heading": result_text,
+            "part": SAMPLE_PART,
             "text": result_text,
         }
         return harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})

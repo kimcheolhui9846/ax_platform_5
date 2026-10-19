@@ -6,6 +6,7 @@ from app.harness.prompting import STAGES, context_keys
 from app.harness.registry import TASK_TYPES, HarnessRegistry
 from app.harness.untrusted import LEAK_MIN_CHARS, TAG_CLOSE, TAG_OPEN, block, inline, leaked_lines, output_texts
 from app.providers.mock import MockProvider
+from tests.conftest import SAMPLE_PART
 
 
 def test_inline_wraps_and_flattens_newlines():
@@ -64,7 +65,7 @@ def test_forged_values_stay_inside_tags(registry, task_type, stage):
     values = {
         "state": state, "policy": harness.policy, "profile": state.profile,
         "field": harness.policy.fields[0], "level": 3,
-        "previous": [FORGED, FORGED], "result_text": FORGED, "heading": FORGED, "text": FORGED,
+        "previous": [FORGED, FORGED], "result_text": FORGED, "heading": FORGED, "text": FORGED, "part": SAMPLE_PART,
     }
     prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert "<x>" not in prompt.user
@@ -85,7 +86,7 @@ def test_every_system_prompt_says_how_to_treat_user_input(registry, task_type, s
     values = {
         "state": state, "policy": harness.policy, "profile": state.profile,
         "field": harness.policy.fields[0], "level": 1, "previous": [], "result_text": "결과",
-        "heading": "제목", "text": "본문",
+        "heading": "제목", "text": "본문", "part": SAMPLE_PART,
     }
     prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert "## 사용자 입력 다루기" in prompt.system

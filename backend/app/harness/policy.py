@@ -59,6 +59,36 @@ class FieldPolicy(BaseModel):
         return self
 
 
+class GenerationPart(BaseModel):
+    """병렬 생성의 조각 하나. content는 과제 결과 스키마(output_schema) 필드 이름이다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    content: list[str] = Field(min_length=1)
+
+
+class ParallelGeneration(BaseModel):
+    """결과 항목을 조각으로 나눠 동시에 생성한다(기본 꺼짐, 측정 뒤 켠다). 스키마와 맞는지는 하네스가 확인한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_workers: PositiveInt = 2  # 한 세션이 동시에 부르는 조각 수(전체 상한 AI_MAX_CONCURRENT_CALLS 안에서)
+    parts: list[GenerationPart] = Field(min_length=2)
+
+    @model_validator(mode="after")
+    def _check_parts(self) -> "ParallelGeneration":
+        names = [p.name for p in self.parts]
+        repeated = sorted({n for n in names if names.count(n) > 1})
+        if repeated:
+            raise ValueError(f"조각 이름이 중복됩니다: {', '.join(repeated)}")
+        fields = [f for p in self.parts for f in p.content]
+        shared = sorted({f for f in fields if fields.count(f) > 1})
+        if shared:
+            raise ValueError(f"여러 조각에 같은 결과 항목이 있습니다: {', '.join(shared)}")
+        return self
+
+
 def _default_caps() -> dict[CoachingMode, PositiveInt]:
     return {CoachingMode.QUICK: 3, CoachingMode.STANDARD: 5, CoachingMode.PRECISE: 10}
 
@@ -84,6 +114,7 @@ class TaskPolicy(BaseModel):
     private_fields: list[str] = Field(default_factory=list)  # AI에 보내지 않는 기본 항목(필드·보완 항목 이름)
     carry_over: dict[str, str] = Field(default_factory=dict)  # 이전 과제 이름 → 이 과제 필드(같은 이름은 적지 않아도 가져온다)
     rules: list[str] = Field(default_factory=list)  # 금지·주의 규칙
+    parallel_generation: ParallelGeneration | None = None  # 병렬 생성(기본 꺼짐). harness/parallel.py
 
     @model_validator(mode="after")
     def _check_fields(self) -> "TaskPolicy":

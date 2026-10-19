@@ -194,6 +194,13 @@ class TraceEntry(ContractModel):
     at: datetime = Field(default_factory=utcnow)
 
 
+class PartCache(BaseModel):
+    """병렬 생성에서 끝난 조각. prompt_key는 실제로 보낸 프롬프트의 해시라 입력이 바뀌면 맞지 않는다."""
+
+    prompt_key: str
+    output: dict[str, Any]
+
+
 class HarnessProfile(BaseModel):
     """설계서 6.4 하네스 설정값. 지금은 기본값만 쓰고, 온보딩 설문(ON)이 생기면 채운다."""
 
@@ -234,6 +241,7 @@ class SessionState(BaseModel):
     validation: ValidationReport | None = None
     versions: list[ResultVersion] = Field(default_factory=list)  # 만든 결과의 기록(1부터, 마지막이 지금 결과)
     trace: list[TraceEntry] = Field(default_factory=list)
+    generation_parts: dict[str, PartCache] = Field(default_factory=dict)  # 병렬 생성의 끝난 조각(실패해도 남고, 성공하면 비운다)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

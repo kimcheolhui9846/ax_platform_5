@@ -13,9 +13,12 @@ from pydantic import BaseModel, Field
 import app.core.store as store_module
 from app.core.state import Answer, AnswerType, SessionState
 from app.harness.base import BaseHarness
+from app.harness.policy import GenerationPart
 from app.providers.mock import MockProvider
 
 SAMPLE_TASK_DIR = Path(__file__).parent / "fixtures" / "sample_task"
+# generate_part 템플릿 변수(정책에서 오는 값이라 위조 대상이 아니다)
+SAMPLE_PART = GenerationPart(name="part", content=["summary"])
 
 
 class SampleContent(BaseModel):

@@ -24,6 +24,7 @@ STAGE_CONTEXT: dict[str, frozenset[str]] = {
     "easier_question": frozenset({"field", "level", "previous"}),
     "propose_value": frozenset({"field", "level", "previous"}),
     "generate": frozenset(),
+    "generate_part": frozenset({"part"}),  # 병렬 생성의 조각 하나(policy.parallel_generation)
     "validate": frozenset({"result_text"}),
     "image": frozenset({"heading", "text"}),
 }
