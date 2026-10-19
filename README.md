@@ -45,6 +45,7 @@
 |---|---|
 | [`docs/HANDOFF.md`](docs/HANDOFF.md) | 지금 상태, 다음 할 일, 작업 방식, 인수 시 교체할 계정·키 |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | 무료 배포(버셀·렌더) 절차와 한계 |
+| [`docs/HARNESS-ROADMAP.md`](docs/HARNESS-ROADMAP.md) | 하네스 성능 저하 대응 로드맵(측정 → 라우팅 → 디코딩 제약 → LoRA) |
 | [`docs/WBS.xlsx`](docs/WBS.xlsx) | 작업 현황(팀 공유용) |
 | [`docs/planning/`](docs/planning/) | 기획서·하네스 설계서 |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/), [`docs/superpowers/plans/`](docs/superpowers/plans/) | 설계와 작업별 구현 계획 |
