@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 import app.config as config
 from app.config import Settings
 from app.core.store import InMemorySessionStore, SqliteSessionStore, build_store
@@ -38,3 +41,29 @@ def test_tests_never_touch_a_real_database():
 
     assert config.settings.store == "memory"
     assert isinstance(create_app().state.store, InMemorySessionStore)
+
+
+def test_stage_settings_default_empty():
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {} and settings.claude_stage_efforts == {}
+
+
+def test_stage_settings_read_json_env(monkeypatch):
+    monkeypatch.setenv("CLAUDE_STAGE_MODELS", '{"diagnose": "claude-haiku-5-5"}')
+    monkeypatch.setenv("CLAUDE_STAGE_EFFORTS", '{"generate": "high"}')
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {"diagnose": "claude-haiku-5-5"}
+    assert settings.claude_stage_efforts == {"generate": "high"}
+
+
+@pytest.mark.parametrize("bad", [{"generat": "claude-haiku-5-5"}, {"image": "claude-haiku-5-5"}])
+def test_unknown_stage_names_are_rejected(bad):
+    with pytest.raises(ValidationError, match="diagnose"):  # 메시지에 허용 단계 이름이 있다
+        Settings(_env_file=None, claude_stage_models=bad)
+
+
+def test_bad_effort_is_rejected():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, claude_stage_efforts={"generate": "ultra"})
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, claude_stage_efforts={"imagee": "low"})

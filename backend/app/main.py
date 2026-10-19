@@ -28,7 +28,14 @@ def create_app(
     app.state.store = store or build_store(settings.store, settings.database_path)
     app.state.assets = assets or build_asset_store(settings.store, settings.asset_dir)
     app.state.registry = HarnessRegistry(
-        provider or get_provider(settings.provider, model=settings.claude_model, effort=settings.claude_effort),
+        provider
+        or get_provider(
+            settings.provider,
+            model=settings.claude_model,
+            effort=settings.claude_effort,
+            stage_models=settings.claude_stage_models,
+            stage_efforts=settings.claude_stage_efforts,
+        ),
         images or get_image_provider(settings.image_provider),
         app.state.assets,
     )
