@@ -1200,6 +1200,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     list_sessions_api_v1_coaching_sessions_get: {
@@ -1289,6 +1298,15 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1407,6 +1425,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     revise_answer_api_v1_coaching_sessions__session_id__answers__question_id__patch: {
@@ -1463,6 +1490,15 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1528,6 +1564,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
         };
     };
     continue_session_api_v1_coaching_sessions__session_id__continue_post: {
@@ -1579,6 +1624,15 @@ export interface operations {
             };
             /** @description AI 호출 또는 결과 생성 실패 */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

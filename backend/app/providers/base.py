@@ -33,6 +33,10 @@ class ProviderError(Exception):
     """모델 호출 자체가 실패했다 (네트워크, 인증, 한도 등)."""
 
 
+class ProviderBusy(ProviderError):
+    """동시 호출 자리(app/providers/limit.py)를 기다려도 얻지 못했다. 모델은 부르지 않았다."""
+
+
 class ProviderOutputError(ProviderError):
     """호출은 됐지만 응답이 요청한 스키마를 통과하지 못했다."""
 

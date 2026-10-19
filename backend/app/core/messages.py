@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 GENERATION_FAILED_MESSAGE = "결과를 만들지 못했습니다. 입력은 그대로 남아 있으니 다시 시도해 주세요."
 PROVIDER_FAILED_MESSAGE = "AI 호출에 실패했습니다. 다시 시도해 주세요."
+AI_BUSY_MESSAGE = "지금 요청이 많아요. 잠시 후 다시 시도해 주세요."
 INVALID_REQUEST_MESSAGE = "요청 형식이 올바르지 않습니다."
 INTERNAL_ERROR_MESSAGE = "서버에서 문제가 생겼습니다. 잠시 후 다시 시도해 주세요."
 

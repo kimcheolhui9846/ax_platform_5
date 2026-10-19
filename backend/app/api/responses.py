@@ -15,6 +15,7 @@ _DESCRIPTIONS = {
     422: "요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음",
     500: "예상하지 못한 서버 오류",
     502: "AI 호출 또는 결과 생성 실패",
+    503: "AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도)",
 }
 
 _DEFAULT_422_REF = "#/components/schemas/HTTPValidationError"

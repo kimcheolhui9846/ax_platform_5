@@ -143,7 +143,7 @@ def preview_context(
     "/tasks/{task_type}/sessions",
     response_model=SessionView,
     status_code=201,
-    responses=error_responses(404, 422, 502),
+    responses=error_responses(404, 422, 502, 503),
 )
 def create_session(
     task_type: str, body: CreateSessionRequest, registry: Registry, store: Store, owner: Owner
@@ -172,7 +172,7 @@ def list_sessions(registry: Registry, store: Store, owner: Owner) -> list[Sessio
     ]
 
 
-@router.delete("/sessions/{session_id}/context", response_model=SessionView, responses=error_responses(404, 422, 502))
+@router.delete("/sessions/{session_id}/context", response_model=SessionView, responses=error_responses(404, 422, 502, 503))
 def clear_context(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> SessionView:
     """이전 과제에서 가져온 내용을 뺀다. 가져온 내용이 없으면 그대로다. 뺀 필드는 다시 물을 수 있다."""
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
@@ -187,7 +187,7 @@ def get_session(session_id: str, registry: Registry, store: Store, owner: Owner)
 
 
 @router.post(
-    "/sessions/{session_id}/answers", response_model=SessionView, responses=error_responses(404, 422, 502)
+    "/sessions/{session_id}/answers", response_model=SessionView, responses=error_responses(404, 422, 502, 503)
 )
 def submit_answer(
     session_id: str, body: AnswerRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
@@ -200,7 +200,7 @@ def submit_answer(
 @router.patch(
     "/sessions/{session_id}/answers/{question_id}",
     response_model=SessionView,
-    responses=error_responses(404, 422, 502),
+    responses=error_responses(404, 422, 502, 503),
 )
 def revise_answer(
     session_id: str,
@@ -219,7 +219,7 @@ def revise_answer(
 
 
 @router.post(
-    "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 422, 502)
+    "/sessions/{session_id}/generate", response_model=ResultView, responses=error_responses(404, 422, 502, 503)
 )
 def generate(session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner) -> ResultView:
     with _session_update(locks, registry, store, session_id, owner) as (state, harness):
@@ -228,7 +228,7 @@ def generate(session_id: str, registry: Registry, store: Store, locks: Locks, ow
 
 
 @router.post(
-    "/sessions/{session_id}/continue", response_model=SessionView, responses=error_responses(404, 422, 502)
+    "/sessions/{session_id}/continue", response_model=SessionView, responses=error_responses(404, 422, 502, 503)
 )
 def continue_session(
     session_id: str, registry: Registry, store: Store, locks: Locks, owner: Owner

@@ -12,6 +12,7 @@ from app.harness.registry import HarnessRegistry
 from app.providers.base import LLMProvider
 from app.providers.factory import get_provider
 from app.providers.image import ImageProvider, get_image_provider
+from app.providers.limit import CallSlots, LimitedImageProvider, LimitedProvider
 
 
 def create_app(
@@ -20,6 +21,7 @@ def create_app(
     debug: bool | None = None,
     assets: AssetStore | None = None,
     images: ImageProvider | None = None,
+    slots: CallSlots | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="AX Coaching Platform API",
@@ -27,16 +29,20 @@ def create_app(
     )
     app.state.store = store or build_store(settings.store, settings.database_path)
     app.state.assets = assets or build_asset_store(settings.store, settings.asset_dir)
+    slots = slots or CallSlots(settings.ai_max_concurrent_calls, settings.ai_queue_wait_seconds)
     app.state.registry = HarnessRegistry(
-        provider
-        or get_provider(
-            settings.provider,
-            model=settings.claude_model,
-            effort=settings.claude_effort,
-            stage_models=settings.claude_stage_models,
-            stage_efforts=settings.claude_stage_efforts,
+        LimitedProvider(
+            provider
+            or get_provider(
+                settings.provider,
+                model=settings.claude_model,
+                effort=settings.claude_effort,
+                stage_models=settings.claude_stage_models,
+                stage_efforts=settings.claude_stage_efforts,
+            ),
+            slots,
         ),
-        images or get_image_provider(settings.image_provider),
+        LimitedImageProvider(images or get_image_provider(settings.image_provider), slots),
         app.state.assets,
     )
     app.state.locks = SessionLocks()

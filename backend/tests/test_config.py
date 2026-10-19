@@ -83,3 +83,17 @@ def test_bad_effort_is_rejected():
         Settings(_env_file=None, claude_stage_efforts={"generate": "ultra"})
     with pytest.raises(ValidationError):
         Settings(_env_file=None, claude_stage_efforts={"imagee": "low"})
+
+
+def test_ai_call_limit_defaults(monkeypatch):
+    monkeypatch.delenv("AI_MAX_CONCURRENT_CALLS", raising=False)
+    monkeypatch.delenv("AI_QUEUE_WAIT_SECONDS", raising=False)
+    settings = Settings(_env_file=None)
+    assert (settings.ai_max_concurrent_calls, settings.ai_queue_wait_seconds) == (4, 10)
+
+
+@pytest.mark.parametrize(("name", "value"), [("AI_MAX_CONCURRENT_CALLS", "0"), ("AI_QUEUE_WAIT_SECONDS", "-1")])
+def test_ai_call_limit_rejects_out_of_range(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
