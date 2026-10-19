@@ -12,7 +12,7 @@ from typing import Any, ClassVar, TypeVar
 from pydantic import BaseModel
 
 from app.core.assets import AssetStore, InMemoryAssetStore
-from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE, private_unknown_message
+from app.core.messages import EVIDENCE_NO_RECORD_MESSAGE, IMAGE_FAILED_MESSAGE, PROMPT_LEAK_MESSAGE, private_unknown_message
 from app.core.results import (
     GenerationResult,
     ImageBlock,
@@ -48,12 +48,13 @@ from app.core.state import (
     SessionStatus,
     TraceEntry,
 )
-from app.harness.errors import GenerationFailed, HarnessError
+from app.harness.errors import GenerationFailed, HarnessError, PromptLeakError
 from app.harness.evidence import EvidenceSource, evidence_record, load_evidence
 from app.harness.policy import FieldKind, FieldPolicy, load_policy
 from app.harness.privacy import NOTICE_VERSION, masked_state, outbound_prompt, private_names, redact
 from app.harness.prompting import PromptRenderer
 from app.harness.stage_models import Diagnosis, GeneratedQuestion, LLMReview, ProposedValues
+from app.harness.untrusted import leaked_lines, output_texts
 from app.harness.validation import COMMON_VALIDATORS, Validator, collect_issues
 from app.providers.base import LLMProvider, ProviderError, ProviderOutputError
 from app.providers.image import ImageProvider, MockImageProvider
@@ -901,6 +902,19 @@ class BaseHarness:
                 )
             )
             raise
+        leaked = leaked_lines(prompt.system, output_texts(response.parsed))
+        if leaked:  # 새어 나온 출력은 trace에도 싣지 않는다
+            state.trace.append(
+                TraceEntry(
+                    stage=stage,
+                    input=trace_input,
+                    output={"error": "prompt_leak", "lines": len(leaked)},
+                    provider=self.provider.name,
+                    model=response.model,
+                    usage=response.usage.model_dump(),
+                )
+            )
+            raise PromptLeakError(PROMPT_LEAK_MESSAGE)
         state.trace.append(
             TraceEntry(
                 stage=stage,

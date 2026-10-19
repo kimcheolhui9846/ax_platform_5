@@ -1,9 +1,10 @@
 import pytest
+from pydantic import BaseModel
 
 from app.core.state import Assumption, CarriedContext, InfoItem, InfoSource
 from app.harness.prompting import STAGES, context_keys
 from app.harness.registry import TASK_TYPES, HarnessRegistry
-from app.harness.untrusted import TAG_CLOSE, TAG_OPEN, block, inline
+from app.harness.untrusted import LEAK_MIN_CHARS, TAG_CLOSE, TAG_OPEN, block, inline, leaked_lines, output_texts
 from app.providers.mock import MockProvider
 
 
@@ -87,3 +88,35 @@ def test_every_system_prompt_says_how_to_treat_user_input(registry, task_type, s
     prompt = harness.prompts.render(stage, **{key: values[key] for key in context_keys(stage)})
     assert "## 사용자 입력 다루기" in prompt.system
     assert "<user_input>" in prompt.system
+
+
+SYSTEM = "## 과제\n상품기획 — 설명\n\n## 지켜야 할 규칙\n- 확인되지 않은 수치를 사실처럼 쓰지 않는다고 적어 둔다\n- 짧은 줄"
+
+
+def test_leaked_lines_finds_verbatim_long_lines_without_bullets():
+    leaked = leaked_lines(SYSTEM, ["앞 글 확인되지 않은 수치를 사실처럼 쓰지 않는다고 적어 둔다 뒷 글"])
+    assert leaked == ["확인되지 않은 수치를 사실처럼 쓰지 않는다고 적어 둔다"]
+
+
+def test_leaked_lines_ignores_short_lines_and_partial_matches():
+    assert len("짧은 줄") < LEAK_MIN_CHARS
+    assert leaked_lines(SYSTEM, ["짧은 줄", "확인되지 않은 수치를 사실처럼"]) == []
+    assert leaked_lines("- " + "가" * (LEAK_MIN_CHARS - 1), ["가" * LEAK_MIN_CHARS]) == []
+    assert leaked_lines("- " + "가" * LEAK_MIN_CHARS, ["가" * LEAK_MIN_CHARS]) == ["가" * LEAK_MIN_CHARS]
+
+
+class Inner(BaseModel):
+    body: str
+    tags: list[str]
+
+
+class Outer(BaseModel):
+    title: str
+    count: int
+    cards: list[Inner]
+    note: str | None = None
+
+
+def test_output_texts_collects_nested_strings():
+    model = Outer(title="t", count=3, cards=[Inner(body="b", tags=["x", "y"])])
+    assert sorted(output_texts(model)) == ["b", "t", "x", "y"]
