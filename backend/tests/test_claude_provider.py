@@ -25,8 +25,9 @@ PROMPT = Prompt(system="고정된 과제 설명", user="세션 맥락")
 class Server:
     """Messages API 흉내. 받은 요청을 모두 남기고 정해 둔 응답 하나를 돌려준다."""
 
-    def __init__(self, content, stop_reason="end_turn"):
+    def __init__(self, content, stop_reason="end_turn", usage=None):
         self.content, self.stop_reason, self.requests = content, stop_reason, []
+        self.usage = usage or {"input_tokens": 120, "output_tokens": 30}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -40,7 +41,7 @@ class Server:
                 "content": self.content,
                 "stop_reason": self.stop_reason,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 120, "output_tokens": 30},
+                "usage": self.usage,
             },
         )
 
@@ -83,6 +84,19 @@ def test_sends_the_request_shape_and_parses_the_answer():
     assert "thinking" not in body and "temperature" not in body
     assert response.parsed == Answer(text="안녕")
     assert (response.model, response.usage.input_tokens, response.usage.output_tokens) == ("claude-opus-5-5", 120, 30)
+
+
+def test_cache_tokens_are_kept_in_usage():
+    usage = {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 90, "cache_creation_input_tokens": 40}
+    response = complete(provider_for(Server([text('{"text": "안녕"}')], usage=usage)))
+    assert response.usage.model_dump() == {
+        "input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 90, "cache_creation_input_tokens": 40,
+    }
+
+
+def test_missing_cache_tokens_count_as_zero():
+    response = complete(provider_for(Server([text('{"text": "안녕"}')])))
+    assert (response.usage.cache_read_input_tokens, response.usage.cache_creation_input_tokens) == (0, 0)
 
 
 def test_refusal_is_a_call_failure_without_a_second_request():

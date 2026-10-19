@@ -17,6 +17,8 @@ class Prompt:
 class Usage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_read_input_tokens: int = 0  # 캐시에서 읽은 입력 토큰
+    cache_creation_input_tokens: int = 0  # 캐시에 새로 쓴 입력 토큰
 
 
 @dataclass

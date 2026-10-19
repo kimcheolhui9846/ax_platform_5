@@ -111,6 +111,6 @@ def test_routed_requests_carry_stage_model_and_effort():
 
 
 def test_routable_stages_match_harness_stages():
-    from app.harness.prompting import STAGES
+    from app.harness.prompting import STAGES  # 라우팅 모듈은 하네스를 가져오지 않아 여기서 짝을 맞춘다
 
     assert set(ROUTABLE_STAGES) == set(STAGES) - {"image"}

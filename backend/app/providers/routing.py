@@ -8,11 +8,11 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.harness.prompting import STAGES
 from app.providers.base import LLMProvider, Prompt, ProviderResponse
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
-ROUTABLE_STAGES = tuple(stage for stage in STAGES if stage != "image")  # 이미지는 ImageProvider가 맡는다
+# 하네스 단계(prompting.STAGES)에서 image를 뺀 것. 이미지는 ImageProvider가 맡는다. 짝은 test_routing이 지킨다.
+ROUTABLE_STAGES = ("diagnose", "easier_question", "propose_value", "generate", "validate")
 
 
 def stage_targets(

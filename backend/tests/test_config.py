@@ -58,6 +58,20 @@ def test_stage_settings_read_json_env(monkeypatch):
     assert settings.claude_stage_efforts == {"generate": "high"}
 
 
+@pytest.mark.parametrize("name", ["CLAUDE_STAGE_MODELS", "CLAUDE_STAGE_EFFORTS"])
+@pytest.mark.parametrize("empty", ["", "   "])
+def test_empty_stage_env_means_off(monkeypatch, name, empty):
+    monkeypatch.setenv(name, empty)
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {} and settings.claude_stage_efforts == {}
+
+
+def test_bad_json_stage_env_is_an_error(monkeypatch):
+    monkeypatch.setenv("CLAUDE_STAGE_MODELS", "{not json")
+    with pytest.raises(Exception, match="CLAUDE_STAGE_MODELS|JSON|json"):
+        Settings(_env_file=None)
+
+
 @pytest.mark.parametrize("bad", [{"generat": "claude-haiku-5-5"}, {"image": "claude-haiku-5-5"}])
 def test_unknown_stage_names_are_rejected(bad):
     with pytest.raises(ValidationError, match="diagnose"):  # 메시지에 허용 단계 이름이 있다
