@@ -4,6 +4,7 @@
 단계만 오버라이드한다. 모든 LLM 호출은 _call()을 거쳐 trace에 남는다.
 """
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -256,6 +257,11 @@ def question_status(pending: Question | None, result_stale: bool) -> SessionStat
 def _settle_status(state: SessionState) -> None:
     """질문 흐름이 상태를 정하는 곳은 여기 한 곳이다(FAILED·COMPLETED도 여기서 벗어난다)."""
     state.status = question_status(state.pending_question, state.result_stale)
+
+
+def _elapsed_ms(started: float) -> int:
+    """[코드] time.perf_counter()로 잰 시작 시각부터 지금까지(밀리초)."""
+    return round((time.perf_counter() - started) * 1000)
 
 
 _KEPT_ON_ROLLBACK = frozenset({"trace", "generation_parts"})
@@ -841,15 +847,21 @@ class BaseHarness:
         )
         prompt, redactions = outbound_prompt(prompt)
         trace_input = {"system": prompt.system, "user": prompt.user, "redactions": redactions}
+        started = time.perf_counter()
         try:
             image = self.images.generate(task_type=self.task_type, prompt=prompt)
         except ProviderError as exc:
-            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            state.trace.append(
+                TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name, duration_ms=_elapsed_ms(started))
+            )
             return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
+        duration_ms = _elapsed_ms(started)
         try:
             asset_id = self.assets.put(state.owner_id, image.data, image.mime)
         except OSError as exc:  # 디스크 문제도 제공자 실패처럼 경고로 줄인다
-            state.trace.append(TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name))
+            state.trace.append(
+                TraceEntry(stage="image", input=trace_input, output={"error": str(exc)}, provider=self.images.name, duration_ms=duration_ms)
+            )
             return result, [ValidationIssue(rule="image_unavailable", message=IMAGE_FAILED_MESSAGE)]
         state.trace.append(
             TraceEntry(
@@ -858,6 +870,7 @@ class BaseHarness:
                 output={"asset_id": asset_id, "mime": image.mime, "bytes": len(image.data)},
                 provider=self.images.name,
                 model=image.model,
+                duration_ms=duration_ms,
             )
         )
         block = ImageBlock(
@@ -968,7 +981,8 @@ class BaseHarness:
     def _send(
         self, stage: str, prompt: Prompt, trace_input: dict[str, Any], response_model: type[M], trace: list[TraceEntry]
     ) -> M:
-        """Provider를 부르고 성공이든 실패든 trace에 남긴다. 세션은 건드리지 않는다(조각 스레드에서도 부른다)."""
+        """Provider를 부르고 성공이든 실패든 trace에 남긴다(걸린 시간 포함). 세션은 건드리지 않는다(조각 스레드에서도 부른다)."""
+        started = time.perf_counter()
         try:
             response = self.provider.complete(
                 task_type=self.task_type, stage=stage, prompt=prompt, response_model=response_model
@@ -982,9 +996,11 @@ class BaseHarness:
                     input=trace_input,
                     output={"error": str(exc)},
                     provider=self.provider.name,
+                    duration_ms=_elapsed_ms(started),
                 )
             )
             raise
+        duration_ms = _elapsed_ms(started)
         leaked = leaked_lines(prompt.system, output_texts(response.parsed))
         if leaked:  # 새어 나온 출력은 trace에도 싣지 않는다
             logger.warning("프롬프트 유출 차단: stage=%s task_type=%s lines=%d", stage, self.task_type, len(leaked))
@@ -996,6 +1012,7 @@ class BaseHarness:
                     provider=self.provider.name,
                     model=response.model,
                     usage=response.usage.model_dump(),
+                    duration_ms=duration_ms,
                 )
             )
             raise PromptLeakError(PROMPT_LEAK_MESSAGE)
@@ -1007,6 +1024,7 @@ class BaseHarness:
                 provider=self.provider.name,
                 model=response.model,
                 usage=response.usage.model_dump(),
+                duration_ms=duration_ms,
             )
         )
         return response.parsed  # type: ignore[return-value]

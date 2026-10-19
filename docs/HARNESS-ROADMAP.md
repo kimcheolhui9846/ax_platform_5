@@ -30,7 +30,7 @@
 | 유출 차단 | `prompt_leak` 비율(정상 입력에서 0이어야 한다, 아니면 오탐) | trace |
 | 결과 품질 | 과제별 평가 시나리오(`evals/*.yaml`)를 실제 모델로 돌리고 채점 기준표로 사람이 채점(또는 LLM 채점, 비용) | `harness/evals.py` |
 | 사용자 수정량 | 결과 뒤 문구 수정(`edit` 버전) 횟수·고친 글자 비율 | `versions` |
-| 지연·비용 | 입력·출력·캐시 토큰(trace `usage`의 `cache_read_input_tokens`·`cache_creation_input_tokens`). 응답 시간은 아직 기록하지 않는다(인수 팀이 `_call`에 시간 기록을 더해야 한다) | trace `usage` |
+| 지연·비용 | 입력·출력·캐시 토큰(trace `usage`의 `cache_read_input_tokens`·`cache_creation_input_tokens`). 호출마다 걸린 시간은 trace `duration_ms`(실패 포함, 캐시·요약은 비어 있음), 질문·생성 단계 벽시계 시간은 측정 도구가 잰다 | trace `usage`·`duration_ms`, 측정 도구 |
 
 **병렬 생성(3-1절)을 켜기 전에 잴 것:**
 
@@ -42,7 +42,19 @@
 | 카드 구성 | 과제 지침의 카드 수가 조각마다 반복돼 늘어나는지 | 늘면 조각용 지침을 따로 둔다 |
 | 자리 경합 | 동시 사용자 k명일 때 503 비율·대기 시간 | `max_workers`·`AI_MAX_CONCURRENT_CALLS` 조정 |
 
-실제 모델로 돌릴 실행 스크립트와 실제 모델용 시나리오(지금 시나리오의 계획 답은 Mock 질문 흐름을 전제로 한다)는 인수 팀이 만든다.
+**재는 법(명령 한 줄, task/29):** 측정 도구가 과제 × 시나리오 × 방식(한 번 호출·병렬) × 반복을 돌려 위 지표 대부분(시간·호출·실패·유출·토큰·경고·비용)을 표로 낸다. 결과 품질 채점(사람)과 사용자 수정량은 따로 본다.
+
+```
+# 먼저 Mock으로(비용 0) 도구가 도는지 본다
+uv run --directory backend python ../scripts/measure.py
+# 실제 모델: 키(ANTHROPIC_API_KEY)와 backend/.env의 모델 설정을 쓴다. 상한 없이는 돌지 않는다
+uv run --directory backend python ../scripts/measure.py --provider claude --budget-usd 2 --tasks branding --repeat 3
+```
+
+- 결과는 `backend/data/measure/<시각>/`의 `rows.csv`(실행마다 한 줄)와 `summary.md`(과제·방식별 생성 p50·p95, 호출·토큰·경고·어긋남·비용). 요약 표를 이 장의 표에 옮겨 적는다.
+- 비용은 단가표(`app/harness/measure.py`의 `PRICES_PER_MTOK`, HANDOFF 참고 단가)로 낸 **추정**이다. `--budget-usd`는 누적 추정 비용이 닿으면 다음 실행부터 멈춘다. Anthropic 콘솔의 월 사용 한도도 함께 건다.
+- 추천 순서: Haiku로 몇 번 돌려 도구·시나리오를 확인(`CLAUDE_MODEL=claude-haiku-5-5`) → 비교는 Sonnet으로 한 번. 병렬 조각은 `scripts/measure_parallel.yaml`(측정용 임시 폴더에만 붙고 실제 과제 정책은 그대로).
+- 실제 모델은 질문 순서가 Mock과 달라 시나리오 계획이 어긋날 수 있다. 실패 대신 '계획 어긋남' 수로 센다(`evals.play_questions`). 과제마다 있는 `quick-skip.yaml`(빠른 모드, 모두 '아직 모르겠어요')은 어긋나지 않는다.
 
 **하네스 때문인지 가르는 실험:** 같은 시나리오를 (a) 지금 하네스, (b) 규칙·감싸기를 뺀 최소 프롬프트, (c) 구조화 출력 대신 자유 글 후 파싱으로 돌려 품질 점수를 비교한다. (a)가 (b)·(c)보다 뚜렷하게 낮을 때만 "하네스가 품질을 떨어뜨린다"고 본다. 차이가 없으면 아래 단계는 필요 없고, 프롬프트 튜닝(과제 폴더)으로 충분하다.
 

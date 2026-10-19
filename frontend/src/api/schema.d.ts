@@ -932,6 +932,8 @@ export interface components {
             usage: {
                 [key: string]: number;
             };
+            /** Duration Ms */
+            duration_ms: number | null;
             /**
              * At
              * Format: date-time

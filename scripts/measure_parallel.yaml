@@ -1,0 +1,31 @@
+# 측정 전용 병렬 생성 조각(scripts/measure.py --variants parallel). 실제 과제 정책은 바꾸지 않는다.
+# 측정용 임시 폴더의 policy.yaml에만 붙는다. 조각은 과제 결과 스키마(output_schema) 필드를 빠짐없이·겹치지 않게 나눈다.
+# 나누는 기준: 서로 많이 기대는 항목은 같은 조각에 둔다(따로 쓰면 어긋나기 쉽다).
+business_plan:
+  max_workers: 2
+  parts:
+    - name: market
+      content: [customer_problem, target_customer, solution]
+    - name: business
+      content: [revenue_model, risks, validation_plan]
+product_planning:
+  max_workers: 2
+  parts:
+    - name: product
+      content: [value_proposition, core_features, mvp_scope]
+    - name: launch
+      content: [price_direction, validation_experiments]
+branding:
+  max_workers: 2
+  parts:
+    - name: identity
+      content: [positioning, brand_keywords, tone_and_manner]
+    - name: verbal
+      content: [naming_directions, slogan_directions]
+marketing_content:
+  max_workers: 2
+  parts:
+    - name: message
+      content: [channel, key_message, cta]
+    - name: pieces
+      content: [contents]

@@ -12,13 +12,17 @@ TASKS_DIR = Path(__file__).parent / "tasks"
 TASK_TYPES = ("business_plan", "product_planning", "branding", "marketing_content")
 
 
+def harness_class(task_type: str) -> type[BaseHarness]:
+    """과제의 하네스 클래스. 등록되지 않은 과제는 UnknownTaskError."""
+    if task_type not in TASK_TYPES:
+        raise UnknownTaskError(task_type)
+    return importlib.import_module(f"app.harness.tasks.{task_type}.harness").Harness
+
+
 def build_harness(
     task_type: str, provider: LLMProvider, images: ImageProvider | None = None, assets: AssetStore | None = None
 ) -> BaseHarness:
-    if task_type not in TASK_TYPES:
-        raise UnknownTaskError(task_type)
-    module = importlib.import_module(f"app.harness.tasks.{task_type}.harness")
-    return module.Harness(TASKS_DIR / task_type, provider, images, assets)
+    return harness_class(task_type)(TASKS_DIR / task_type, provider, images, assets)
 
 
 class HarnessRegistry:

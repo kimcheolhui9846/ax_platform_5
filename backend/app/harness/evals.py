@@ -2,6 +2,7 @@
 
 하네스를 고친 뒤 회귀 확인에 쓰고, 나중에 실제 모델이 붙으면 같은 시나리오로 품질을 비교한다.
 """
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -61,12 +62,18 @@ def unknown_answer_fields(scenario: Scenario, policy: TaskPolicy) -> list[str]:
     return [name for name in scenario.answers if name not in askable]
 
 
-def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) -> SessionState:
-    """시나리오에 없는 질문은 건너뛰고, 질문이 끝나면 결과를 생성한다.
+@dataclass(frozen=True)
+class PlayedScenario:
+    state: SessionState
+    mismatches: list[str]  # 시나리오 계획이 하네스 흐름과 어긋난 곳(범위 밖 선택지, 쓰이지 않은 답)
 
-    계획한 답은 모두 쓰여야 한다. 모르는 필드에 답을 계획했거나 끝까지 쓰이지 않은 답이 남으면
-    시나리오가 하네스 흐름과 어긋난 것이므로 시나리오 이름과 함께 실패한다.
-    생성 실패는 예외가 아니라 FAILED 상태로 돌려준다(expect_status: failed 시나리오).
+
+def play_questions(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) -> PlayedScenario:
+    """질문 단계만 돈다. 시나리오에 없는 질문은 건너뛰고, 계획과 어긋난 곳은 실패 대신 mismatches로 돌려준다.
+
+    실제 모델은 질문 순서·선택지가 Mock과 달라 계획이 어긋날 수 있다. 측정(measure.py)은 이를 지표로 받고,
+    Mock 회귀(run_scenario)는 실패로 본다. 범위 밖 선택지는 '아직 모르겠어요'로 대신한다.
+    모르는 필드에 답을 계획한 것은 시나리오 오류라 어느 쪽이든 바로 실패한다.
     """
     unknown = unknown_answer_fields(scenario, harness.policy)
     if unknown:
@@ -75,6 +82,7 @@ def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) 
         )
     state = harness.start(scenario.raw_input, scenario.mode)
     queues = {name: list(answers) for name, answers in scenario.answers.items()}
+    mismatches: list[str] = []
     for _ in range(max_turns):
         question = state.pending_question
         if question is None:
@@ -84,13 +92,28 @@ def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) 
         try:
             answer = build_answer(question, planned)
         except ValueError as exc:
-            raise ValueError(f"시나리오 '{scenario.name}': {exc}") from exc
+            mismatches.append(str(exc))
+            answer = build_answer(question, ScenarioAnswer(answer_type=AnswerType.SKIP))
         harness.apply_answer(state, answer)
     else:
         raise RuntimeError(f"시나리오 '{scenario.name}'가 {max_turns}턴 안에 끝나지 않았습니다.")
     leftover = [f"{name}({len(queue)}개)" for name, queue in queues.items() if queue]
     if leftover:
-        raise ValueError(f"시나리오 '{scenario.name}'에서 쓰이지 않은 답변이 남았습니다: {', '.join(leftover)}")
+        mismatches.append(f"쓰이지 않은 답변이 남았습니다: {', '.join(leftover)}")
+    return PlayedScenario(state=state, mismatches=mismatches)
+
+
+def run_scenario(harness: BaseHarness, scenario: Scenario, max_turns: int = 50) -> SessionState:
+    """Mock 회귀용: 질문을 돌고 결과를 생성한다. 계획과 어긋나면 시나리오 이름과 함께 실패한다.
+
+    계획한 답은 모두 쓰여야 한다. 모르는 필드에 답을 계획했거나 끝까지 쓰이지 않은 답이 남으면
+    시나리오가 하네스 흐름과 어긋난 것이다.
+    생성 실패는 예외가 아니라 FAILED 상태로 돌려준다(expect_status: failed 시나리오).
+    """
+    played = play_questions(harness, scenario, max_turns)
+    if played.mismatches:
+        raise ValueError(f"시나리오 '{scenario.name}': {played.mismatches[0]}")
+    state = played.state
     try:
         harness.generate(state)
     except GenerationFailed:

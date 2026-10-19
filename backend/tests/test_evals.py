@@ -66,3 +66,23 @@ def test_failed_generation_scenario_returns_state():
     state = run_scenario(harness, scenario)
     assert state.status is scenario.expect_status is SessionStatus.FAILED
     assert state.result is None
+
+
+def test_play_questions_reports_mismatches_instead_of_failing(harness):
+    """실제 모델은 질문 순서가 달라 계획이 어긋날 수 있다. 측정에서는 어긋남을 지표로 받는다."""
+    from app.harness.evals import play_questions
+
+    scenario = Scenario(
+        name="어긋나는 시나리오",
+        raw_input="향초",
+        answers={
+            "customer": [
+                ScenarioAnswer(answer_type=AnswerType.OPTION, option_indexes=[9]),
+                ScenarioAnswer(value="남는 답"),
+            ]
+        },
+    )
+    played = play_questions(harness, scenario)
+    assert played.state.pending_question is None
+    assert len(played.mismatches) == 2
+    assert "customer" in played.mismatches[0] and "customer" in played.mismatches[1]

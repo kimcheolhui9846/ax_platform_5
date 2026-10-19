@@ -191,6 +191,7 @@ class TraceEntry(ContractModel):
     provider: str | None = None  # 제공자 이름(mock, claude 등)
     model: str | None = None  # 실제로 응답한 모델 id. 호출이 실패하면 None
     usage: dict[str, int] = Field(default_factory=dict)
+    duration_ms: int | None = None  # 제공자 호출에 걸린 시간(실패 포함). 부르지 않은 기록(요약·캐시)은 None
     at: datetime = Field(default_factory=utcnow)
 
 
