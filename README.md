@@ -23,6 +23,7 @@
 - 실제 Claude 연결 준비(키만 넣으면 동작, 지금은 Mock)
 - 외부 AI로 보내기 전 보호(개인정보 자동 가림, 비공개 항목 제외, 외부 전송 고지·동의)
 - 프롬프트 주입 기본 방어(사용자 입력 감싸기, 내부 지침 유출 차단)
+- 측정 준비: 호출마다 응답 시간 기록, 명령 한 줄 측정 도구(기본 Mock·비용 0, 실제 모델은 비용 상한 필수)
 - 서버 부하 보호: AI 동시 호출 상한(붐비면 잠시 기다렸다 "잠시 후 다시"), 병렬 생성 준비(기본 꺼짐, 측정 뒤 켠다)
 
 ## 남은 일 — 팀에서 상의할 것
@@ -48,7 +49,7 @@
 |---|---|---|---|
 | **계정·키** | 배포(버셀·렌더)와 API 키가 개발자 개인 것 | 인수 기업 계정으로 다시 배포(GitHub 저장소 이전, `frontend/vercel.json`의 rewrites 주소를 새 렌더 주소로 교체 포함)하고 개인 키는 폐기 | [`docs/HANDOFF.md`](docs/HANDOFF.md) "개인 계정·키·로컬 데이터", [`docs/DEPLOY.md`](docs/DEPLOY.md) |
 | **실제 AI 호출** | Mock(`PROVIDER=mock`) | `PROVIDER=claude` + 환경 변수 `ANTHROPIC_API_KEY`, 모델 `CLAUDE_MODEL`·노력 `CLAUDE_EFFORT`. 먼저 `scripts/claude_smoke.py`로 확인 | [`backend/.env.example`](backend/.env.example) |
-| **품질부터 잰다** | 실제 모델로 잰 적 없음 | 과제별 평가 시나리오(`evals/`)를 실제 모델로 돌려 형식 실패·거절·규칙 위반·품질·비용을 잰 뒤에 튜닝·아키텍처를 정한다 | [`docs/HARNESS-ROADMAP.md`](docs/HARNESS-ROADMAP.md) 0단계 |
+| **품질부터 잰다** | 실제 모델로 잰 적 없음. 측정 도구는 준비됨(Mock으로 검증) | `scripts/measure.py --provider claude --budget-usd 2`로 평가 시나리오를 돌려 시간·실패·규칙 위반·토큰·비용 표를 낸 뒤 튜닝·아키텍처를 정한다(상한 없이는 돌지 않는다) | [`docs/HARNESS-ROADMAP.md`](docs/HARNESS-ROADMAP.md) 0단계 |
 | **단계별 모델 라우팅** | 구현됨, 기본 꺼짐 | `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`(JSON). 측정 뒤 약한 단계만 올리거나 가벼운 단계를 싸게 | 로드맵 1단계 |
 | **동시 호출 상한** | 동작 중(LLM·이미지 합쳐 4개, 자리를 10초 안에 못 얻으면 503) | `AI_MAX_CONCURRENT_CALLS`·`AI_QUEUE_WAIT_SECONDS`를 서버 메모리와 API 사용 한도에 맞춘다. 서버 프로세스 하나 기준 | 아래 '설계 고민 기록' |
 | **병렬 생성** | 구현됨, 모든 과제에서 꺼짐 | 과제 `policy.yaml`에 `parallel_generation`(조각·`max_workers`). 켜기 전에 속도·일관성·비용을 잰다 | 로드맵 0단계·3-1절 |

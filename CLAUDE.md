@@ -61,7 +61,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 4. `evidence.yaml` — 결과를 검토할 근거 자료(지금은 샘플, 없으면 검토 없음). 자료마다 `id`·`title`·`publisher`·`meta`·`summary`·`scope`·`url`(http(s))·`applies_to`(기록을 둘 섹션 종류)·`record`(결과에 붙일 점검 문구 `title`·`text`·`note`·`caution`, 배경 자료면 생략).
 5. `validators.py` — 결과를 기계적으로 확인할 규칙. '이 표현이 있으면 경고'는 `validation.term_rule(rule, terms, message_template)`로 만든다.
 6. `harness.py` — 위로 표현할 수 없는 로직만 `BaseHarness` 메서드를 오버라이드
-7. `evals/*.yaml` — 바뀐 흐름을 시나리오로 남긴다
+7. `evals/*.yaml` — 바뀐 흐름을 시나리오로 남긴다(Mock 회귀 `run_scenario`는 계획이 어긋나면 실패, 측정용 `play_questions`는 어긋남을 센다)
 
 고친 뒤 `uv run --directory backend pytest`. `tests/test_tasks.py`가 정책·템플릿·시나리오·스키마가 서로 맞는지 확인한다.
 
@@ -70,7 +70,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - 시나리오는 끝까지 돌아 `expect_status`에 닿아야 하고 결과는 과제 스키마를 통과해야 한다. `answers`의 키는 물을 수 있는(kind가 default가 아닌) 필드여야 하고, 계획한 답은 모두 쓰여야 한다. 흐름이 바뀌어 답이 남으면 시나리오 이름과 함께 실패한다. 생성 실패는 예외가 아니라 `failed` 상태로 끝나므로 `expect_status: failed` 시나리오도 쓸 수 있다.
 - `tasks/` 아래 `harness.py`가 있는 폴더와 `TASK_TYPES`가 같아야 한다.
 
-하네스 동작을 볼 때는 `GET /api/v1/coaching/sessions/{id}/trace`(`DEBUG=true`일 때만 열림)로 단계별 프롬프트(`input.system`·`input.user`)와 응답, 제공자(`provider`)와 실제 모델 id(`model`, 실패한 호출은 null)를 본다. 검증 요약은 `kind: "summary"` 항목으로 남는다.
+하네스 동작을 볼 때는 `GET /api/v1/coaching/sessions/{id}/trace`(`DEBUG=true`일 때만 열림)로 단계별 프롬프트(`input.system`·`input.user`)와 응답, 제공자(`provider`)와 실제 모델 id(`model`, 실패한 호출은 null), 걸린 시간(`duration_ms`, 부르지 않은 기록은 null)을 본다. 여러 시나리오를 한 번에 재려면 `scripts/measure.py`(로직 `app/harness/measure.py`, 기본 Mock, 실제 모델은 `--budget-usd` 필수)를 쓴다. 검증 요약은 `kind: "summary"` 항목으로 남는다.
 
 새 과제를 추가할 때는 폴더를 만들고 `app/harness/registry.py`의 `TASK_TYPES`에 넣는다.
 
