@@ -79,7 +79,7 @@ def test_supplements_reach_the_generate_prompt(harness):
 
     prompt = next(t for t in reversed(state.trace) if t.stage == "generate").input["user"]
     assert "## 보완 정보 (사용자 입력 · 검증 전)" in prompt
-    assert "- material (소재): 면 100%" in prompt
+    assert "- material (소재): <user_input>면 100%</user_input>" in prompt
 
 
 def test_supplements_api():
@@ -175,4 +175,4 @@ def test_llm_review_sees_the_supplements(harness):
     harness.generate(state)
 
     review = next(t for t in state.trace if t.stage == "validate").input["user"]
-    assert "- material (소재): 면 100%" in review
+    assert "- material (소재): <user_input>면 100%</user_input>" in review

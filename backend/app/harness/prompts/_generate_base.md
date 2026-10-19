@@ -16,5 +16,5 @@
 {% include "_supplements.md" %}
 
 ## 사용자 선호
-- 상세도: {{ profile.preferred_detail }} / 피드백 강도: {{ profile.feedback_tone }} / 결과 형식: {{ profile.result_format }}
+- 상세도: {{ profile.preferred_detail | inline }} / 피드백 강도: {{ profile.feedback_tone | inline }} / 결과 형식: {{ profile.result_format | inline }}
 {% endblock %}

@@ -45,3 +45,5 @@ HTTP_ERROR_FALLBACK_MESSAGE = "요청을 처리하지 못했습니다."
 
 EVIDENCE_NOT_FOUND_MESSAGE = "그 근거 자료를 찾을 수 없습니다."
 EVIDENCE_NO_RECORD_MESSAGE = "결과에 반영할 점검 문구가 없는 자료입니다."
+
+PROMPT_LEAK_MESSAGE = "AI 응답에 내부 지침이 섞여 나와 반영하지 않았어요. 요청 글이나 답에 AI에게 내리는 지시가 있으면 빼고 다시 시도해 주세요."

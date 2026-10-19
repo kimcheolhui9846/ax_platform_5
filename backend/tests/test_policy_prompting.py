@@ -111,7 +111,7 @@ def sample_context(stage: str) -> dict:
 def test_every_stage_renders(stage):
     prompt = PromptRenderer(SAMPLE_DIR / "prompts").render(stage, **sample_context(stage))
     assert "집들이 선물용 향초" in prompt.user
-    assert "idea (아이디어): 향초" in prompt.user
+    assert "idea (아이디어): <user_input>향초</user_input>" in prompt.user
 
 
 def test_task_template_overrides_common_and_keeps_base():
@@ -214,8 +214,8 @@ def test_context_shows_field_name_and_label():
     context["state"].assumptions["customer"] = Assumption(value="30대", source=InfoSource.AI_ASSUMPTION)
     context["state"].unknowns.append("problem")
     text = PromptRenderer(SAMPLE_DIR / "prompts").render("diagnose", **context).user
-    assert "- idea (아이디어): 향초" in text
-    assert "- customer (목표 고객): 30대" in text
+    assert "- idea (아이디어): <user_input>향초</user_input>" in text
+    assert "- customer (목표 고객): <user_input>30대</user_input>" in text
     assert "- problem (고객 문제)" in text
 
 

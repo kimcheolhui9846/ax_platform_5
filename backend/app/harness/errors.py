@@ -2,6 +2,10 @@ class HarnessError(Exception):
     """사용자 입력이 하네스 규칙에 맞지 않는다 (API에서 422)."""
 
 
+class PromptLeakError(HarnessError):
+    """AI 출력에 시스템 프롬프트 줄이 그대로 섞였다. 저장하지 않는다 (API에서 422)."""
+
+
 class GenerationFailed(Exception):
     """결과 생성이 실패했다. 세션 입력은 보존된다 (API에서 502)."""
 

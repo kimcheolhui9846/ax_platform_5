@@ -18,5 +18,5 @@
 {% include "_supplements.md" %}
 
 ## 검토할 결과
-{{ result_text }}
+{{ result_text | block }}
 {% endblock %}

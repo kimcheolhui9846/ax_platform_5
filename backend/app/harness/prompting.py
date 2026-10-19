@@ -13,6 +13,7 @@ from typing import Any
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, StrictUndefined, Template
 
 from app.core.state import source_label
+from app.harness.untrusted import block, inline
 from app.providers.base import Prompt
 
 COMMON_PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -65,6 +66,8 @@ class PromptRenderer:
             autoescape=False,
         )
         self.env.filters["source_label"] = source_label
+        self.env.filters["inline"] = inline
+        self.env.filters["block"] = block
         self._wrappers: dict[str, Template] = {}
 
     def render(self, stage: str, **context: Any) -> Prompt:
