@@ -93,3 +93,17 @@ def test_list_by_owner_leaves_out_the_trace(store):
 
     assert store.list_by_owner("client-aaaa")[0].trace == []
     assert len(store.get(state.session_id).trace) == 1
+
+
+def test_list_all_returns_every_owners_sessions_newest_first_without_trace(store, clock):
+    """평가 통계(scripts/session_stats.py)는 모든 사용자의 세션을 본다. 목록처럼 trace는 빼고 읽는다."""
+    first = SessionState(task_type="branding", owner_id="client-aaaa")
+    second = SessionState(task_type="product_planning", owner_id="client-bbbb")
+    first.trace.append(TraceEntry(stage="diagnose"))
+    for state in (first, second):
+        store.save(state)
+
+    listed = store.list_all()
+
+    assert [s.session_id for s in listed] == [second.session_id, first.session_id]
+    assert all(s.trace == [] for s in listed)
