@@ -93,5 +93,10 @@ def _to_response(stage: str, response: Any, response_model: type[BaseModel] | No
         model=response.model,
         parsed=parsed,
         # 대체 모델이 돌았으면 맨 위 usage는 마지막 시도 몫만이다(시도별 내역은 usage.iterations).
-        usage=Usage(input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens),
+        usage=Usage(
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            cache_read_input_tokens=response.usage.cache_read_input_tokens or 0,
+            cache_creation_input_tokens=response.usage.cache_creation_input_tokens or 0,
+        ),
     )

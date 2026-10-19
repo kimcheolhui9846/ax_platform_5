@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 import app.config as config
 from app.config import Settings
 from app.core.store import InMemorySessionStore, SqliteSessionStore, build_store
@@ -38,3 +41,45 @@ def test_tests_never_touch_a_real_database():
 
     assert config.settings.store == "memory"
     assert isinstance(create_app().state.store, InMemorySessionStore)
+
+
+def test_stage_settings_default_empty(monkeypatch):
+    monkeypatch.delenv("CLAUDE_STAGE_MODELS", raising=False)
+    monkeypatch.delenv("CLAUDE_STAGE_EFFORTS", raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {} and settings.claude_stage_efforts == {}
+
+
+def test_stage_settings_read_json_env(monkeypatch):
+    monkeypatch.setenv("CLAUDE_STAGE_MODELS", '{"diagnose": "claude-haiku-5-5"}')
+    monkeypatch.setenv("CLAUDE_STAGE_EFFORTS", '{"generate": "high"}')
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {"diagnose": "claude-haiku-5-5"}
+    assert settings.claude_stage_efforts == {"generate": "high"}
+
+
+@pytest.mark.parametrize("name", ["CLAUDE_STAGE_MODELS", "CLAUDE_STAGE_EFFORTS"])
+@pytest.mark.parametrize("empty", ["", "   "])
+def test_empty_stage_env_means_off(monkeypatch, name, empty):
+    monkeypatch.setenv(name, empty)
+    settings = Settings(_env_file=None)
+    assert settings.claude_stage_models == {} and settings.claude_stage_efforts == {}
+
+
+def test_bad_json_stage_env_is_an_error(monkeypatch):
+    monkeypatch.setenv("CLAUDE_STAGE_MODELS", "{not json")
+    with pytest.raises(Exception, match="CLAUDE_STAGE_MODELS|JSON|json"):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize("bad", [{"generat": "claude-haiku-5-5"}, {"image": "claude-haiku-5-5"}])
+def test_unknown_stage_names_are_rejected(bad):
+    with pytest.raises(ValidationError, match="diagnose"):  # 메시지에 허용 단계 이름이 있다
+        Settings(_env_file=None, claude_stage_models=bad)
+
+
+def test_bad_effort_is_rejected():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, claude_stage_efforts={"generate": "ultra"})
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, claude_stage_efforts={"imagee": "low"})
