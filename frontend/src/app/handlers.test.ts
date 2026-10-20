@@ -9,12 +9,15 @@ vi.mock("../api/coaching", () => ({
   continueSession: vi.fn(),
   showOriginalQuestion: vi.fn(),
   saveVersion: vi.fn(),
+  deleteSession: vi.fn(),
+  renameSession: vi.fn(),
+  unsaveVersion: vi.fn(),
   saveSupplements: vi.fn(),
   editResultSection: vi.fn(),
   applyEvidence: vi.fn(),
 }));
 
-import { applyEvidence, clearContext, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
+import { applyEvidence, clearContext, continueSession, createSession, deleteSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer, unsaveVersion, renameSession } from "../api/coaching";
 import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
 import { HOME, carryScreenOf } from "../lib/routes";
 import { documentContent } from "../lib/document";
@@ -22,7 +25,7 @@ import type { DocumentFile } from "../lib/document";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
 import type { DocumentFormat } from "../lib/documentFormats";
-import { CONTEXT_CLEARED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
+import { CONTEXT_CLEARED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SESSION_DELETED_NOTICE, SESSION_RENAMED_NOTICE, VERSION_UNSAVED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
 import type { Action, AppState } from "./state";
@@ -244,6 +247,26 @@ describe("makeHandlers — 요청", () => {
     const view = makeVersionView();
     expect(calls[0].done(view, 4)).toEqual({ type: "versionSaved", seq: 4, version: view, next: { name: "saved", sessionId: "sess_1", version: 2 } });
     expect(calls[0].load).toBeNull();
+  });
+
+  it("작업 삭제·이름 바꾸기·결과물에서 빼기는 각각 맞는 요청을 보내고 상태 액션으로 답한다", async () => {
+    const { on, calls } = setup();
+    on.deleteSession("sess_9");
+    on.renameSession("sess_9", "새 이름");
+    on.unsaveVersion("sess_9", 2);
+    expect(calls).toHaveLength(3);
+    for (const call of calls) await call.request();
+    expect(deleteSession).toHaveBeenCalledWith("sess_9");
+    expect(renameSession).toHaveBeenCalledWith("sess_9", "새 이름");
+    expect(unsaveVersion).toHaveBeenCalledWith("sess_9", 2);
+    expect(calls[0].done(undefined, 5)).toEqual({ type: "sessionDeleted", seq: 5, sessionId: "sess_9", notice: SESSION_DELETED_NOTICE });
+    const summary = makeSessionSummary({ name: "새 이름" });
+    expect(calls[1].done(summary, 6)).toEqual({ type: "summaryChanged", seq: 6, summary, notice: SESSION_RENAMED_NOTICE });
+    expect(calls[2].done(summary, 7)).toEqual({ type: "summaryChanged", seq: 7, summary, notice: VERSION_UNSAVED_NOTICE });
+    expect(SESSION_DELETED_NOTICE).toBe("작업을 삭제했어요.");
+    expect(SESSION_RENAMED_NOTICE).toBe("작업 이름을 바꿨어요.");
+    expect(VERSION_UNSAVED_NOTICE).toBe("결과물에서 뺐어요. 작업에서 다시 저장할 수 있어요.");
+    expect(calls.every((call) => call.load === null && !call.generating)).toBe(true);
   });
 
   it("결과가 없으면 저장하지 않는다", () => {

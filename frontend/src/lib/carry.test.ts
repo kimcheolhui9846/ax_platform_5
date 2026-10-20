@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeTask } from "../testing/factories";
-import { carryKey, nextTask } from "./carry";
+import { carryIsFrom, carryKey, nextTask } from "./carry";
 
 const TASKS = [
   makeTask({ task_type: "business_plan", title: "사업계획" }),
@@ -19,6 +19,13 @@ describe("nextTask", () => {
     expect(nextTask(TASKS, "nope")).toBeNull();
     expect(nextTask([TASKS[0]], "business_plan")).toBeNull();
   });
+});
+
+it("carryIsFrom은 키의 세션이 같을 때만 참이다", () => {
+  const key = carryKey("branding", { sessionId: "s1", version: 2 });
+  expect(carryIsFrom(key, "s1")).toBe(true);
+  expect(carryIsFrom(key, "s")).toBe(false);
+  expect(carryIsFrom(key, "branding")).toBe(false);
 });
 
 it("carryKey는 과제·세션·버전을 잇는다", () => {

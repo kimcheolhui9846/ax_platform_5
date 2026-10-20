@@ -1,17 +1,27 @@
 import type { SessionSummary } from "../api/types";
 import { formatDate } from "../lib/format";
 import { modeName } from "../lib/modes";
-import { clip, stageLabel } from "../lib/sessions";
+import { useFocusOnShrink } from "../lib/useFocusOnShrink";
+import { stageLabel } from "../lib/sessions";
+import { WorkItemActions } from "../components/WorkItemDialogs";
 import { EmptyState } from "./EmptyState";
 
-type Props = { sessions: SessionSummary[]; onResume: (summary: SessionSummary) => void; onHome: () => void };
+type Props = {
+  sessions: SessionSummary[];
+  busy: boolean;
+  onResume: (summary: SessionSummary) => void;
+  onRename: (sessionId: string, name: string) => void;
+  onDelete: (sessionId: string) => void;
+  onHome: () => void;
+};
 
 /** 내 작업: 세션마다 진행 단계와 이어서 작업하기. */
-export function WorkScreen({ sessions, onResume, onHome }: Props) {
+export function WorkScreen({ sessions, busy, onResume, onRename, onDelete, onHome }: Props) {
+  const heading = useFocusOnShrink(sessions.length);
   return (
     <section className="list stack">
       <p className="small">MY WORK</p>
-      <h1 className="screen-title">내 작업</h1>
+      <h1 ref={heading} tabIndex={-1} className="screen-title">내 작업</h1>
       <p className="muted">자동 저장된 단계부터 이어서 작업하세요.</p>
       {sessions.length === 0 ? (
         <EmptyState title="아직 시작한 작업이 없어요" body="과제를 고르고 요청을 보내면 여기에 모여요." onHome={onHome} />
@@ -19,12 +29,20 @@ export function WorkScreen({ sessions, onResume, onHome }: Props) {
         sessions.map((summary) => (
           <article key={summary.session_id} className="card listitem">
             <div className="grow stack8">
-              <h2>{`${clip(summary.raw_input)} · ${summary.title}`}</h2>
+              <h2>{`${summary.name} · ${summary.title}`}</h2>
               <p className="muted">{`${modeName(summary.mode)} · ${stageLabel(summary)} · ${formatDate(summary.updated_at)}`}</p>
             </div>
-            <button type="button" className="btn" onClick={() => onResume(summary)}>
-              이어서 작업하기 →
-            </button>
+            <div className="item-buttons">
+              <button type="button" className="btn" onClick={() => onResume(summary)}>
+                이어서 작업하기 →
+              </button>
+              <WorkItemActions
+                summary={summary}
+                busy={busy}
+                onRename={(name) => onRename(summary.session_id, name)}
+                onDelete={() => onDelete(summary.session_id)}
+              />
+            </div>
           </article>
         ))
       )}

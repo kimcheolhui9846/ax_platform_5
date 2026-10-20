@@ -677,6 +677,13 @@ class BaseHarness:
             version.saved = True
         return version
 
+    def unsave_version(self, state: SessionState, number: int) -> ResultVersion | None:
+        """[코드] 그 버전의 저장 표시를 지운다(결과물 목록에서 빠진다). 없는 번호면 None. 저장하지 않았어도 그대로다."""
+        version = find_version(state.versions, number)
+        if version is not None:
+            version.saved = False
+        return version
+
     def edit_section(self, state: SessionState, order: int, text: str) -> bool:
         """[코드] 결과 섹션 하나의 글을 바꾼 새 버전(edit)을 만든다. LLM을 부르지 않는다.
 

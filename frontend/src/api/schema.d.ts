@@ -95,6 +95,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/coaching/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_api_v1_coaching_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Session
+         * @description 작업을 통째로 지운다(결과 이미지 파일 포함). 되돌릴 수 없다.
+         */
+        delete: operations["delete_session_api_v1_coaching_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Session
+         * @description 작업 이름을 바꾼다(앞뒤 공백 제거 후 1~40자). 프롬프트에는 싣지 않는다.
+         */
+        patch: operations["rename_session_api_v1_coaching_sessions__session_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/coaching/sessions/{session_id}/versions/{version}/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Version
+         * @description 그 버전에 저장 표시를 한다(결과물 목록에 모인다). 이미 저장했어도 그대로 성공한다.
+         */
+        post: operations["save_version_api_v1_coaching_sessions__session_id__versions__version__save_post"];
+        /**
+         * Unsave Version
+         * @description 그 버전의 저장 표시를 지운다(결과물 목록에서 빠진다). 저장하지 않았어도 그대로 성공한다.
+         */
+        delete: operations["unsave_version_api_v1_coaching_sessions__session_id__versions__version__save_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/coaching/sessions/{session_id}/context": {
         parameters: {
             query?: never;
@@ -110,23 +159,6 @@ export interface paths {
          * @description 이전 과제에서 가져온 내용을 뺀다. 가져온 내용이 없으면 그대로다. 뺀 필드는 다시 물을 수 있다.
          */
         delete: operations["clear_context_api_v1_coaching_sessions__session_id__context_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/coaching/sessions/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Session */
-        get: operations["get_session_api_v1_coaching_sessions__session_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -271,26 +303,6 @@ export interface paths {
         get: operations["get_version_api_v1_coaching_sessions__session_id__versions__version__get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/coaching/sessions/{session_id}/versions/{version}/save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save Version
-         * @description 그 버전에 저장 표시를 한다(결과물 목록에 모인다). 이미 저장했어도 그대로 성공한다.
-         */
-        post: operations["save_version_api_v1_coaching_sessions__session_id__versions__version__save_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -669,6 +681,11 @@ export interface components {
              */
             ai_suggested: boolean;
         };
+        /** RenameSessionRequest */
+        RenameSessionRequest: {
+            /** Name */
+            name: string;
+        };
         /**
          * RequestErrorBody
          * @description 422 본문. errors는 DEBUG=true일 때만 실리는 개발용 상세라 선택 필드다(평소에는 키가 없다).
@@ -769,6 +786,8 @@ export interface components {
             task_type: string;
             /** Title */
             title: string;
+            /** Name */
+            name: string;
             /** Raw Input */
             raw_input: string;
             mode: components["schemas"]["CoachingMode"];
@@ -798,6 +817,8 @@ export interface components {
             status: components["schemas"]["SessionStatus"];
             /** Raw Input */
             raw_input: string;
+            /** Name */
+            name: string;
             next_question: components["schemas"]["Question"] | null;
             progress: components["schemas"]["Progress"];
             /** Summary */
@@ -1251,6 +1272,255 @@ export interface operations {
             };
         };
     };
+    get_session_api_v1_coaching_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_session_api_v1_coaching_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    rename_session_api_v1_coaching_sessions__session_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    save_version_api_v1_coaching_sessions__session_id__versions__version__save_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionView"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    unsave_version_api_v1_coaching_sessions__session_id__versions__version__save_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"];
+                };
+            };
+            /** @description 과제·세션·결과·파일이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     clear_context_api_v1_coaching_sessions__session_id__context_delete: {
         parameters: {
             query?: never;
@@ -1309,55 +1579,6 @@ export interface operations {
             };
             /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
             503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    get_session_api_v1_coaching_sessions__session_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionView"];
-                };
-            };
-            /** @description 과제·세션·결과·파일이 없음 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestErrorBody"];
-                };
-            };
-            /** @description 예상하지 못한 서버 오류 */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1796,56 +2017,6 @@ export interface operations {
         };
     };
     get_version_api_v1_coaching_sessions__session_id__versions__version__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-                version: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VersionView"];
-                };
-            };
-            /** @description 과제·세션·결과·파일이 없음 */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RequestErrorBody"];
-                };
-            };
-            /** @description 예상하지 못한 서버 오류 */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    save_version_api_v1_coaching_sessions__session_id__versions__version__save_post: {
         parameters: {
             query?: never;
             header?: never;

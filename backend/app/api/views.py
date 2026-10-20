@@ -10,6 +10,7 @@ from app.core.state import (
     CoachingMode,
     InfoItem,
     ResultVersion,
+    SESSION_NAME_MAX,
     SessionState,
     SessionStatus,
     source_label,
@@ -163,6 +164,7 @@ def to_session_view(state: SessionState, harness: BaseHarness) -> SessionView:
         task_type=state.task_type,
         mode=state.mode,
         status=state.status,
+        name=session_name(state),
         raw_input=state.raw_input,
         next_question=state.pending_question,
         progress=Progress(
@@ -252,12 +254,21 @@ def to_version_view(
     )
 
 
+def session_name(state: SessionState) -> str:
+    """[순수] 작업 이름. 붙인 이름이 있으면 그것, 없으면 처음 요청 글의 첫 줄(앞뒤 공백 제거) 40자."""
+    if state.name:
+        return state.name
+    lines = state.raw_input.strip().splitlines()
+    return lines[0].strip()[:SESSION_NAME_MAX] if lines else ""
+
+
 def to_session_summary(state: SessionState, title: str) -> SessionSummary:
     """[순수] 목록에 보일 세션 요약. title은 과제 이름이다."""
     return SessionSummary(
         session_id=state.session_id,
         task_type=state.task_type,
         title=title,
+        name=session_name(state),
         raw_input=state.raw_input,
         mode=state.mode,
         has_question=state.pending_question is not None,

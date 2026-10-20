@@ -98,3 +98,29 @@ def test_local_store_leaves_no_temp_files(tmp_path):
     store = LocalAssetStore(tmp_path / "assets")
     asset_id = store.put("owner-0001", SVG, "image/svg+xml")
     assert sorted(p.name for p in (tmp_path / "assets").iterdir()) == [f"{asset_id}.bin", f"{asset_id}.json"]
+
+
+def test_delete_removes_the_asset_and_ignores_missing_or_malformed_ids(assets):
+    asset_id = assets.put("owner-0001", SVG, "image/svg+xml")
+    kept = assets.put("owner-0001", SVG, "image/svg+xml")
+
+    assets.delete(asset_id)
+    assets.delete(asset_id)  # 이미 없다
+    assets.delete("asset_" + "0" * 32)
+    assets.delete("../x")  # 폴더 밖 경로는 id가 아니다
+
+    assert assets.get(asset_id) is None
+    assert assets.get(kept) is not None
+
+
+def test_local_delete_leaves_no_files_behind(tmp_path):
+    store = LocalAssetStore(tmp_path / "assets")
+    asset_id = store.put("owner-0001", SVG, "image/svg+xml")
+    outside = tmp_path / "x.json"
+    outside.write_text("{}", encoding="utf-8")
+
+    store.delete(asset_id)
+    store.delete("../x")
+
+    assert list((tmp_path / "assets").iterdir()) == []
+    assert outside.exists()

@@ -5,11 +5,11 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.contract import ContractModel
 from app.core.results import CardType, EvidenceRecord, ResultSection, ValidationReport, VersionReason
-from app.core.state import AnswerType, CoachingMode, InfoSource, Question, SessionStatus
+from app.core.state import SESSION_NAME_MAX, AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
 
@@ -111,6 +111,18 @@ class EditSectionRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2500)  # 디자인의 문구 입력 상한
 
 
+class RenameSessionRequest(BaseModel):
+    name: str  # 공백(줄바꿈·탭 포함)을 하나로 접고 앞뒤를 뺀 1~40자
+
+    @field_validator("name")
+    @classmethod
+    def _trimmed(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not 1 <= len(value) <= SESSION_NAME_MAX:
+            raise ValueError(f"작업 이름은 1~{SESSION_NAME_MAX}자여야 합니다.")
+        return value
+
+
 class Progress(ContractModel):
     asked: int
     cap: int
@@ -154,6 +166,7 @@ class SessionView(ContractModel):
     mode: CoachingMode
     status: SessionStatus
     raw_input: str
+    name: str  # 작업 이름(없으면 처음 요청 글의 첫 줄)
     next_question: Question | None
     progress: Progress
     summary: list[SummaryItem]
@@ -226,6 +239,7 @@ class SessionSummary(ContractModel):
     session_id: str
     task_type: str
     title: str  # 과제 이름
+    name: str  # 작업 이름(없으면 처음 요청 글의 첫 줄)
     raw_input: str
     mode: CoachingMode
     has_question: bool  # 걸린 질문이 있다(이어서 답할 수 있다)

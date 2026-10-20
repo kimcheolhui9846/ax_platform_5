@@ -60,6 +60,9 @@ export type Handlers = {
   resume: (summary: SessionSummary) => void;
   openVersion: (sessionId: string, version: number) => void;
   saveVersion: () => void;
+  deleteSession: (sessionId: string) => void;
+  renameSession: (sessionId: string, name: string) => void;
+  unsaveVersion: (sessionId: string, version: number) => void;
   saveSupplements: (values: Record<string, string | null>, privacy: Record<string, boolean>) => void;
   acknowledgeNotice: (task: string, acknowledged: boolean) => void;
   applySupplements: () => void;
@@ -133,9 +136,9 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
     case "guide":
       return { main: <GuideScreen onStart={on.goHome} />, side: null };
     case "work":
-      return { main: <WorkScreen sessions={model.sessions} onResume={on.resume} onHome={on.goHome} />, side: null };
+      return { main: <WorkScreen sessions={model.sessions} busy={busy} onResume={on.resume} onRename={on.renameSession} onDelete={on.deleteSession} onHome={on.goHome} />, side: null };
     case "documents":
-      return { main: <DocumentsScreen sessions={model.sessions} onOpen={on.openVersion} onHome={on.goHome} />, side: null };
+      return { main: <DocumentsScreen sessions={model.sessions} busy={busy} onOpen={on.openVersion} onUnsave={on.unsaveVersion} onHome={on.goHome} />, side: null };
     case "request": {
       const task = model.task.task_type;
       return {

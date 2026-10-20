@@ -8,7 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.contract import ContractModel
-from app.core.results import GenerationResult, ValidationReport, VersionReason, utcnow
+from app.core.results import GenerationResult, ImageBlock, ValidationReport, VersionReason, utcnow
 
 
 class SessionStatus(StrEnum):
@@ -216,6 +216,9 @@ class HarnessProfile(BaseModel):
     use_examples: bool = True
 
 
+SESSION_NAME_MAX = 40  # 작업 이름 글자 수 상한
+
+
 class SessionState(BaseModel):
     session_id: str = Field(default_factory=lambda: f"sess_{uuid4().hex[:12]}")
     owner_id: str = ""  # 익명 사용자 ID(X-Client-Id). 로그인을 붙이면 계정 ID가 된다
@@ -224,6 +227,7 @@ class SessionState(BaseModel):
     status: SessionStatus = SessionStatus.DRAFTING
     profile: HarnessProfile = Field(default_factory=HarnessProfile)
     raw_input: str = ""
+    name: str | None = None  # 사용자가 붙인 작업 이름(없으면 처음 요청 글의 첫 줄). 프롬프트에는 싣지 않는다
     facts: dict[str, InfoItem] = Field(default_factory=dict)
     assumptions: dict[str, Assumption] = Field(default_factory=dict)
     unknowns: list[str] = Field(default_factory=list)
@@ -271,3 +275,17 @@ class SessionState(BaseModel):
         return next(
             (a for a in self.asked_questions if a.question.question_id == question_id), None
         )
+
+
+def session_asset_ids(state: SessionState) -> set[str]:
+    """[순수] 이 세션 결과(모든 버전과 지금 결과)의 이미지 블록이 가리키는 파일 id. 세션을 지울 때 함께 지울 파일이다."""
+    results = [version.result for version in state.versions]
+    if state.result is not None:
+        results.append(state.result)
+    return {
+        block.asset_id
+        for result in results
+        for section in result.sections
+        for block in section.blocks
+        if isinstance(block, ImageBlock)
+    }

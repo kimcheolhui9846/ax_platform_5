@@ -155,6 +155,28 @@ export function saveVersion(sessionId: string, version: number): Promise<ApiResu
   });
 }
 
+/** 작업(세션)을 통째로 지운다. 응답 본문은 없다(204). */
+export function deleteSession(sessionId: string): Promise<ApiResult<void>> {
+  return api.DELETE(`${BASE}/sessions/{session_id}`, {
+    params: { path: { session_id: sessionId } },
+  });
+}
+
+/** 작업 이름을 바꾼다. */
+export function renameSession(sessionId: string, name: string): Promise<ApiResult<SessionSummary>> {
+  return api.PATCH(`${BASE}/sessions/{session_id}`, {
+    params: { path: { session_id: sessionId } },
+    body: { name },
+  });
+}
+
+/** 그 버전의 저장 표시를 지운다(결과물에서 뺀다). */
+export function unsaveVersion(sessionId: string, version: number): Promise<ApiResult<SessionSummary>> {
+  return api.DELETE(`${BASE}/sessions/{session_id}/versions/{version}/save`, {
+    params: { path: { session_id: sessionId, version } },
+  });
+}
+
 /** 결과를 검토할 근거 자료(지금은 샘플). */
 export function getEvidence(sessionId: string): Promise<ApiResult<EvidenceItem[]>> {
   return api.GET(`${BASE}/sessions/{session_id}/evidence`, {

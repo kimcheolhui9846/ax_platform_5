@@ -22,6 +22,8 @@ import { ReviseCard } from "./ReviseCard";
 import { SupplementForm } from "./SupplementForm";
 import { SupplementPanel } from "./SupplementPanel";
 import { Toast } from "./Toast";
+import { DeleteConfirm, RenameForm, WorkItemActions } from "./WorkItemDialogs";
+import { makeSessionSummary } from "../testing/factories";
 
 const noop = () => {};
 
@@ -525,5 +527,37 @@ describe("DownloadMenu", () => {
     expect(html).toContain("disabled");
     expect(html).toContain('aria-describedby="hint"');
     expect(html).not.toContain(">PDF<");
+  });
+});
+
+describe("작업 이름·삭제 대화상자", () => {
+  it("RenameForm은 지금 이름을 채우고 40자까지, 빈 이름이면 저장을 막는다", () => {
+    const html = renderToString(<RenameForm titleId="t" name="수제 향초" busy={false} onSave={noop} onCancel={noop} />);
+    expect(html).toContain('value="수제 향초"');
+    expect(html).toContain('maxLength="40"');
+    expect(html).not.toContain("disabled");
+    const empty = renderToString(<RenameForm titleId="t" name="  " busy={false} onSave={noop} onCancel={noop} />);
+    expect(empty).toMatch(/<button[^>]*disabled[^>]*>저장</);
+    const busy = renderToString(<RenameForm titleId="t" name="a" busy={true} onSave={noop} onCancel={noop} />);
+    expect(busy).toMatch(/<button[^>]*disabled[^>]*>저장</);
+  });
+
+  it("DeleteConfirm은 확인 문구와 삭제·취소", () => {
+    const html = renderToString(<DeleteConfirm titleId="t" name="수제 향초" busy={false} onDelete={noop} onCancel={noop} />);
+    expect(html).toContain("&quot;수제 향초&quot; 작업을 삭제할까요?");
+    expect(html).toContain("질문·결과·저장한 버전이 모두 지워지고 되돌릴 수 없어요.");
+    expect(html).toContain(">삭제<");
+    expect(html).toContain(">취소<");
+  });
+
+  it("WorkItemActions는 busy면 두 버튼을 막는다", () => {
+    const summary = makeSessionSummary();
+    const on = renderToString(<WorkItemActions summary={summary} busy={false} onRename={noop} onDelete={noop} />);
+    expect(on).toContain("이름 바꾸기");
+    expect(on).toContain(`aria-label="${summary.name} 이름 바꾸기"`);
+    expect(on).toContain(`aria-label="${summary.name} 삭제"`);
+    expect(on).not.toContain("disabled");
+    const off = renderToString(<WorkItemActions summary={summary} busy={true} onRename={noop} onDelete={noop} />);
+    expect(off.match(/disabled/g)).toHaveLength(2);
   });
 });

@@ -6,7 +6,7 @@ import { documentFileOf } from "./documentFile";
 
 const html = (file: ReturnType<typeof documentFileOf>) => (file === null ? "" : documentHtml(file.content));
 const task = makeTask();
-const session = makeSession({ next_question: null, has_result: true, raw_input: "한글 파우치" });
+const session = makeSession({ next_question: null, has_result: true, raw_input: "한글 파우치", name: "" });
 
 describe("documentFileOf", () => {
   it("결과 화면은 지금 결과를, 저장 완료는 저장한 그 버전을 내려받는다", () => {
@@ -17,6 +17,11 @@ describe("documentFileOf", () => {
 
     const saved = makeVersionView({ version: { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate", saved: true } });
     expect(documentFileOf({ kind: "saved", task, session, version: saved, images: {}, next: null })?.basename).toBe("AX_product_planning_V2");
+  });
+
+  it("파일 이름은 작업 이름으로 만들고, 쓸 수 없는 문자는 뺀다", () => {
+    const named = makeSession({ next_question: null, has_result: true, name: "수제 향초: 기획/안" });
+    expect(documentFileOf({ kind: "result", task, session: named, result: makeResult(), images: {} })?.basename).toBe("수제 향초 기획안_V1");
   });
 
   it("지금 버전이라도 답이 바뀌어 결과가 낡았으면 최신 아님을 붙인다", () => {

@@ -48,6 +48,8 @@ describe("미리보기 프레임", () => {
       "saved",
       "version",
       "work",
+      "work-rename",
+      "work-delete",
       "work-empty",
       "documents",
       "documents-empty",
