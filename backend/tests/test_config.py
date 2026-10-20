@@ -82,8 +82,9 @@ def test_create_app_on_postgres_keeps_sessions(_postgres_url, postgres_pool, tmp
 
     monkeypatch.setattr(config.settings, "store", "postgres")
     monkeypatch.setattr(config.settings, "database_url", SecretStr(_postgres_url))
-    with TestClient(create_app()) as client:
-        app = client.app
+    app = create_app()
+    assert not hasattr(app.state, "store")  # 서버가 시작하기 전에는 풀을 열지 않는다
+    with TestClient(app) as client:
         state = SessionState(session_id="s-pg", owner_id="o", task_type="business_plan", raw_input="x")
         app.state.store.save(state)
         assert app.state.store.get("s-pg").owner_id == "o"
