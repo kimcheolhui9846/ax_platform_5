@@ -107,3 +107,21 @@ def test_list_all_returns_every_owners_sessions_newest_first_without_trace(store
 
     assert [s.session_id for s in listed] == [second.session_id, first.session_id]
     assert all(s.trace == [] for s in listed)
+
+
+def test_delete_removes_only_that_session(store):
+    gone = SessionState(task_type="branding", owner_id="client-aaaa")
+    kept = SessionState(task_type="branding", owner_id="client-aaaa")
+    store.save(gone)
+    store.save(kept)
+
+    store.delete(gone.session_id)
+
+    assert store.get(gone.session_id) is None
+    assert [s.session_id for s in store.list_by_owner("client-aaaa")] == [kept.session_id]
+    assert [s.session_id for s in store.list_all()] == [kept.session_id]
+    assert store.get(kept.session_id) is not None
+
+
+def test_delete_missing_id_is_a_noop(store):
+    store.delete("sess_없음")

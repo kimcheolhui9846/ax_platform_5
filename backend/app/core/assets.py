@@ -27,11 +27,14 @@ class Asset:
 
 
 class AssetStore(Protocol):
-    """파일 저장소 계약. put은 새 id를 돌려주고(이미지 형식만), get은 없거나 형식이 틀린 id면 None이다."""
+    """파일 저장소 계약. put은 새 id를 돌려주고(이미지 형식만), get은 없거나 형식이 틀린 id면 None이다.
+    delete는 그 파일을 지운다. 없거나 형식이 틀린 id면 아무 일도 하지 않는다(예외 없음)."""
 
     def put(self, owner_id: str, data: bytes, mime: str) -> str: ...
 
     def get(self, asset_id: str) -> Asset | None: ...
+
+    def delete(self, asset_id: str) -> None: ...
 
 
 def _new_id(mime: str) -> str:
@@ -53,6 +56,9 @@ class InMemoryAssetStore:
 
     def get(self, asset_id: str) -> Asset | None:
         return self._assets.get(asset_id)
+
+    def delete(self, asset_id: str) -> None:
+        self._assets.pop(asset_id, None)
 
 
 class LocalAssetStore:
@@ -83,6 +89,13 @@ class LocalAssetStore:
             return Asset(owner_id=info["owner_id"], mime=info["mime"], data=(self._root / f"{asset_id}.bin").read_bytes())
         except (OSError, ValueError, KeyError):  # 없거나 깨진 파일은 없는 파일과 같다
             return None
+
+    def delete(self, asset_id: str) -> None:
+        if not _ASSET_ID.fullmatch(asset_id):
+            return
+        # 정보(.json)를 먼저 지워 .json이 있으면 .bin도 온전하다는 약속을 지킨다
+        (self._root / f"{asset_id}.json").unlink(missing_ok=True)
+        (self._root / f"{asset_id}.bin").unlink(missing_ok=True)
 
 
 def build_asset_store(kind: StoreKind, root: Path) -> AssetStore:

@@ -22,6 +22,7 @@ class SessionStore(Protocol):
     - list_by_owner는 그 사용자의 세션 복사본을 최근에 저장한 순서로 돌려준다. 목록은 요약만 쓰므로 무거운
       trace(단계별 프롬프트·응답)는 빼고 읽는다(get은 그대로 준다).
     - list_all은 모든 사용자의 세션을 같은 방식(최근 순서, trace 없음)으로 돌려준다. 평가 통계(scripts/session_stats.py)만 쓴다.
+    - delete는 그 세션을 지운다. 없는 id면 아무 일도 하지 않는다(예외 없음). 다른 세션은 그대로다.
     """
 
     def get(self, session_id: str) -> SessionState | None: ...
@@ -31,6 +32,8 @@ class SessionStore(Protocol):
     def list_by_owner(self, owner_id: str) -> list[SessionState]: ...
 
     def list_all(self) -> list[SessionState]: ...
+
+    def delete(self, session_id: str) -> None: ...
 
 
 class InMemorySessionStore:
@@ -52,6 +55,9 @@ class InMemorySessionStore:
 
     def list_all(self) -> list[SessionState]:
         return self._listed(list(self._sessions.values()))
+
+    def delete(self, session_id: str) -> None:
+        self._sessions.pop(session_id, None)
 
     @staticmethod
     def _listed(states: list[SessionState]) -> list[SessionState]:
@@ -117,6 +123,10 @@ class SqliteSessionStore:
         with self._connect() as conn:
             rows = conn.execute("SELECT json_remove(data, '$.trace') FROM sessions ORDER BY updated_at DESC").fetchall()
         return [SessionState.model_validate_json(row[0]) for row in rows]
+
+    def delete(self, session_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
 
 
 def build_store(kind: StoreKind, path: Path) -> SessionStore:
