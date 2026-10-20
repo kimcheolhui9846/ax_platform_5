@@ -11,7 +11,7 @@ from typing import Literal, Protocol
 from app.core.results import utcnow
 from app.core.state import SessionState
 
-StoreKind = Literal["memory", "sqlite"]
+StoreKind = Literal["memory", "sqlite", "postgres"]
 
 
 class SessionStore(Protocol):
@@ -127,8 +127,3 @@ class SqliteSessionStore:
     def delete(self, session_id: str) -> None:
         with self._connect() as conn:
             conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-
-
-def build_store(kind: StoreKind, path: Path) -> SessionStore:
-    """설정(STORE·DATABASE_PATH)으로 저장소를 고른다."""
-    return SqliteSessionStore(path) if kind == "sqlite" else InMemorySessionStore()

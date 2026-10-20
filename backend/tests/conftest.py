@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
+import app.core.postgres as postgres_module
 import app.core.store as store_module
 from app.core.state import Answer, AnswerType, SessionState
 from app.harness.base import BaseHarness
@@ -84,3 +85,47 @@ def clock(monkeypatch):
         return now[0]
 
     monkeypatch.setattr(store_module, "utcnow", tick)
+    monkeypatch.setattr(postgres_module, "utcnow", tick)
+
+
+@pytest.fixture(scope="session")
+def _postgres_url(tmp_path_factory):
+    """Postgres 주소 하나를 테스트 세션 동안 쓴다. TEST_DATABASE_URL(셸 환경 변수만 읽는다)이 우선, 없으면 내장 Postgres(pgserver)."""
+    url = os.environ.get("TEST_DATABASE_URL")
+    if url:
+        from app.config import settings
+
+        main_url = os.environ.get("DATABASE_URL") or (settings.database_url.get_secret_value() if settings.database_url else "")
+        if url == main_url:  # 테스트는 표를 TRUNCATE한다: 실제 데이터를 지우지 않게 막는다
+            pytest.skip("TEST_DATABASE_URL이 DATABASE_URL과 같아 건너뜀(테스트 전용 DB를 쓰세요)")
+        yield url
+        return
+    try:
+        import pgserver
+
+        server = pgserver.get_server(tmp_path_factory.mktemp("pgdata"), cleanup_mode="stop")
+        uri = server.get_uri()
+    except Exception as error:  # 주소가 들어간 메시지는 싣지 않는다
+        pytest.skip(f"Postgres를 띄울 수 없어 건너뜀: {type(error).__name__}")
+    try:
+        yield uri
+    finally:
+        server.cleanup()
+
+
+@pytest.fixture(scope="session")
+def _postgres_pool_session(_postgres_url):
+    from app.core.postgres import make_pool, open_pool
+
+    pool = make_pool(_postgres_url)
+    open_pool(pool)
+    yield pool
+    pool.close()
+
+
+@pytest.fixture
+def postgres_pool(_postgres_pool_session):
+    """표를 비운 Postgres 풀."""
+    with _postgres_pool_session.connection() as conn:
+        conn.execute("TRUNCATE sessions, assets")
+    return _postgres_pool_session

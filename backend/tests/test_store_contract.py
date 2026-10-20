@@ -3,15 +3,18 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.core.postgres import PostgresSessionStore
 from app.core.state import InfoItem, InfoSource, SessionState, TraceEntry
 from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 
-@pytest.fixture(params=["memory", "sqlite"])
+@pytest.fixture(params=["memory", "sqlite", "postgres"])
 def store(request, tmp_path):
     if request.param == "memory":
         return InMemorySessionStore()
-    return SqliteSessionStore(tmp_path / "sessions.db")
+    if request.param == "sqlite":
+        return SqliteSessionStore(tmp_path / "sessions.db")
+    return PostgresSessionStore(request.getfixturevalue("postgres_pool"))
 
 
 def test_missing_id_returns_none(store):
@@ -125,3 +128,32 @@ def test_delete_removes_only_that_session(store):
 
 def test_delete_missing_id_is_a_noop(store):
     store.delete("sess_없음")
+
+
+def test_postgres_store_recovers_after_server_drops_connections(postgres_pool, _postgres_url):
+    """Neon이 쉬면서 연결을 끊어도 다음 호출은 죽은 연결을 버리고 새로 연다. 풀에서 꺼낸 그 연결 하나만 끊는다."""
+    import psycopg
+
+    store = PostgresSessionStore(postgres_pool)
+    state = SessionState(task_type="branding")
+    store.save(state)
+    with postgres_pool.connection() as conn:
+        pid = conn.info.backend_pid
+        with psycopg.connect(_postgres_url, autocommit=True) as killer:
+            killer.execute("SELECT pg_terminate_backend(%s)", (pid,))
+
+    assert store.get(state.session_id).session_id == state.session_id
+
+
+def test_stray_nul_never_breaks_save(store):
+    state = SessionState(task_type="branding", raw_input="a\x00b")
+    store.save(state)
+    assert store.get(state.session_id) is not None
+
+
+def test_without_nul_keeps_escaped_backslash_text():
+    from app.core.postgres import without_nul
+
+    nul, literal = chr(92) + "u0000", chr(92) * 2 + "u0000"
+    assert without_nul('"a' + nul + 'b"') == '"a' + chr(92) + 'ufffdb"'
+    assert without_nul('"a' + literal + 'b"') == '"a' + literal + 'b"'

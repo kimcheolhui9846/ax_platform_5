@@ -439,3 +439,9 @@ def test_harness_error_in_generate_keeps_llm_trace(client, monkeypatch):
     after = client.get(f"{BASE}/sessions/{sid}").json()
     assert (after["status"], after["next_question"]) == (view["status"], view["next_question"])
     assert after["has_result"] is False
+
+
+def test_nul_in_request_text_is_stripped():
+    client = api_client(create_app())
+    view = create_session(client, raw_input="a\u0000b")
+    assert view["raw_input"] == "ab"

@@ -3,6 +3,7 @@ import pytest
 
 from app.core.assets import IMAGE_MIMES, InMemoryAssetStore, LocalAssetStore, UnsupportedAssetType
 from app.core.messages import ASSET_NOT_FOUND_MESSAGE
+from app.core.postgres import PostgresAssetStore
 from app.main import create_app
 from app.providers.mock import MockProvider
 from tests.conftest import CLIENT_ID, OTHER_CLIENT_ID, api_client
@@ -11,9 +12,13 @@ PNG = bytes([0x89]) + b"PNG"
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg"/>'
 
 
-@pytest.fixture(params=["memory", "local"])
+@pytest.fixture(params=["memory", "local", "postgres"])
 def assets(request, tmp_path):
-    return InMemoryAssetStore() if request.param == "memory" else LocalAssetStore(tmp_path / "assets")
+    if request.param == "memory":
+        return InMemoryAssetStore()
+    if request.param == "local":
+        return LocalAssetStore(tmp_path / "assets")
+    return PostgresAssetStore(request.getfixturevalue("postgres_pool"))
 
 
 def test_put_then_get_returns_the_owner_mime_and_bytes(assets):
