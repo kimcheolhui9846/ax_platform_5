@@ -37,8 +37,8 @@ def open_pool(url: str) -> ConnectionPool:
         max_lifetime=1800,
         open=False,
     )
-    pool.open(wait=True, timeout=15)  # 관리형 DB가 자다 깨는 첫 연결은 몇 초 걸릴 수 있다
     try:
+        pool.open(wait=True, timeout=15)  # 관리형 DB가 자다 깨는 첫 연결은 몇 초 걸릴 수 있다
         with pool.connection() as conn:
             conn.execute(_SCHEMA)
     except Exception:

@@ -130,19 +130,16 @@ def test_delete_missing_id_is_a_noop(store):
     store.delete("sess_없음")
 
 
-def test_postgres_store_recovers_after_server_drops_connections(postgres_pool):
-    """Neon이 쉬면서 연결을 끊어도 다음 호출은 죽은 연결을 버리고 새로 연다."""
+def test_postgres_store_recovers_after_server_drops_connections(postgres_pool, _postgres_url):
+    """Neon이 쉬면서 연결을 끊어도 다음 호출은 죽은 연결을 버리고 새로 연다. 풀에서 꺼낸 그 연결 하나만 끊는다."""
     import psycopg
 
     store = PostgresSessionStore(postgres_pool)
     state = SessionState(task_type="branding")
-    store.save(state)  # 풀에 연결이 하나 열려 있다
+    store.save(state)
     with postgres_pool.connection() as conn:
-        url = conn.info.dsn  # 같은 서버에 별도 연결로 풀의 연결을 끊는다
-    with psycopg.connect(url, autocommit=True) as killer:
-        killer.execute(
-            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-            "WHERE pid <> pg_backend_pid() AND datname = current_database()"
-        )
+        pid = conn.info.backend_pid
+        with psycopg.connect(_postgres_url, autocommit=True) as killer:
+            killer.execute("SELECT pg_terminate_backend(%s)", (pid,))
 
     assert store.get(state.session_id).session_id == state.session_id
