@@ -18,6 +18,11 @@ def _nothing() -> None:
     pass
 
 
+def opens_connections(kind: StoreKind) -> bool:
+    """이 저장소를 만들면 연결 풀 같은 자원이 열리는가. 열리면 서버가 시작할 때 만들고 끝날 때 닫는다."""
+    return kind == "postgres"
+
+
 def build_storage(kind: StoreKind, database_path: Path, asset_dir: Path, database_url: str | None) -> Storage:
     """memory: 둘 다 메모리. sqlite: 세션 파일 + 이미지 폴더. postgres: 풀 하나를 둘이 나눠 쓴다."""
     if kind == "postgres":
