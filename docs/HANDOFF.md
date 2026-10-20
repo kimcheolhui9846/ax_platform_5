@@ -4,7 +4,7 @@
 
 - 기준일: 2026-10-20
 - main: `68bf499` (PR #32까지 머지)
-- 테스트: 백엔드 757 passed, 프론트 481 passed, 빌드 OK
+- 테스트: 백엔드 763 passed, 프론트 481 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.

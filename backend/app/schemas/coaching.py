@@ -5,7 +5,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from app.core.contract import ContractModel
 from app.core.results import CardType, EvidenceRecord, ResultSection, ValidationReport, VersionReason
