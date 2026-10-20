@@ -3,9 +3,9 @@ title: 상품기획
 description: 사용 장면과 핵심 기능, 제작 방향을 정리해요.
 heading: 만들고 싶은 상품을 구체화하고 싶어요
 deliverable: 상품 콘셉트 · 첫 제작 기획서
-input_placeholder: 예) 집들이 선물용 수제 향초
+input_placeholder: 예) 외국인 관광객 선물용 한글 북백
 input_examples:
-  - 집들이 선물용 수제 향초
+  - 외국인 관광객 선물용 한글 북백
   - 반려견 이름을 새긴 가죽 목걸이
 raw_input_field: product_idea
 readiness_threshold: 0.7
@@ -20,7 +20,7 @@ fields:
     easier_questions:
       - question: 지금 만들고 있거나 만들 수 있는 물건을 하나만 말해 주세요.
       - question: 아래 중 가장 가까운 걸 골라 주세요.
-        options: [향초·디퓨저, 액세서리, 문구·굿즈, 의류·패브릭]
+        options: [가방·패션잡화, 액세서리, 문구·굿즈, 의류·패브릭]
   - name: user
     label: 사용자
     kind: must_confirm

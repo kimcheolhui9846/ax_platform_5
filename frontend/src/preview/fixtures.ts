@@ -45,7 +45,7 @@ export const FORM: TaskForm = {
   task_type: "product_planning",
   title: "상품기획",
   description: PRODUCT.description,
-  input_placeholder: "예) 집들이 선물용 수제 향초",
+  input_placeholder: "예) 외국인 관광객 선물용 한글 북백",
   input_examples: [REQUEST],
   modes: [
     { mode: "quick", question_cap: 3 },

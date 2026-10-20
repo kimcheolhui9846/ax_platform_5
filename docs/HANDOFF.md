@@ -51,7 +51,7 @@
    - LLM 어댑터는 준비됐다(`app/providers/claude.py`). 이 프로토타입은 비용 0을 지키므로 `PROVIDER`는 `mock`으로 둔다. 테스트는 계속 Mock·가짜 응답(네트워크 없음)이다.
    - 인수하는 회사가 켤 때(실제 호출·모델 선택·비용은 그쪽이 정한다, 키는 커밋 금지):
      - `backend/.env`에 `PROVIDER=claude`와 `ANTHROPIC_API_KEY=…`를 넣는다(키가 없으면 서버 시작 때 실패한다). 모델·노력은 `CLAUDE_MODEL`(기본 `claude-opus-5-5`)·`CLAUDE_EFFORT`(기본 `medium`).
-     - 세션 하나 확인(그쪽용 스크립트): `uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력). `generate`의 `output_tokens`가 상한 `MAX_TOKENS`(16000)에 가까우면 잘림(`ProviderOutputError`)이 나기 쉬우니 상한이나 결과 분량을 조정한다.
+     - 세션 하나 확인(그쪽용 스크립트): `uv run --directory backend python ../scripts/claude_smoke.py product_planning "외국인 관광객 선물용 한글 북백"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력). `generate`의 `output_tokens`가 상한 `MAX_TOKENS`(16000)에 가까우면 잘림(`ProviderOutputError`)이 나기 쉬우니 상한이나 결과 분량을 조정한다.
      - 참고 단가(1M 토큰당 입력/출력): Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50.
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.
