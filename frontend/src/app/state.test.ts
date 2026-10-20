@@ -200,6 +200,18 @@ describe("reducer", () => {
     expect(reducer(noticed, { type: "toastClosed" }).toast).toBeNull();
   });
 
+  it("문서를 만드는 동안 표시하고, 끝나면 풀고 알린다", () => {
+    expect(initialState(HOME).exporting).toBe(false);
+    const started = reducer(initialState(HOME), { type: "exportStarted" });
+    expect(started.exporting).toBe(true);
+    // 다른 화면으로 가도 만드는 중은 그대로다(내보내기는 화면과 상관없이 끝난다)
+    const moved = reducer(started, { type: "navigated", route: { name: "work" } });
+    expect(moved.exporting).toBe(true);
+    const finished = reducer(moved, { type: "exportFinished", message: "끝" });
+    expect(finished.exporting).toBe(false);
+    expect(finished.toast).toBe("끝");
+  });
+
   it("noticeChanged는 그 과제의 고지 확인만 바꾼다", () => {
     const on = reducer(initialState(HOME), { type: "noticeChanged", task: "branding", acknowledged: true });
     expect(on.notices).toEqual({ branding: true });

@@ -41,6 +41,8 @@
   - html·docx: `문서를 내려받았어요.`
   - pdf: `인쇄 창에서 'PDF로 저장'을 고르세요.`
   - 실패(라이브러리 불러오기·생성 실패): `문서를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.`
+  - PDF 실패(인쇄용 문서가 10초 안에 열리지 않거나 인쇄를 시작하지 못함): `인쇄 창을 열지 못했어요. 브라우저의 인쇄·팝업 차단을 확인하거나 Word·HTML로 받아 주세요.`
+  - 만드는 중(`state.exporting`, 리듀서의 `exportStarted`·`exportFinished`)에 다시 누르면 만들지 않고: `문서를 만드는 중이에요. 끝난 뒤 다시 눌러 주세요.`
 - `components/DownloadMenu.tsx`(새) — 버튼 + 펼침 목록(disclosure: `aria-expanded`, `aria-controls`). 항목을 고르면 `onDownload(format)` 후 닫고, Esc로 닫으면 버튼으로 포커스를 돌린다. 열림 상태만 부품이 가진다. `disabled`·`aria-describedby`(최신 아님 안내)를 받는다.
 - 결과(`ResultScreen`의 오른쪽)·저장 완료(`SavedScreen`)·버전 보기(`VersionScreen` 오른쪽)의 '문서 내려받기' 버튼을 `DownloadMenu`로 바꾼다. 낡은 결과일 때 막는 규칙은 그대로.
 - 미리보기: 메뉴가 열린 결과 화면 프레임을 하나 더한다(`DownloadMenu`의 `initialOpen`).

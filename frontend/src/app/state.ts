@@ -22,6 +22,7 @@ export type AppState = {
   notices: Record<string, boolean>; // 과제별 외부 전송 고지 확인(세션을 만들 때 서버에 알린다)
   inflight: Inflight | null;
   stalled: string | null; // 실패한 불러오기(loadKey). 같은 화면에서는 다시 부르지 않는다
+  exporting: boolean; // 내려받을 문서를 만드는 중(다시 누르면 경고만 한다)
   toast: string | null;
 };
 
@@ -44,6 +45,8 @@ export type Action =
   | { type: "noticeChanged"; task: string; acknowledged: boolean }
   | { type: "noticed"; message: string }
   | { type: "toastClosed" }
+  | { type: "exportStarted" }
+  | { type: "exportFinished"; message: string }
   | { type: "retried" };
 
 type Settled = Exclude<Extract<Action, { seq: number }>, { type: "requested" }>;
@@ -65,6 +68,7 @@ export function initialState(route: Route): AppState {
     notices: {},
     inflight: null,
     stalled: null,
+    exporting: false,
     toast: null,
   };
 }
@@ -94,6 +98,10 @@ export function reducer(state: AppState, action: Action): AppState {
       return action.assetId in state.assets ? { ...state, assets: { ...state.assets, [action.assetId]: action.url } } : state;
     case "toastClosed":
       return { ...state, toast: null };
+    case "exportStarted":
+      return { ...state, exporting: true };
+    case "exportFinished":
+      return { ...state, exporting: false, toast: action.message };
     case "retried":
       return { ...state, stalled: null };
     default: {

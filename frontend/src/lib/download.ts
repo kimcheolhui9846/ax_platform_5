@@ -4,6 +4,7 @@ import { fileName } from "./documentFormats";
 import { documentHtml } from "./documentHtml";
 
 const PRINT_FRAME = "data-print-frame"; // 인쇄용 iframe 표시. 한 번에 하나만 둔다
+const PRINT_LOAD_TIMEOUT_MS = 10_000; // 이 안에 인쇄용 문서가 열리지 않으면(브라우저가 막음) 실패로 본다
 
 function saveBlob(filename: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
@@ -16,7 +17,7 @@ function saveBlob(filename: string, blob: Blob): void {
 
 /**
  * 보이지 않는 iframe에 문서를 넣고 인쇄 창을 연다('PDF로 저장'). 새 창이 아니라 팝업 차단에 걸리지 않는다.
- * title이 저장 창의 기본 파일 이름이 된다. print()가 돌아오면 끝나고, 인쇄를 시작하지 못하면 거절한다.
+ * title이 저장 창의 기본 파일 이름이 된다. print()가 돌아오면 끝나고, 인쇄를 시작하지 못하거나 문서가 제때 열리지 않으면 거절한다.
  * 인쇄용 iframe은 afterprint에서 지우고, afterprint가 없는 브라우저는 다음 인쇄를 시작할 때 이전 것을 지운다.
  */
 function printHtml(html: string, title: string): Promise<void> {
@@ -27,9 +28,14 @@ function printHtml(html: string, title: string): Promise<void> {
     frame.setAttribute("aria-hidden", "true");
     frame.tabIndex = -1;
     frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    const timer = window.setTimeout(() => {
+      frame.remove();
+      reject(new Error("인쇄 창을 열지 못했어요."));
+    }, PRINT_LOAD_TIMEOUT_MS);
     frame.addEventListener(
       "load",
       () => {
+        window.clearTimeout(timer);
         const win = frame.contentWindow;
         if (win === null) {
           frame.remove();

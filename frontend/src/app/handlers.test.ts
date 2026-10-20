@@ -20,7 +20,7 @@ import { HOME, carryScreenOf } from "../lib/routes";
 import { documentContent } from "../lib/document";
 import type { DocumentFile } from "../lib/document";
 import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
-import { EXPORTED_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
+import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
 import type { DocumentFormat } from "../lib/documentFormats";
 import { CONTEXT_CLEARED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
@@ -262,16 +262,32 @@ describe("makeHandlers — 요청", () => {
     await settle();
     expect(exported).toEqual([[file, "docx"], [file, "pdf"]]);
     expect(actions).toEqual([
-      { type: "noticed", message: EXPORTED_NOTICE.docx },
-      { type: "noticed", message: EXPORTED_NOTICE.pdf },
+      { type: "exportStarted" },
+      { type: "exportStarted" },
+      { type: "exportFinished", message: EXPORTED_NOTICE.docx },
+      { type: "exportFinished", message: EXPORTED_NOTICE.pdf },
     ]);
   });
 
-  it("문서를 만들지 못하면 실패를 알린다", async () => {
+  it("문서를 만들지 못하면 형식에 맞게 경고한다", async () => {
     const { on, actions } = setup({}, true);
     on.download(file, "docx");
+    on.download(file, "pdf");
     await settle();
-    expect(actions).toEqual([{ type: "noticed", message: EXPORT_FAILED_NOTICE }]);
+    expect(actions).toEqual([
+      { type: "exportStarted" },
+      { type: "exportStarted" },
+      { type: "exportFinished", message: EXPORT_FAILED_NOTICE.docx },
+      { type: "exportFinished", message: EXPORT_FAILED_NOTICE.pdf },
+    ]);
+  });
+
+  it("만드는 중에 다시 누르면 또 만들지 않고 경고한다", async () => {
+    const { on, exported, actions } = setup({ exporting: true });
+    on.download(file, "docx");
+    await settle();
+    expect(exported).toEqual([]);
+    expect(actions).toEqual([{ type: "noticed", message: EXPORT_BUSY_NOTICE }]);
   });
 });
 

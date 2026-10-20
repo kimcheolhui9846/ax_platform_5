@@ -14,7 +14,7 @@ import {
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
 import type { DocumentFile } from "../lib/document";
-import { EXPORTED_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
+import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
 import type { DocumentFormat } from "../lib/documentFormats";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
 import { HOME } from "../lib/routes";
@@ -39,7 +39,7 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts" | "result" | "notices">;
+  state: Pick<AppState, "session" | "drafts" | "result" | "notices" | "exporting">;
   /** 요청·모드 화면이면 그 화면(과제·이어 가는 출처). 아니면 null. */
   carryScreen: CarryScreen | null;
   run: Runner;
@@ -230,9 +230,12 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
       if (session && before !== null) go({ name: "version", sessionId: session.session_id, version: before });
     },
     download: (file, format) => {
+      // 만드는 중(Word 라이브러리를 불러오는 동안 등)에 다시 누르면 파일이 두 번 생기지 않게 경고만 한다
+      if (state.exporting) return dispatch({ type: "noticed", message: EXPORT_BUSY_NOTICE });
+      dispatch({ type: "exportStarted" });
       exportDocument(file, format).then(
-        () => dispatch({ type: "noticed", message: EXPORTED_NOTICE[format] }),
-        () => dispatch({ type: "noticed", message: EXPORT_FAILED_NOTICE }),
+        () => dispatch({ type: "exportFinished", message: EXPORTED_NOTICE[format] }),
+        () => dispatch({ type: "exportFinished", message: EXPORT_FAILED_NOTICE[format] }),
       );
     },
   };
