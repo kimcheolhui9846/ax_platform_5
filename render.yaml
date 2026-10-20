@@ -1,6 +1,7 @@
 # 렌더(render.com) 블루프린트: 백엔드 API를 무료 플랜으로 띄운다. 절차는 docs/DEPLOY.md.
-# 무료 플랜은 디스크가 없어 서버가 다시 시작하면(15분 동안 요청이 없어 잠들었다 깨는 경우 포함) 세션·이미지가 지워진다.
-# 개발자 개인 렌더 계정의 서비스다(인수 시 교체·삭제: docs/HANDOFF.md "개인 계정·키·로컬 데이터"). 프로토타입 시연용이다. 계속 남겨야 하면 유료 플랜 + 디스크로 바꾼다(docs/DEPLOY.md "나중에 바꿀 것").
+# 렌더 무료 플랜은 디스크가 없지만 세션·결과 이미지는 Neon(무료 Postgres)에 남아서 서버가 다시 시작해도(잠들었다 깸·재배포) 지워지지 않는다.
+# DATABASE_URL(Neon 연결 문자열)은 비밀 값이라 대시보드에만 넣는다. 머지 전에 넣어야 한다(없으면 서버가 시작하지 못한다): docs/DEPLOY.md "Neon 연결".
+# 개발자 개인 렌더·Neon 계정의 서비스다(인수 시 교체·삭제: docs/HANDOFF.md "개인 계정·키·로컬 데이터"). 프로토타입 시연용이다.
 services:
   - type: web
     name: ax-coaching-api
@@ -18,6 +19,8 @@ services:
       - key: IMAGE_PROVIDER
         value: mock
       - key: STORE
-        value: sqlite # 실행 중에는 남고, 다시 시작하면 지워진다(무료 플랜)
+        value: postgres # Neon 무료 Postgres. 다시 시작해도 남는다
+      - key: DATABASE_URL
+        sync: false # 값은 렌더 대시보드 Environment에만 넣는다(커밋 금지)
       - key: DEBUG
         value: "false"

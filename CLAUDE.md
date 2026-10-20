@@ -24,7 +24,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 설정은 `backend/.env`(실행 위치와 상관없이 이 파일)나 환경 변수에서 읽는다. `DEBUG` 기본값은 `false`이고, `.env.example`을 복사하면 로컬 개발용으로 `DEBUG=true`가 된다.
 
-저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. 계약은 `tests/test_store_contract.py`가 두 구현에 함께 돌린다. 테스트는 `tests/conftest.py`가 개발자 `.env`와 상관없이 늘 `memory`로 정한다(실제 DB를 건드리지 않는다). 목록 조회(`list_by_owner`)는 무거운 trace를 빼고 읽는다. 삭제(`delete`)도 두 구현의 같은 계약이다.
+저장소는 `STORE`로 고른다. `memory`(기본, 테스트)는 재시작하면 사라지고, `sqlite`(`.env.example`의 로컬 개발값)는 `DATABASE_PATH`(기본 `backend/data/sessions.db`, git에서 제외) 파일에 남는다. `postgres`(배포: Neon)는 `DATABASE_URL`(비밀 값, 없으면 시작 실패)로 연결하고 세션·결과 이미지가 같은 DB에 남는다. 저장소는 `build_storage`(`app/core/storage.py`)가 `STORE`로 만들고 서버가 시작할 때 열고 끝날 때 닫는다. 계약은 `tests/test_store_contract.py`가 모든 구현에 함께 돌린다(Postgres는 내장 `pgserver`나 `TEST_DATABASE_URL`). 테스트는 `tests/conftest.py`가 개발자 `.env`와 상관없이 늘 `memory`로 정한다(실제 DB를 건드리지 않는다). 목록 조회(`list_by_owner`)는 무거운 trace를 빼고 읽는다. 삭제(`delete`)도 두 구현의 같은 계약이다.
 
 배포: 세션별 잠금(`app/api/locks.py`)은 서버 프로세스 하나를 전제로 한다. SQLite 파일도 한 프로세스가 쓴다. 인스턴스(워커)는 하나만 띄우고, 여러 프로세스가 필요해지면 잠금과 저장소를 공유 저장소(DB 잠금)로 함께 바꾼다.
 
@@ -39,7 +39,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 - `backend/app/harness/evidence.py` — 근거 자료(`EvidenceSource`, 과제 폴더 `evidence.yaml`을 `load_evidence`로 읽음)와 점검 문구를 결과 기록으로 바꾸는 순수 함수 `evidence_record`.
 - `backend/app/harness/registry.py` — 과제 등록부(`TASK_TYPES`). 등록되지 않은 과제는 `build_harness`가 거부한다.
 - `backend/app/api/` — 얇은 라우터(`/api/v1/coaching/...`), 상태→응답 변환(`views.py`, 순수 함수), 예외 처리기(`errors.py`), 경로별 오류 응답 선언(`responses.py`), 세션별 잠금(`locks.py`), 요청한 사용자(`owner.py`), 결과 이미지 파일 바이트(`assets.py`, 주인에게만. 응답은 `Cache-Control: private, no-store`).
-- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, 계약은 `tests/test_store_contract.py`. `list_all`은 평가 통계만 쓴다), 파일 저장소(`assets.py`: 결과 이미지 바이트, 메모리·로컬 폴더 `ASSET_DIR`, `delete` 있음. 세션 저장소 `STORE`와 짝), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
+- `backend/app/core/` — 세션 상태(`state.py`, 출처 라벨 `SOURCE_LABELS` 포함), 결과(`results.py`), 저장소(`store.py`: 메모리·SQLite, `postgres.py`: Postgres 풀·세션/이미지 저장소, `storage.py`: `Storage` 열기·닫기·`build_storage`, 계약은 `tests/test_store_contract.py`. `list_all`은 평가 통계만 쓴다), 파일 저장소(`assets.py`: 결과 이미지 바이트, 메모리·로컬 폴더 `ASSET_DIR`, `delete` 있음. 세션 저장소 `STORE`와 짝), 응답 모델의 공통 부모 `ContractModel`(`contract.py`), 사용자에게 보이는 실패 문구(`messages.py`).
 - `backend/app/providers/` — 모델 제공자. `MockProvider`(기본, 비용 0)와 `ClaudeProvider`(`claude.py`, 공식 SDK `anthropic`, `PROVIDER=claude`, 모델 `CLAUDE_MODEL`·노력 `CLAUDE_EFFORT`, 키는 환경 변수 `ANTHROPIC_API_KEY`). `mock_fill.py`가 스키마 제약(길이·개수·범위·형식)을 지키는 Mock 값을 만든다. 이미지는 별도 제공자 `ImageProvider`(`image.py`, Mock은 SVG 자리표시)다. 단계별 모델 라우팅은 `routing.py`(`RoutedProvider`, 설정 `CLAUDE_STAGE_MODELS`·`CLAUDE_STAGE_EFFORTS`, 기본 꺼짐, Mock이면 쓰지 않는다). 동시 호출 상한은 `limit.py`(`CallSlots` 자리 하나를 `LimitedProvider`·`LimitedImageProvider`가 같이 쓴다, 설정 `AI_MAX_CONCURRENT_CALLS`·`AI_QUEUE_WAIT_SECONDS`, `create_app`이 Mock까지 늘 감싼다).
 - `backend/app/schemas/` — API 요청·응답 스키마.
 - `backend/app/harness/measure.py`·`stats.py` — 측정(시나리오 → 시간·토큰·비용, `scripts/measure.py`)과 평가 통계(저장된 세션 → 기획서 14장 지표, `scripts/session_stats.py`). 둘 다 비용 0으로 돌고, 지표의 뜻은 `docs/EVALUATION.md`.
@@ -114,7 +114,7 @@ Windows에서 응용 프로그램 제어 정책이 `uvicorn.exe` 직접 실행�
 
 `design/README.md`의 절차를 따른다. 원본은 날짜 폴더에 그대로 두고, 직전 버전과 diff해 바뀐 화면만 React에 반영한다. 디자인 때문에 API가 바뀌어야 하면 위 "API 계약이 바뀔 때"를 먼저 한다.
 
-배포(무료 구성, 절차는 `docs/DEPLOY.md`): 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). `/preview`는 `cleanUrls`가 `preview.html`로 연결한다(로컬 Vite 서버도 같다). 백엔드는 렌더 Free(`render.yaml` 블루프린트, 루트 `backend`, uv, Mock·SQLite·디스크 없음 — 다시 시작하면 데이터가 지워진다)이고, `vercel.json`의 `rewrites`가 `/api/:path*`를 렌더로 넘겨 같은 출처로 쓴다(CORS 불필요, `VITE_API_BASE`는 비운다). 다른 출처로 직접 부르려면 백엔드 CORS(버셀 도메인)와 `VITE_API_BASE`가 필요하다. 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이, 렌더가 깨어나는 중)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
+배포(무료 구성, 절차는 `docs/DEPLOY.md`): 프론트는 버셀(Root Directory `frontend`, `frontend/vercel.json`)에 올린다. main은 정식 주소, PR마다 미리보기 주소가 생긴다. 디자이너는 `/preview`를 html.to.design으로 가져가 수정한다(`design/README.md`). `/preview`는 `cleanUrls`가 `preview.html`로 연결한다(로컬 Vite 서버도 같다). 백엔드는 렌더 Free(`render.yaml` 블루프린트, 루트 `backend`, uv, Mock·`STORE=postgres`(Neon 무료, `DATABASE_URL`은 렌더 대시보드에만)·디스크 없음 — 다시 시작해도 데이터가 남는다)이고, `vercel.json`의 `rewrites`가 `/api/:path*`를 렌더로 넘겨 같은 출처로 쓴다(CORS 불필요, `VITE_API_BASE`는 비운다). 다른 출처로 직접 부르려면 백엔드 CORS(버셀 도메인)와 `VITE_API_BASE`가 필요하다. 앱 화면에서 JSON이 아닌 실패 응답(버셀 404·프록시·게이트웨이, 렌더가 깨어나는 중)과 연결 예외는 `BACKEND_UNREACHABLE` 안내로 보인다(`api/client.ts`의 `toOutcome`).
 
 ## 코드 품질 기준
 
