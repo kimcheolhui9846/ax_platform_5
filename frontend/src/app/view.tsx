@@ -6,7 +6,8 @@ import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
 import { firstSectionOrder } from "../lib/document";
-import type { DocumentFile } from "../lib/documentHtml";
+import type { DocumentFile } from "../lib/document";
+import type { DocumentFormat } from "../lib/documentFormats";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
 import { isPrivate } from "../lib/privacy";
@@ -64,7 +65,7 @@ export type Handlers = {
   applySupplements: () => void;
   editSection: (order: number) => void;
   submitEdit: (order: number, text: string) => void;
-  download: (file: DocumentFile) => void;
+  download: (file: DocumentFile, format: DocumentFormat) => void;
   reviewEvidence: () => void;
   applyEvidence: (sourceId: string) => void;
   openBeforeEvidence: () => void;
@@ -78,8 +79,8 @@ export type ScreenParts = { main: JSX.Element; side: JSX.Element | null };
 /** 화면 모델 → 본문과 오른쪽 패널. 판단은 하지 않고 모델과 lib의 순수 함수로만 그린다. */
 export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): ScreenParts {
   const file = documentFileOf(model);
-  const download = () => {
-    if (file) on.download(file);
+  const download = (format: DocumentFormat) => {
+    if (file) on.download(file, format);
   };
   switch (model.kind) {
     case "generating":

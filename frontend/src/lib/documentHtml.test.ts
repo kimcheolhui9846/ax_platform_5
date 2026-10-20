@@ -92,4 +92,10 @@ describe("내려받을 문서(HTML)", () => {
     expect(html).toContain("근거 검토 반영 · 점검");
     expect(html).toContain('<a href="https://x.kr/a?b=1&amp;c=2">출처: 기관 · 자료</a>');
   });
+
+  it("인쇄(PDF로 저장)해도 섹션이 중간에 끊기지 않게 인쇄 규칙을 담는다", () => {
+    const html = documentHtml({ ...documentContent(makeTask(), makeResult(), false, {}), request: "r" });
+    expect(html).toContain("@media print");
+    expect(html).toContain("@page{margin:18mm}");
+  });
 });

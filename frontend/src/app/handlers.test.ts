@@ -17,20 +17,23 @@ vi.mock("../api/coaching", () => ({
 import { applyEvidence, clearContext, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
 import { HOME, carryScreenOf } from "../lib/routes";
-import type { DocumentFile } from "../lib/documentHtml";
-import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
-import { CONTEXT_CLEARED_NOTICE, DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
+import { documentContent } from "../lib/document";
+import type { DocumentFile } from "../lib/document";
+import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
+import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
+import type { DocumentFormat } from "../lib/documentFormats";
+import { CONTEXT_CLEARED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
 import type { Action, AppState } from "./state";
 
 beforeEach(() => vi.clearAllMocks());
 
-function setup(patch: Partial<AppState> = {}) {
+function setup(patch: Partial<AppState> = {}, fail = false) {
   const calls: Call<unknown>[] = [];
   const actions: Action[] = [];
   const saved: [string, string][] = [];
-  const files: DocumentFile[] = [];
+  const exported: [DocumentFile, DocumentFormat][] = [];
   const run: Runner = async <T>(call: Call<T>) => {
     calls.push(call as unknown as Call<unknown>);
   };
@@ -40,9 +43,12 @@ function setup(patch: Partial<AppState> = {}) {
     run,
     dispatch: (action) => actions.push(action),
     saveDraft: (task, text) => saved.push([task, text]),
-    saveFile: (file) => files.push(file),
+    exportDocument: async (file, format) => {
+      if (fail) throw new Error("x");
+      exported.push([file, format]);
+    },
   });
-  return { on, calls, actions, saved, files };
+  return { on, calls, actions, saved, exported };
 }
 
 const session = makeSession({ session_id: "sess_1", next_question: makeQuestion({ question_id: "q_1" }) });
@@ -246,12 +252,42 @@ describe("makeHandlers — 요청", () => {
     expect(calls).toEqual([]);
   });
 
-  it("문서 내려받기는 파일을 저장하고 알린다", () => {
-    const { on, files, actions } = setup();
-    const file = { filename: "AX_product_planning_V1.html", html: "<!doctype html>" };
-    on.download(file);
-    expect(files).toEqual([file]);
-    expect(actions).toEqual([{ type: "noticed", message: DOWNLOADED_NOTICE }]);
+  const file = { basename: "AX_product_planning_V1", content: { ...documentContent(makeTask(), makeResult(), false, {}), request: "r" } };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("문서 내려받기는 고른 형식으로 내보내고 형식에 맞게 알린다", async () => {
+    const { on, exported, actions } = setup();
+    on.download(file, "docx");
+    on.download(file, "pdf");
+    await settle();
+    expect(exported).toEqual([[file, "docx"], [file, "pdf"]]);
+    expect(actions).toEqual([
+      { type: "exportStarted" },
+      { type: "exportStarted" },
+      { type: "exportFinished", message: EXPORTED_NOTICE.docx },
+      { type: "exportFinished", message: EXPORTED_NOTICE.pdf },
+    ]);
+  });
+
+  it("문서를 만들지 못하면 형식에 맞게 경고한다", async () => {
+    const { on, actions } = setup({}, true);
+    on.download(file, "docx");
+    on.download(file, "pdf");
+    await settle();
+    expect(actions).toEqual([
+      { type: "exportStarted" },
+      { type: "exportStarted" },
+      { type: "exportFinished", message: EXPORT_FAILED_NOTICE.docx },
+      { type: "exportFinished", message: EXPORT_FAILED_NOTICE.pdf },
+    ]);
+  });
+
+  it("만드는 중에 다시 누르면 또 만들지 않고 경고한다", async () => {
+    const { on, exported, actions } = setup({ exporting: true });
+    on.download(file, "docx");
+    await settle();
+    expect(exported).toEqual([]);
+    expect(actions).toEqual([{ type: "noticed", message: EXPORT_BUSY_NOTICE }]);
   });
 });
 

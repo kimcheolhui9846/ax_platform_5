@@ -2,6 +2,7 @@ import type { JSX } from "react";
 
 import type { ScreenModel } from "../app/screenModel";
 import { AppView } from "../app/view";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { SupplementForm } from "../components/SupplementForm";
 import { nextTask } from "../lib/carry";
 import { HOME } from "../lib/routes";
@@ -149,6 +150,13 @@ export const FRAMES: Frame[] = [
   }),
   frame("result-evidence", "결과 · 근거 반영", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT_EVIDENCE, images: {} }),
   frame("result-image", "결과 · 이미지 블록", result, { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT_IMAGE, images: PREVIEW_IMAGES }),
+  dialogFrame(
+    "result-download",
+    "결과 · 문서 내려받기 형식 고르기",
+    result,
+    { kind: "result", task: PRODUCT, session: SESSION_DONE, result: RESULT, images: {} },
+    () => <DownloadMenu full initialOpen onDownload={() => {}} />,
+  ),
   dialogFrame(
     "supplement-form",
     "미확인 정보 입력",

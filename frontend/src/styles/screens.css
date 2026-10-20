@@ -221,3 +221,6 @@
 /* 외부 전송 보호: 'AI에 보내지 않기' 체크 칸과 고지 */
 .privacy-toggle { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); line-height: var(--text-sm-line); cursor: pointer; }
 .privacy-toggle input { flex: none; }
+
+/* 문서 내려받기 형식 목록 */
+.download-options { list-style: none; margin: 0; padding: 0; }

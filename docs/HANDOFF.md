@@ -2,9 +2,9 @@
 
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
-- 기준일: 2026-10-19
-- main: `71019b0` (PR #29까지 머지)
-- 테스트: 백엔드 708 passed, 프론트 437 passed, 빌드 OK
+- 기준일: 2026-10-20
+- main: `b40711b` (PR #30까지 머지)
+- 테스트: 백엔드 708 passed, 프론트 461 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -37,6 +37,7 @@
 | 병렬 생성(기본 꺼짐)·설계 고민 기록(README) | #28 | 정책 `parallel_generation`으로 결과 항목을 조각으로 나눠 `generate_part`를 동시에 부르고 코드로 합친다(`harness/parallel.py`). 끝난 조각은 세션 캐시(프롬프트 해시)에 남아 실패한 조각만 다시 부른다. 모든 과제에서 꺼 둠. README "설계 고민 기록"(메모리·동시 호출·n중 파이프라인·병렬·종합 방식), 로드맵 0단계 측정표·3-1절 |
 | 측정 준비(비용 0) | #29 | trace `duration_ms`(호출마다 걸린 시간), `evals.play_questions`(실제 모델용: 계획 어긋남을 센다), 과제마다 `quick-skip.yaml`, 측정 도구 `scripts/measure.py`(과제×시나리오×한 번 호출·병렬×반복 → `rows.csv`·`summary.md`, 기본 Mock, 실제 모델은 `--budget-usd` 필수) |
 | 시연·평가 준비 | #30 | `docs/DEMO.md`(시연 순서·질문 대비), `docs/EVALUATION.md`(14장 지표를 무엇으로 재나·사용성 테스트·비교 실험), 평가 통계 `scripts/session_stats.py`(`app/harness/stats.py`, 저장소 `list_all`) |
+| 결과 문서 내보내기 | #31 | 결과·저장 완료·버전 보기의 '문서 내려받기' 메뉴: PDF(인쇄 창 'PDF로 저장')·Word(.docx)·HTML. 요청 예시를 한글 북백으로 |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -46,12 +47,12 @@
    - 모바일 390px 화면 확인, `/preview`를 html.to.design으로 피그마에 가져와 다듬기(`design/README.md`).
    - 수정본이 오면 `design/YYYY-MM-DD-…/`에 받은 그대로 넣고 직전 원본과 비교해 바뀐 화면만 반영한다(PR #17이 본보기).
 2. **배포는 끝났다(2026-10-18)** — WBS 5.1·5.2. 버셀 https://ax-platform-5.vercel.app (main 머지마다 자동 배포), 렌더 https://ax-coaching-api.onrender.com (`render.yaml`, main 머지마다 자동 배포). 절차·한계는 `docs/DEPLOY.md`.
-3. **시연 전 확인** — 몇 분 전에 앱을 열어 렌더를 깨운다(15분 무요청이면 잠들고 깨는 데 약 1분). 다시 시작하면 데이터가 지워진다(보관은 '문서 내려받기').
+3. **시연 전 확인** — 몇 분 전에 앱을 열어 렌더를 깨운다(15분 무요청이면 잠들고 깨는 데 약 1분). 다시 시작하면 데이터가 지워진다(보관은 '문서 내려받기' — PDF·Word·HTML).
 4. **실제 AI 연결** — WBS 6.1~6.3
    - LLM 어댑터는 준비됐다(`app/providers/claude.py`). 이 프로토타입은 비용 0을 지키므로 `PROVIDER`는 `mock`으로 둔다. 테스트는 계속 Mock·가짜 응답(네트워크 없음)이다.
    - 인수하는 회사가 켤 때(실제 호출·모델 선택·비용은 그쪽이 정한다, 키는 커밋 금지):
      - `backend/.env`에 `PROVIDER=claude`와 `ANTHROPIC_API_KEY=…`를 넣는다(키가 없으면 서버 시작 때 실패한다). 모델·노력은 `CLAUDE_MODEL`(기본 `claude-opus-5-5`)·`CLAUDE_EFFORT`(기본 `medium`).
-     - 세션 하나 확인(그쪽용 스크립트): `uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력). `generate`의 `output_tokens`가 상한 `MAX_TOKENS`(16000)에 가까우면 잘림(`ProviderOutputError`)이 나기 쉬우니 상한이나 결과 분량을 조정한다.
+     - 세션 하나 확인(그쪽용 스크립트): `uv run --directory backend python ../scripts/claude_smoke.py product_planning "외국인 관광객 선물용 한글 북백"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력). `generate`의 `output_tokens`가 상한 `MAX_TOKENS`(16000)에 가까우면 잘림(`ProviderOutputError`)이 나기 쉬우니 상한이나 결과 분량을 조정한다.
      - 참고 단가(1M 토큰당 입력/출력): Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 5.5 $0.10/$0.50.
    - 이미지: `ImageProvider` 구현(`app/providers/image.py` 계약). 근거 자료: `BaseHarness.find_evidence`만 웹 검색으로 바꾼다.
    - 과제별 하네스 튜닝(준비도 기준·가중치·프롬프트)은 시나리오(`evals/*.yaml`)로 측정하며 정한다.

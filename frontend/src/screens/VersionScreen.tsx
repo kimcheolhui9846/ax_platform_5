@@ -1,9 +1,11 @@
 import type { TaskSummary, VersionView } from "../api/types";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { ResultDocument } from "../components/ResultDocument";
 import { documentContent } from "../lib/document";
 import type { Images } from "../lib/document";
 import { formatDate } from "../lib/format";
 import { versionLine, versionNotice } from "../lib/sessions";
+import type { DocumentFormat } from "../lib/documentFormats";
 
 type MainProps = { task: TaskSummary; version: VersionView; stale: boolean; images: Images; onCurrent: () => void };
 
@@ -24,7 +26,7 @@ export function VersionMain({ task, version, stale, images, onCurrent }: MainPro
   );
 }
 
-type SideProps = { version: VersionView; onDocuments: () => void; onDownload: () => void };
+type SideProps = { version: VersionView; onDocuments: () => void; onDownload: (format: DocumentFormat) => void };
 
 export function VersionSide({ version, onDocuments, onDownload }: SideProps) {
   const summary = version.version;
@@ -34,9 +36,7 @@ export function VersionSide({ version, onDocuments, onDownload }: SideProps) {
       <p>{`${versionLine(summary)} · ${formatDate(summary.created_at)}`}</p>
       {summary.saved && <p className="small muted">결과물에 저장한 버전이에요.</p>}
       <div className="stack8">
-        <button type="button" className="btn full" onClick={onDownload}>
-          문서 내려받기
-        </button>
+        <DownloadMenu full onDownload={onDownload} />
         <button type="button" className="btn full" onClick={onDocuments}>
           결과물 목록 보기
         </button>

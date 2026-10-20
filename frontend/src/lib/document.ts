@@ -89,6 +89,9 @@ export type DocumentContent = {
   trailing: DocumentRecord[]; // 자리 잡을 섹션이 없는 근거 기록
 };
 
+/** 내보낼 결과 문서. 형식(PDF·Word·HTML)과 상관없고, 확장자는 내보낼 때 형식이 붙인다. */
+export type DocumentFile = { basename: string; content: DocumentContent & { request: string } };
+
 /** [순수] 화면의 결과 문서와 내려받는 문서가 같이 쓰는 내용. 기준은 그 결과를 만든 버전의 것이다. */
 export function documentContent(
   task: Pick<TaskSummary, "title" | "deliverable">,

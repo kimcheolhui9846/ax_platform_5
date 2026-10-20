@@ -3,8 +3,6 @@ import type { DocumentBlock, DocumentContent, DocumentRecord } from "./document"
 import { documentSections } from "./document";
 import { PRIVATE_LABEL } from "./privacy";
 
-export type DocumentFile = { filename: string; html: string };
-
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 export function escapeHtml(text: string): string {
@@ -19,6 +17,7 @@ const STYLE = [
   "table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-top:1px solid #e0e0e0;text-align:left;vertical-align:top}",
   "th{width:120px;font-weight:500}",
   "figure{margin:12px 0}img{max-width:100%;height:auto}figcaption{color:#707070;font-size:13px}.record{background:#f4f4f4;padding:12px 16px;margin:12px 0}a{color:#707070}",
+  "@page{margin:18mm}@media print{body{margin:0;max-width:none}h2{break-after:avoid}figure,.record,tr{break-inside:avoid}a{color:inherit}}",
 ].join("");
 
 function list(heading: string, items: string[]): string {

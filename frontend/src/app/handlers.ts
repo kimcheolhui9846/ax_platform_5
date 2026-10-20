@@ -13,7 +13,9 @@ import {
   submitAnswer,
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
-import type { DocumentFile } from "../lib/documentHtml";
+import type { DocumentFile } from "../lib/document";
+import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
+import type { DocumentFormat } from "../lib/documentFormats";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
 import { HOME } from "../lib/routes";
 import type { CarryScreen, Route } from "../lib/routes";
@@ -24,7 +26,6 @@ import type { Action, AppState } from "./state";
 import type { Handlers } from "./view";
 
 export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
-export const DOWNLOADED_NOTICE = "문서를 내려받았어요.";
 export const SUPPLEMENTS_SAVED_NOTICE = "입력 내용을 저장했어요. ‘초안에 반영’을 눌러 적용해 주세요.";
 export const SUPPLEMENTS_APPLIED_NOTICE = "입력한 정보를 초안의 보완 기준에 반영했어요.";
 export const CONTEXT_CLEARED_NOTICE = "가져온 내용을 뺐어요.";
@@ -38,17 +39,17 @@ export function routeAfterSession(session: SessionView): Route {
 }
 
 type Deps = {
-  state: Pick<AppState, "session" | "drafts" | "result" | "notices">;
+  state: Pick<AppState, "session" | "drafts" | "result" | "notices" | "exporting">;
   /** 요청·모드 화면이면 그 화면(과제·이어 가는 출처). 아니면 null. */
   carryScreen: CarryScreen | null;
   run: Runner;
   dispatch: (action: Action) => void;
   saveDraft: (task: string, text: string) => void;
-  saveFile: (file: DocumentFile) => void;
+  exportDocument: (file: DocumentFile, format: DocumentFormat) => Promise<void>;
 };
 
 /** 화면 버튼 → 화면 이동(dispatch) 또는 API 요청(run). 상태는 리듀서만 바꾼다. */
-export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, saveFile }: Deps): Handlers {
+export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exportDocument }: Deps): Handlers {
   const session = state.session;
   const from = carryScreen?.from ?? null;
   const go = (route: Route) => dispatch({ type: "navigated", route });
@@ -228,9 +229,14 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, sav
       const before = state.result ? versionBeforeEvidence(state.result.version) : null;
       if (session && before !== null) go({ name: "version", sessionId: session.session_id, version: before });
     },
-    download: (file) => {
-      saveFile(file);
-      dispatch({ type: "noticed", message: DOWNLOADED_NOTICE });
+    download: (file, format) => {
+      // 만드는 중(Word 라이브러리를 불러오는 동안 등)에 다시 누르면 파일이 두 번 생기지 않게 경고만 한다
+      if (state.exporting) return dispatch({ type: "noticed", message: EXPORT_BUSY_NOTICE });
+      dispatch({ type: "exportStarted" });
+      exportDocument(file, format).then(
+        () => dispatch({ type: "exportFinished", message: EXPORTED_NOTICE[format] }),
+        () => dispatch({ type: "exportFinished", message: EXPORT_FAILED_NOTICE[format] }),
+      );
     },
   };
 }

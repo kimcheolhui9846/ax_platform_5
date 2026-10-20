@@ -1,15 +1,13 @@
 import type { TaskSummary } from "../api/types";
 import { documentContent } from "../lib/document";
-import type { Images, Shown } from "../lib/document";
-import { documentHtml } from "../lib/documentHtml";
+import type { DocumentFile, Images, Shown } from "../lib/document";
 import { versionIsStale } from "../lib/sessions";
-import type { DocumentFile } from "../lib/documentHtml";
 import type { ScreenModel } from "./screenModel";
 
 function fileFor(task: TaskSummary, request: string, shown: Shown, stale: boolean, images: Images): DocumentFile {
   return {
-    filename: `AX_${task.task_type}_V${shown.version.version}.html`,
-    html: documentHtml({ ...documentContent(task, shown, stale, images), request }),
+    basename: `AX_${task.task_type}_V${shown.version.version}`,
+    content: { ...documentContent(task, shown, stale, images), request },
   };
 }
 

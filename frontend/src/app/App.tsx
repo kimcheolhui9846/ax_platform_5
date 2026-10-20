@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 
 import { Toast } from "../components/Toast";
-import { saveFile } from "../lib/download";
+import { exportDocument } from "../lib/download";
 import { readDraft, writeDraft } from "../lib/drafts";
 import { carryScreenOf, isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
@@ -87,7 +87,7 @@ export default function App() {
     run,
     dispatch,
     saveDraft: (key, text) => writeDraft(storage, key, text),
-    saveFile,
+    exportDocument,
   });
   return (
     <>

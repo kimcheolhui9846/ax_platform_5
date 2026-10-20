@@ -3,9 +3,9 @@ title: 브랜딩
 description: 브랜드의 성격과 말투, 표현 방향을 정리해요.
 heading: 내 브랜드만의 인상을 만들고 싶어요
 deliverable: 브랜드 콘셉트 · 표현 가이드
-input_placeholder: 예) 30대 1인 가구를 위한 수제 향초
+input_placeholder: 예) 책 좋아하는 20대를 위한 한글 북백
 input_examples:
-  - 30대 1인 가구를 위한 수제 향초
+  - 책 좋아하는 20대를 위한 한글 북백
   - 반려견 보호자를 위한 가죽 소품
 raw_input_field: product_and_customer
 readiness_threshold: 0.7

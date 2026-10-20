@@ -1,12 +1,14 @@
 import { useId } from "react";
 import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { ResultDocument } from "../components/ResultDocument";
 import { SupplementPanel } from "../components/SupplementPanel";
 import { STALE_BANNER, STALE_SAVE_HINT, REGENERATE_ACTION, actionState, saveButton } from "../lib/actions";
 import { documentContent } from "../lib/document";
 import type { Images } from "../lib/document";
 import type { SupplementProps } from "./EditScreen";
+import type { DocumentFormat } from "../lib/documentFormats";
 
 type MainProps = {
   task: TaskSummary;
@@ -72,7 +74,7 @@ type SideProps = {
   onSave: () => void;
   onChangeAnswers: (() => void) | null;
   onContinue: () => void;
-  onDownload: () => void;
+  onDownload: (format: DocumentFormat) => void;
 };
 
 /** 결과 화면 오른쪽: 흐름 요약과 다음 할 일(다시 만들기·저장·답변 바꾸기·이어 가기·내려받기). */
@@ -145,9 +147,7 @@ export function ResultSide({
         <button type="button" className="btn full" disabled={busy} onClick={onContinue}>
           질문 이어 가기
         </button>
-        <button type="button" className="btn full" disabled={busy || stale} aria-describedby={hinted} onClick={onDownload}>
-          문서 내려받기
-        </button>
+        <DownloadMenu full disabled={busy || stale} describedBy={hinted} onDownload={onDownload} />
       </div>
       {stale && (
         <p id={hintId} className="small muted">

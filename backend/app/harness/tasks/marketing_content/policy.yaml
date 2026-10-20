@@ -3,9 +3,9 @@ title: 마케팅 콘텐츠
 description: 목적에 맞는 메시지를 실제 문구로 만들어요.
 heading: 사람들에게 보여줄 홍보 글이 필요해요
 deliverable: 게시글 · 행동 유도 문구
-input_placeholder: 예) 새로 나온 겨울 한정 향초를 알리고 싶어요
+input_placeholder: 예) 한글날 한정 한글 북백을 알리고 싶어요
 input_examples:
-  - 새로 나온 겨울 한정 향초를 알리고 싶어요
+  - 한글날 한정 한글 북백을 알리고 싶어요
   - 반려견 목걸이 각인 이벤트를 홍보하고 싶어요
 raw_input_field: product
 readiness_threshold: 0.7
