@@ -11,27 +11,23 @@ from app.core.store import InMemorySessionStore, SessionStore, SqliteSessionStor
 class Storage:
     sessions: SessionStore
     assets: AssetStore
-    close: Callable[[], None]  # 앱이 끝날 때 부른다(Postgres 연결 풀을 닫는다)
+    open: Callable[[], None]  # 서버가 시작할 때 부른다(Postgres는 연결 풀을 열고 표를 만든다)
+    close: Callable[[], None]  # 서버가 끝날 때 부른다(Postgres 연결 풀을 닫는다)
 
 
 def _nothing() -> None:
     pass
 
 
-def opens_connections(kind: StoreKind) -> bool:
-    """이 저장소를 만들면 연결 풀 같은 자원이 열리는가. 열리면 서버가 시작할 때 만들고 끝날 때 닫는다."""
-    return kind == "postgres"
-
-
 def build_storage(kind: StoreKind, database_path: Path, asset_dir: Path, database_url: str | None) -> Storage:
-    """memory: 둘 다 메모리. sqlite: 세션 파일 + 이미지 폴더. postgres: 풀 하나를 둘이 나눠 쓴다."""
+    """memory: 둘 다 메모리. sqlite: 세션 파일 + 이미지 폴더. postgres: 풀 하나를 둘이 나눠 쓴다. 연결은 open()에서 한다."""
     if kind == "postgres":
         if not database_url:
             raise ValueError("STORE=postgres에는 DATABASE_URL이 필요합니다.")
-        from app.core.postgres import PostgresAssetStore, PostgresSessionStore, open_pool
+        from app.core.postgres import PostgresAssetStore, PostgresSessionStore, make_pool, open_pool
 
-        pool = open_pool(database_url)
-        return Storage(PostgresSessionStore(pool), PostgresAssetStore(pool), pool.close)
+        pool = make_pool(database_url)
+        return Storage(PostgresSessionStore(pool), PostgresAssetStore(pool), lambda: open_pool(pool), pool.close)
     if kind == "sqlite":
-        return Storage(SqliteSessionStore(database_path), LocalAssetStore(asset_dir), _nothing)
-    return Storage(InMemorySessionStore(), InMemoryAssetStore(), _nothing)
+        return Storage(SqliteSessionStore(database_path), LocalAssetStore(asset_dir), _nothing, _nothing)
+    return Storage(InMemorySessionStore(), InMemoryAssetStore(), _nothing, _nothing)

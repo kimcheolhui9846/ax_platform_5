@@ -25,9 +25,9 @@ CREATE TABLE IF NOT EXISTS assets (
 """
 
 
-def open_pool(url: str) -> ConnectionPool:
-    """풀을 열고 표가 없으면 만든다. 풀러(pgbouncer)와 맞도록 서버 측 준비 문을 끈다."""
-    pool = ConnectionPool(
+def make_pool(url: str) -> ConnectionPool:
+    """풀을 만든다(연결하지 않는다). 풀러(pgbouncer)와 맞도록 서버 측 준비 문을 끈다."""
+    return ConnectionPool(
         url,
         min_size=1,
         max_size=4,
@@ -37,6 +37,10 @@ def open_pool(url: str) -> ConnectionPool:
         max_lifetime=1800,
         open=False,
     )
+
+
+def open_pool(pool: ConnectionPool) -> None:
+    """풀을 열고 표가 없으면 만든다. 실패하면 풀을 닫고 예외를 올린다."""
     try:
         pool.open(wait=True, timeout=15)  # 관리형 DB가 자다 깨는 첫 연결은 몇 초 걸릴 수 있다
         with pool.connection() as conn:
@@ -44,7 +48,6 @@ def open_pool(url: str) -> ConnectionPool:
     except Exception:
         pool.close()
         raise
-    return pool
 
 
 class PostgresSessionStore:

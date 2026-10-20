@@ -48,7 +48,9 @@ def test_build_storage_postgres_shares_one_pool_and_closes_it(_postgres_url, tmp
     storage = build_storage("postgres", tmp_path / "x.db", tmp_path / "assets", _postgres_url)
     assert isinstance(storage.sessions, PostgresSessionStore) and isinstance(storage.assets, PostgresAssetStore)
     pool = storage.sessions._pool
-    assert storage.assets._pool is pool and not pool.closed
+    assert storage.assets._pool is pool and pool.closed  # 만들 때는 연결하지 않는다
+    storage.open()
+    assert not pool.closed
     storage.close()
     assert pool.closed
 
@@ -83,13 +85,13 @@ def test_create_app_on_postgres_keeps_sessions(_postgres_url, postgres_pool, tmp
     monkeypatch.setattr(config.settings, "store", "postgres")
     monkeypatch.setattr(config.settings, "database_url", SecretStr(_postgres_url))
     app = create_app()
-    assert not hasattr(app.state, "store")  # 서버가 시작하기 전에는 풀을 열지 않는다
-    assert app.state.registry is not None  # 저장소가 아닌 상태는 먼저 갖춘다
+    pool = app.state.store._pool
+    assert pool.closed  # 서버가 시작하기 전에는 풀을 열지 않는다(연결 없음)
     with TestClient(app) as client:
         state = SessionState(session_id="s-pg", owner_id="o", task_type="business_plan", raw_input="x")
         app.state.store.save(state)
         assert app.state.store.get("s-pg").owner_id == "o"
-        pool = app.state.store._pool
+        assert not pool.closed
     assert pool.closed
 
 

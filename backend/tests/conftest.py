@@ -110,9 +110,10 @@ def _postgres_url(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def _postgres_pool_session(_postgres_url):
-    from app.core.postgres import open_pool
+    from app.core.postgres import make_pool, open_pool
 
-    pool = open_pool(_postgres_url)
+    pool = make_pool(_postgres_url)
+    open_pool(pool)
     yield pool
     pool.close()
 
