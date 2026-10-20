@@ -17,8 +17,9 @@ vi.mock("../api/coaching", () => ({
 import { applyEvidence, clearContext, continueSession, createSession, editResultSection, generateResult, reviseAnswer, saveSupplements, saveVersion, showOriginalQuestion, submitAnswer } from "../api/coaching";
 import { EVIDENCE_APPLIED_NOTICE } from "../lib/evidence";
 import { HOME, carryScreenOf } from "../lib/routes";
-import type { DocumentFile } from "../lib/documentHtml";
-import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeVersionView } from "../testing/factories";
+import { documentContent } from "../lib/document";
+import type { DocumentFile } from "../lib/document";
+import { makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import { CONTEXT_CLEARED_NOTICE, DOWNLOADED_NOTICE, NOTHING_LEFT_NOTICE, SECTION_EDITED_NOTICE, SUPPLEMENTS_APPLIED_NOTICE, SUPPLEMENTS_SAVED_NOTICE, makeHandlers, routeAfterSession } from "./handlers";
 import type { Call, Runner } from "./requests";
 import { initialState } from "./state";
@@ -248,7 +249,10 @@ describe("makeHandlers — 요청", () => {
 
   it("문서 내려받기는 파일을 저장하고 알린다", () => {
     const { on, files, actions } = setup();
-    const file = { filename: "AX_product_planning_V1.html", html: "<!doctype html>" };
+    const file = {
+      basename: "AX_product_planning_V1",
+      content: { ...documentContent(makeTask(), makeResult(), false, {}), request: "r" },
+    };
     on.download(file);
     expect(files).toEqual([file]);
     expect(actions).toEqual([{ type: "noticed", message: DOWNLOADED_NOTICE }]);

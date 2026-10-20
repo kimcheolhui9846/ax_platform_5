@@ -13,7 +13,7 @@ import {
   submitAnswer,
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
-import type { DocumentFile } from "../lib/documentHtml";
+import type { DocumentFile } from "../lib/document";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
 import { HOME } from "../lib/routes";
 import type { CarryScreen, Route } from "../lib/routes";

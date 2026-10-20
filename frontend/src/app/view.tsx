@@ -6,7 +6,7 @@ import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
 import { firstSectionOrder } from "../lib/document";
-import type { DocumentFile } from "../lib/documentHtml";
+import type { DocumentFile } from "../lib/document";
 import { answeredBefore, firstEditable, previousEditable, questionPosition } from "../lib/flowView";
 import { modeName } from "../lib/modes";
 import { isPrivate } from "../lib/privacy";
