@@ -1,5 +1,6 @@
 import type { SessionSummary } from "../api/types";
 import { formatDate } from "../lib/format";
+import { useFocusOnShrink } from "../lib/useFocusOnShrink";
 import { savedDocuments, versionLine } from "../lib/sessions";
 import { EmptyState } from "./EmptyState";
 
@@ -14,10 +15,11 @@ type Props = {
 /** 결과물: 저장한 버전을 최근에 만든 순서로. */
 export function DocumentsScreen({ sessions, busy, onOpen, onUnsave, onHome }: Props) {
   const documents = savedDocuments(sessions);
+  const heading = useFocusOnShrink(documents.length);
   return (
     <section className="list stack">
       <p className="small">MY DOCUMENTS</p>
-      <h1 className="screen-title">결과물</h1>
+      <h1 ref={heading} tabIndex={-1} className="screen-title">결과물</h1>
       <p className="muted">저장한 버전을 골라 다시 확인하세요.</p>
       {documents.length === 0 ? (
         <EmptyState
@@ -37,7 +39,11 @@ export function DocumentsScreen({ sessions, busy, onOpen, onUnsave, onHome }: Pr
               <button type="button" className="btn" onClick={() => onOpen(session.session_id, version.version)}>
                 이 버전 열기 →
               </button>
-              <button type="button" className="btn compact" disabled={busy} onClick={() => onUnsave(session.session_id, version.version)}>
+              <button
+                type="button"
+                className="btn compact"
+                aria-label={`${session.name} V${version.version} 결과물에서 빼기`}
+                disabled={busy} onClick={() => onUnsave(session.session_id, version.version)}>
                 결과물에서 빼기
               </button>
             </div>

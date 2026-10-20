@@ -71,7 +71,7 @@ export function WorkItemActions({ summary, busy, onRename, onDelete }: Props) {
   const [open, setOpen] = useState<Open>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const renameButton = useRef<HTMLButtonElement>(null);
-  const last = useRef<Open>(null);
+  const refocus = useRef(false); // 닫힌 뒤 열었던 버튼으로 포커스를 돌려줄 차례
   const titleId = useId();
 
   useEffect(() => {
@@ -82,17 +82,32 @@ export function WorkItemActions({ summary, busy, onRename, onDelete }: Props) {
       node.querySelector("input")?.focus();
     }
     if (open === null && node.open) node.close();
-    if (open === null && last.current === "rename") renameButton.current?.focus();
-    last.current = open;
   }, [open]);
 
+  // 저장 요청 중에는 버튼이 막혀 포커스를 받지 못하므로, 요청이 끝난 뒤(busy 해제)에 돌려준다.
+  useEffect(() => {
+    if (open === null && !busy && refocus.current) {
+      refocus.current = false;
+      renameButton.current?.focus();
+    }
+  }, [open, busy]);
+
   const close = () => setOpen(null);
+  const closeRename = () => {
+    refocus.current = true;
+    close();
+  };
   return (
     <div className="item-actions">
-      <button ref={renameButton} type="button" className="btn compact" disabled={busy} onClick={() => setOpen("rename")}>
+      <button
+        ref={renameButton}
+        type="button"
+        className="btn compact"
+        aria-label={`${summary.name} 이름 바꾸기`}
+        disabled={busy} onClick={() => setOpen("rename")}>
         이름 바꾸기
       </button>
-      <button type="button" className="btn compact" disabled={busy} onClick={() => setOpen("delete")}>
+      <button type="button" className="btn compact" aria-label={`${summary.name} 삭제`} disabled={busy} onClick={() => setOpen("delete")}>
         삭제
       </button>
       <dialog
@@ -101,7 +116,8 @@ export function WorkItemActions({ summary, busy, onRename, onDelete }: Props) {
         aria-labelledby={titleId}
         onCancel={(event) => {
           event.preventDefault();
-          close();
+          if (open === "rename") closeRename();
+          else close();
         }}
       >
         {open === "rename" && (
@@ -110,10 +126,10 @@ export function WorkItemActions({ summary, busy, onRename, onDelete }: Props) {
             name={summary.name}
             busy={busy}
             onSave={(name) => {
-              close();
+              closeRename();
               onRename(name);
             }}
-            onCancel={close}
+            onCancel={closeRename}
           />
         )}
         {open === "delete" && (

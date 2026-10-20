@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeSessionSummary } from "../testing/factories";
-import { canRename, clip, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
+import { canRename, clip, listShrank, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
 
 describe("세션 요약 판단", () => {
   it("버전 한 줄", () => {
@@ -77,5 +77,13 @@ describe("canRename", () => {
     expect(canRename(" 향초 ")).toBe(true);
     expect(canRename("가".repeat(40))).toBe(true);
     expect(canRename("가".repeat(41))).toBe(false);
+  });
+});
+
+describe("listShrank", () => {
+  it("개수가 줄었을 때만", () => {
+    expect(listShrank(3, 2)).toBe(true);
+    expect(listShrank(2, 2)).toBe(false);
+    expect(listShrank(2, 3)).toBe(false);
   });
 });

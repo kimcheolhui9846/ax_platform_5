@@ -76,3 +76,8 @@ export function canRename(text: string): boolean {
   const length = text.trim().length;
   return length >= 1 && length <= NAME_MAX;
 }
+
+/** [순수] 목록에서 항목이 빠졌는가(빠진 항목의 버튼은 사라지므로 포커스를 목록 제목으로 옮길 때). */
+export function listShrank(previous: number, current: number): boolean {
+  return current < previous;
+}

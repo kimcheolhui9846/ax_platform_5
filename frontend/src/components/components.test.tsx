@@ -554,6 +554,8 @@ describe("작업 이름·삭제 대화상자", () => {
     const summary = makeSessionSummary();
     const on = renderToString(<WorkItemActions summary={summary} busy={false} onRename={noop} onDelete={noop} />);
     expect(on).toContain("이름 바꾸기");
+    expect(on).toContain(`aria-label="${summary.name} 이름 바꾸기"`);
+    expect(on).toContain(`aria-label="${summary.name} 삭제"`);
     expect(on).not.toContain("disabled");
     const off = renderToString(<WorkItemActions summary={summary} busy={true} onRename={noop} onDelete={noop} />);
     expect(off.match(/disabled/g)).toHaveLength(2);

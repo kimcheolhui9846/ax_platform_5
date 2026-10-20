@@ -126,6 +126,7 @@ describe("renderScreen", () => {
     expect(main).toContain("상품기획 초안 · V2");
     expect(main).toContain("수제 향초");
     expect(main).toContain("결과물에서 빼기");
+    expect(main).toContain("수제 향초 V2 결과물에서 빼기");
     expect(main).toContain("V2 · 다시 만든 초안 · 2026.10.16 19:00");
     expect(main).toContain("이 버전 열기 →");
     expect(draw({ kind: "documents", sessions: [makeSessionSummary()] }).main).toContain("아직 저장한 결과가 없어요");

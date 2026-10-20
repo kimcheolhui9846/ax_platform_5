@@ -1,8 +1,7 @@
-import { useRef } from "react";
-
 import type { SessionSummary } from "../api/types";
 import { formatDate } from "../lib/format";
 import { modeName } from "../lib/modes";
+import { useFocusOnShrink } from "../lib/useFocusOnShrink";
 import { stageLabel } from "../lib/sessions";
 import { WorkItemActions } from "../components/WorkItemDialogs";
 import { EmptyState } from "./EmptyState";
@@ -18,7 +17,7 @@ type Props = {
 
 /** 내 작업: 세션마다 진행 단계와 이어서 작업하기. */
 export function WorkScreen({ sessions, busy, onResume, onRename, onDelete, onHome }: Props) {
-  const heading = useRef<HTMLHeadingElement>(null);
+  const heading = useFocusOnShrink(sessions.length);
   return (
     <section className="list stack">
       <p className="small">MY WORK</p>
@@ -41,10 +40,7 @@ export function WorkScreen({ sessions, busy, onResume, onRename, onDelete, onHom
                 summary={summary}
                 busy={busy}
                 onRename={(name) => onRename(summary.session_id, name)}
-                onDelete={() => {
-                  onDelete(summary.session_id);
-                  heading.current?.focus(); // 항목이 사라지므로 목록 제목으로
-                }}
+                onDelete={() => onDelete(summary.session_id)}
               />
             </div>
           </article>
