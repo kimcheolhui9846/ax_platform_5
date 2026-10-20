@@ -1,4 +1,4 @@
-import { Document, ExternalHyperlink, HeadingLevel, ImageRun, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from "docx";
+import { BorderStyle, Document, ExternalHyperlink, HeadingLevel, ImageRun, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from "docx";
 
 import { formatAssumption } from "./assumption";
 import type { DocumentBlock, DocumentFile, DocumentRecord } from "./document";
@@ -14,9 +14,12 @@ const MAX_IMAGE_WIDTH = 480; // 본문 폭에 맞춘 이미지 최대 폭(px)
 type Style = { bold?: boolean; color?: string; size?: number };
 export type DocxImage = { type: "png" | "jpg"; data: Uint8Array; width: number; height: number };
 
+/** [순수] XML 1.0에 쓸 수 없는 제어 문자를 지운다(탭·줄바꿈은 남긴다). 남기면 Word가 파일을 열지 못한다. */
+export const clean = (text: string) => text.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+
 /** 줄바꿈을 줄 나눔(w:br)으로 바꾼 글 조각. */
 function runs(text: string, style: Style = {}): TextRun[] {
-  return text.split("\n").map((line, index) => new TextRun({ text: line, ...style, ...(index > 0 ? { break: 1 } : {}) }));
+  return clean(text).split("\n").map((line, index) => new TextRun({ text: line, ...style, ...(index > 0 ? { break: 1 } : {}) }));
 }
 
 function paragraph(text: string, style: Style = {}): Paragraph {
@@ -29,6 +32,14 @@ function heading(text: string): Paragraph {
   return new Paragraph({ heading: HeadingLevel.HEADING_2, children: runs(text), spacing: { before: 360, after: 120 } });
 }
 
+// HTML 표처럼 위에만 옅은 선을 긋는다.
+const CELL_BORDERS = {
+  top: { style: BorderStyle.SINGLE, size: 4, color: "E0E0E0" },
+  bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+};
+
 function table(rows: [string, string][]): Table {
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -36,8 +47,8 @@ function table(rows: [string, string][]): Table {
       ([label, value]) =>
         new TableRow({
           children: [
-            new TableCell({ width: { size: 25, type: WidthType.PERCENTAGE }, children: [paragraph(label, { bold: true })] }),
-            new TableCell({ width: { size: 75, type: WidthType.PERCENTAGE }, children: [paragraph(value)] }),
+            new TableCell({ borders: CELL_BORDERS, width: { size: 25, type: WidthType.PERCENTAGE }, children: [paragraph(label, { bold: true })] }),
+            new TableCell({ borders: CELL_BORDERS, width: { size: 75, type: WidthType.PERCENTAGE }, children: [paragraph(value)] }),
           ],
         }),
     ),
@@ -58,7 +69,9 @@ function bytesOf(base64: string): Uint8Array | null {
 }
 
 function pngSize(b: Uint8Array): [number, number] | null {
-  if (b.length < 24 || b[0] !== 0x89 || b[1] !== 0x50) return null;
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const header = [0x49, 0x48, 0x44, 0x52]; // "IHDR"
+  if (b.length < 24 || signature.some((v, i) => b[i] !== v) || header.some((v, i) => b[12 + i] !== v)) return null;
   const view = new DataView(b.buffer, b.byteOffset);
   return [view.getUint32(16), view.getUint32(20)];
 }
@@ -67,8 +80,9 @@ function pngSize(b: Uint8Array): [number, number] | null {
 function jpegSize(b: Uint8Array): [number, number] | null {
   if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
   let i = 2;
-  while (i + 9 < b.length) {
+  while (i + 9 <= b.length) {
     if (b[i] !== 0xff) return null;
+    while (b[i + 1] === 0xff) i++; // 표지 앞 채움 바이트
     const marker = b[i + 1];
     const length = (b[i + 2] << 8) | b[i + 3];
     if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
@@ -93,7 +107,7 @@ export function imageOf(src: string | null): DocxImage | null {
 }
 
 function blockParagraphs(block: DocumentBlock): Paragraph[] {
-  if (block.kind === "text") return block.text.split(/\n{2,}/).map((part) => paragraph(part));
+  if (block.kind === "text") return clean(block.text).split(/\n{2,}/).map((part) => paragraph(part));
   const image = imageOf(block.src);
   if (image === null) return [note(`[이미지: ${block.alt}]`)];
   const picture = new Paragraph({
@@ -102,7 +116,7 @@ function blockParagraphs(block: DocumentBlock): Paragraph[] {
         type: image.type,
         data: image.data,
         transformation: { width: image.width, height: image.height },
-        altText: { name: block.alt, title: block.alt, description: block.alt },
+        altText: { name: clean(block.alt), title: clean(block.alt), description: clean(block.alt) },
       }),
     ],
   });
@@ -111,9 +125,9 @@ function blockParagraphs(block: DocumentBlock): Paragraph[] {
 
 function recordParagraphs(record: DocumentRecord): Paragraph[] {
   const source = record.url
-    ? new ExternalHyperlink({ link: record.url, children: [new TextRun({ text: record.source, color: MUTED, size: 18, underline: {} })] })
-    : new TextRun({ text: record.source, color: MUTED, size: 18 });
-  const rest = record.note ? [new TextRun({ text: ` · ${record.note}`, color: MUTED, size: 18 })] : [];
+    ? new ExternalHyperlink({ link: record.url, children: [new TextRun({ text: clean(record.source), color: MUTED, size: 18, underline: {} })] })
+    : new TextRun({ text: clean(record.source), color: MUTED, size: 18 });
+  const rest = record.note ? [new TextRun({ text: clean(` · ${record.note}`), color: MUTED, size: 18 })] : [];
   return [paragraph(record.label, { bold: true }), paragraph(record.text), new Paragraph({ children: [source, ...rest], spacing: { after: 240 } })];
 }
 
@@ -125,7 +139,7 @@ export function documentDocx(content: DocumentFile["content"]): Document {
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 360, after: 120 },
-      children: [new TextRun({ text: `${s.number} `, color: ACCENT }), new TextRun(s.heading), new TextRun({ text: ` ${s.tag}`, color: MUTED, size: 18 })],
+      children: [new TextRun({ text: clean(`${s.number} `), color: ACCENT }), new TextRun(clean(s.heading)), new TextRun({ text: clean(` ${s.tag}`), color: MUTED, size: 18 })],
     }),
     ...s.blocks.flatMap(blockParagraphs),
     ...s.records.flatMap(recordParagraphs),
@@ -136,7 +150,7 @@ export function documentDocx(content: DocumentFile["content"]): Document {
       : [heading("보완 정보 · 사용자 입력 / 검증 전"), table(content.supplements.map((row) => [row.label, `${row.value}${marks("", row.private)}`]))];
   return new Document({
     creator: "창작자 AX",
-    title: content.title,
+    title: clean(content.title),
     styles: { default: { document: { run: { font: FONT, size: 21 } } } },
     sections: [
       {
