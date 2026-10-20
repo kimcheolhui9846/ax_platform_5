@@ -68,3 +68,11 @@ export function clip(text: string, max = 24): string {
   const flat = text.trim().replace(/\s+/g, " ");
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
+
+export const NAME_MAX = 40;
+
+/** [순수] 이 이름으로 저장할 수 있는가: 앞뒤 공백을 뺀 길이가 1~40자. */
+export function canRename(text: string): boolean {
+  const length = text.trim().length;
+  return length >= 1 && length <= NAME_MAX;
+}

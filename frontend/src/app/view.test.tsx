@@ -108,9 +108,12 @@ describe("renderScreen", () => {
   });
 
   it("내 작업은 세션마다 진행 단계와 이어서 작업하기, 없으면 빈 안내", () => {
-    const sessions = [makeSessionSummary({ raw_input: "한글 파우치", has_question: false, has_result: true, latest_version: 2 })];
+    const sessions = [makeSessionSummary({ name: "한글 파우치 계획", raw_input: "다른 글", has_question: false, has_result: true, latest_version: 2 })];
     const { main, side } = draw({ kind: "work", sessions });
-    expect(main).toContain("한글 파우치 · 상품기획");
+    expect(main).toContain("한글 파우치 계획 · 상품기획");
+    expect(main).not.toContain("다른 글");
+    expect(main).toContain("이름 바꾸기");
+    expect(main).toContain(">삭제<");
     expect(main).toContain("스탠다드 · 결과 V2 · 2026.10.16 18:00");
     expect(main).toContain("이어서 작업하기 →");
     expect(side).toBeNull();
@@ -121,6 +124,8 @@ describe("renderScreen", () => {
     const saved = { version: 2, created_at: "2026-10-16T10:00:00Z", reason: "regenerate" as const, saved: true };
     const { main } = draw({ kind: "documents", sessions: [makeSessionSummary({ saved_versions: [saved] })] });
     expect(main).toContain("상품기획 초안 · V2");
+    expect(main).toContain("수제 향초");
+    expect(main).toContain("결과물에서 빼기");
     expect(main).toContain("V2 · 다시 만든 초안 · 2026.10.16 19:00");
     expect(main).toContain("이 버전 열기 →");
     expect(draw({ kind: "documents", sessions: [makeSessionSummary()] }).main).toContain("아직 저장한 결과가 없어요");

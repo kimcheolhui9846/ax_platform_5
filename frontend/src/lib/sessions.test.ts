@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeSessionSummary } from "../testing/factories";
-import { clip, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
+import { canRename, clip, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
 
 describe("세션 요약 판단", () => {
   it("버전 한 줄", () => {
@@ -67,5 +67,15 @@ describe("이어하기 문구와 버전 최신 여부", () => {
     expect(versionIsStale({ latest: true }, { result_stale: false })).toBe(false);
     expect(versionIsStale({ latest: false }, { result_stale: false })).toBe(true);
     expect(versionIsStale({ latest: true }, { result_stale: true })).toBe(true);
+  });
+});
+
+describe("canRename", () => {
+  it("공백만이면 안 되고 앞뒤 공백을 뺀 길이가 1~40자", () => {
+    expect(canRename("")).toBe(false);
+    expect(canRename("   ")).toBe(false);
+    expect(canRename(" 향초 ")).toBe(true);
+    expect(canRename("가".repeat(40))).toBe(true);
+    expect(canRename("가".repeat(41))).toBe(false);
   });
 });

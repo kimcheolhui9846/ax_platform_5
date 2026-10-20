@@ -39,6 +39,7 @@ import {
   SESSION_SUPPLEMENTED,
   TASKS,
 } from "./fixtures";
+import { DeleteConfirm, RenameForm } from "../components/WorkItemDialogs";
 import { NOOP_HANDLERS } from "./handlers";
 
 /** render는 프레임마다 다른 본문 id를 받는다(한 페이지에 프레임이 여럿이라 id가 겹치지 않게). */
@@ -195,6 +196,12 @@ export const FRAMES: Frame[] = [
     { kind: "version", task: PRODUCT, session: SESSION_DONE, version: OLD_VERSION, images: {} },
   ),
   frame("work", "내 작업", { name: "work" }, { kind: "work", sessions: SESSIONS }),
+  dialogFrame("work-rename", "내 작업 · 이름 바꾸기", { name: "work" }, { kind: "work", sessions: SESSIONS }, (titleId) => (
+    <RenameForm titleId={titleId} name={SESSIONS[0].name} busy={false} onSave={() => {}} onCancel={() => {}} />
+  )),
+  dialogFrame("work-delete", "내 작업 · 삭제 확인", { name: "work" }, { kind: "work", sessions: SESSIONS }, (titleId) => (
+    <DeleteConfirm titleId={titleId} name={SESSIONS[0].name} busy={false} onDelete={() => {}} onCancel={() => {}} />
+  )),
   frame("work-empty", "내 작업 · 비어 있음", { name: "work" }, { kind: "work", sessions: [] }),
   frame("documents", "결과물", { name: "documents" }, { kind: "documents", sessions: SESSIONS }),
   frame("documents-empty", "결과물 · 비어 있음", { name: "documents" }, { kind: "documents", sessions: [] }),
