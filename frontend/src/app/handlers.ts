@@ -4,13 +4,16 @@ import {
   continueSession,
   clearContext as clearContextRequest,
   createSession,
+  deleteSession as deleteSessionRequest,
   editResultSection,
   generateResult,
+  renameSession as renameSessionRequest,
   reviseAnswer,
   saveSupplements as saveSupplementsRequest,
   saveVersion as saveVersionRequest,
   showOriginalQuestion,
   submitAnswer,
+  unsaveVersion as unsaveVersionRequest,
 } from "../api/coaching";
 import type { AnswerBody, SessionView } from "../api/types";
 import type { DocumentFile } from "../lib/document";
@@ -22,6 +25,7 @@ import type { CarryScreen, Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
 import { PLAIN } from "./requests";
 import type { Runner } from "./requests";
+import { SESSION_DELETED_NOTICE } from "./state";
 import type { Action, AppState } from "./state";
 import type { Handlers } from "./view";
 
@@ -29,6 +33,9 @@ export const NOTHING_LEFT_NOTICE = "더 물어볼 질문이 없어요.";
 export const SUPPLEMENTS_SAVED_NOTICE = "입력 내용을 저장했어요. ‘초안에 반영’을 눌러 적용해 주세요.";
 export const SUPPLEMENTS_APPLIED_NOTICE = "입력한 정보를 초안의 보완 기준에 반영했어요.";
 export const CONTEXT_CLEARED_NOTICE = "가져온 내용을 뺐어요.";
+export { SESSION_DELETED_NOTICE };
+export const SESSION_RENAMED_NOTICE = "작업 이름을 바꿨어요.";
+export const VERSION_UNSAVED_NOTICE = "결과물에서 뺐어요. 작업에서 다시 저장할 수 있어요.";
 export const SECTION_EDITED_NOTICE = "문구를 반영했어요. 다른 기준과 검토 기록은 그대로예요.";
 
 /** [순수] 답이 바뀐 세션의 다음 화면. 걸린 질문이 있으면 질문, 없으면 답변 확인. */
@@ -175,6 +182,24 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
         ...PLAIN,
       });
     },
+    deleteSession: (sessionId) =>
+      void run({
+        request: () => deleteSessionRequest(sessionId),
+        done: (_, seq) => ({ type: "sessionDeleted", seq, sessionId }),
+        ...PLAIN,
+      }),
+    renameSession: (sessionId, name) =>
+      void run({
+        request: () => renameSessionRequest(sessionId, name),
+        done: (summary, seq) => ({ type: "summaryChanged", seq, summary, notice: SESSION_RENAMED_NOTICE }),
+        ...PLAIN,
+      }),
+    unsaveVersion: (sessionId, version) =>
+      void run({
+        request: () => unsaveVersionRequest(sessionId, version),
+        done: (summary, seq) => ({ type: "summaryChanged", seq, summary, notice: VERSION_UNSAVED_NOTICE }),
+        ...PLAIN,
+      }),
     saveSupplements: (values, privacy) => {
       if (!session) return;
       const sessionId = session.session_id;

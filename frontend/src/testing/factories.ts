@@ -74,6 +74,7 @@ export function makeSession(overrides: Partial<SessionView> = {}): SessionView {
   return {
     session_id: "sess_1",
     task_type: "product_planning",
+    name: "수제 향초",
     mode: "standard",
     status: question ? "clarifying" : "confirming",
     raw_input: "수제 향초",
@@ -145,6 +146,7 @@ export function makeSessionSummary(overrides: Partial<SessionSummary> = {}): Ses
     session_id: "sess_1",
     task_type: "product_planning",
     title: "상품기획",
+    name: "수제 향초",
     raw_input: "수제 향초",
     mode: "standard",
     has_question: true,

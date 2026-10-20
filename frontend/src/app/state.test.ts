@@ -249,6 +249,48 @@ describe("reducer", () => {
     expect(reducer(done, { type: "navigated", route: { name: "version", sessionId: "sess_1", version: 1 } }).version).toBe(version);
   });
 
+  it("작업을 지우면 목록에서 빼고, 지금 보던 작업이면 세션·결과·버전·근거를 비운다", () => {
+    const other = makeSessionSummary({ session_id: "sess_2" });
+    const state: AppState = {
+      ...initialState(result),
+      sessions: [makeSessionSummary(), other],
+      session: makeSession({ has_result: true }),
+      result: makeResult(),
+      version: makeVersionView(),
+      evidence: { sessionId: "sess_1", items: [] },
+    };
+    const done = reducer(waiting(state, 1), { type: "sessionDeleted", seq: 1, sessionId: "sess_1" });
+    expect(done.sessions).toEqual([other]);
+    expect([done.session, done.result, done.version, done.evidence]).toEqual([null, null, null, null]);
+    expect(done.toast).toBe("작업을 삭제했어요.");
+    // 다른 작업을 지우면 보던 것은 그대로
+    const kept = reducer(waiting(state, 2), { type: "sessionDeleted", seq: 2, sessionId: "sess_2" });
+    expect(kept.session).toBe(state.session);
+    expect(kept.sessions).toHaveLength(1);
+    // 늦게 온 응답은 버린다
+    expect(reducer(waiting(state, 3), { type: "sessionDeleted", seq: 9, sessionId: "sess_1" }).sessions).toBe(state.sessions);
+  });
+
+  it("작업 요약이 바뀌면 목록의 그 항목을 바꾸고, 지금 보던 작업이면 세션·결과·버전을 비운다", () => {
+    const other = makeSessionSummary({ session_id: "sess_2" });
+    const state: AppState = {
+      ...initialState(result),
+      sessions: [makeSessionSummary(), other],
+      session: makeSession({ has_result: true }),
+      result: makeResult(),
+      version: makeVersionView(),
+    };
+    const summary = makeSessionSummary({ name: "새 이름" });
+    const done = reducer(waiting(state, 1), { type: "summaryChanged", seq: 1, summary, notice: "알림" });
+    expect(done.sessions).toEqual([summary, other]);
+    expect([done.session, done.result, done.version]).toEqual([null, null, null]);
+    expect(done.toast).toBe("알림");
+    const kept = reducer(waiting(state, 2), { type: "summaryChanged", seq: 2, summary: { ...other, name: "b" }, notice: "n" });
+    expect(kept.session).toBe(state.session);
+    expect(kept.sessions?.[1].name).toBe("b");
+    expect(reducer(waiting(state, 3), { type: "summaryChanged", seq: 9, summary, notice: "n" }).sessions).toBe(state.sessions);
+  });
+
   it("다른 버전으로 옮기면 보던 버전을 비운다", () => {
     const version = makeVersionView();
     const state: AppState = { ...initialState({ name: "version", sessionId: "sess_1", version: 1 }), version };

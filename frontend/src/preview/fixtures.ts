@@ -161,6 +161,7 @@ const SUPPLEMENT_FILLED: SupplementItem[] = SUPPLEMENT_EMPTY.map((item) =>
 const SESSION_BASE: SessionView = {
   session_id: "sess_preview",
   task_type: "product_planning",
+  name: "수제 향초",
   mode: "standard",
   status: "clarifying",
   raw_input: REQUEST,
@@ -308,6 +309,7 @@ export const SESSIONS: SessionSummary[] = [
     session_id: "sess_preview",
     task_type: "product_planning",
     title: "상품기획",
+    name: "수제 향초 상품기획",
     raw_input: REQUEST,
     mode: "standard",
     has_question: false,
@@ -324,6 +326,7 @@ export const SESSIONS: SessionSummary[] = [
     session_id: "sess_brand",
     task_type: "branding",
     title: "브랜딩",
+    name: "한글 파우치 브랜드",
     raw_input: "한글 파우치 브랜드가 너무 전통적으로만 보이지 않으면 좋겠어요",
     mode: "quick",
     has_question: true,

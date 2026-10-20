@@ -3,6 +3,8 @@ import type { Images } from "../lib/document";
 import { contextOf, isListRoute, sessionIdOf, taskOf, toHash } from "../lib/routes";
 import type { Route } from "../lib/routes";
 
+export const SESSION_DELETED_NOTICE = "작업을 삭제했어요.";
+
 /** 기다리는 요청. seq가 다른 응답은 늦게 온 것이라 버린다. load는 화면을 그리려고 부른 요청의 이름(loadKey)이다. */
 export type Inflight = { seq: number; load: string | null; generating: boolean };
 
@@ -37,6 +39,8 @@ export type Action =
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
+  | { type: "sessionDeleted"; seq: number; sessionId: string }
+  | { type: "summaryChanged"; seq: number; summary: SessionSummary; notice: string }
   | { type: "carryLoaded"; seq: number; task: string; key: string; context: SessionContext }
   | { type: "evidenceLoaded"; seq: number; sessionId: string; items: EvidenceItem[] }
   | { type: "assetRequested"; assetId: string }
@@ -188,6 +192,30 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
         toast: action.notice ?? done.toast,
       };
+    case "sessionDeleted": {
+      const current = done.session?.session_id === action.sessionId;
+      return {
+        ...done,
+        sessions: done.sessions && done.sessions.filter((item) => item.session_id !== action.sessionId),
+        session: current ? null : done.session,
+        result: current ? null : done.result,
+        version: current ? null : done.version,
+        evidence: current ? null : done.evidence,
+        toast: SESSION_DELETED_NOTICE,
+      };
+    }
+    case "summaryChanged": {
+      // 이름·저장 표시가 낡지 않게, 지금 보던 작업이면 다음에 다시 받는다
+      const current = done.session?.session_id === action.summary.session_id;
+      return {
+        ...done,
+        sessions: done.sessions && done.sessions.map((item) => (item.session_id === action.summary.session_id ? action.summary : item)),
+        session: current ? null : done.session,
+        result: current ? null : done.result,
+        version: current ? null : done.version,
+        toast: action.notice,
+      };
+    }
     case "carryLoaded":
       return { ...done, carry: { task: action.task, key: action.key, context: action.context } };
     case "evidenceLoaded":
