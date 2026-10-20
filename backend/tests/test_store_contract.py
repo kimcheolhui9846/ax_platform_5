@@ -3,15 +3,18 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.core.postgres import PostgresSessionStore
 from app.core.state import InfoItem, InfoSource, SessionState, TraceEntry
 from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 
-@pytest.fixture(params=["memory", "sqlite"])
+@pytest.fixture(params=["memory", "sqlite", "postgres"])
 def store(request, tmp_path):
     if request.param == "memory":
         return InMemorySessionStore()
-    return SqliteSessionStore(tmp_path / "sessions.db")
+    if request.param == "sqlite":
+        return SqliteSessionStore(tmp_path / "sessions.db")
+    return PostgresSessionStore(request.getfixturevalue("postgres_pool"))
 
 
 def test_missing_id_returns_none(store):
