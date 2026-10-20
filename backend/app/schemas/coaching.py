@@ -112,12 +112,12 @@ class EditSectionRequest(BaseModel):
 
 
 class RenameSessionRequest(BaseModel):
-    name: str  # 앞뒤 공백을 뺀 1~40자
+    name: str  # 공백(줄바꿈·탭 포함)을 하나로 접고 앞뒤를 뺀 1~40자
 
     @field_validator("name")
     @classmethod
     def _trimmed(cls, value: str) -> str:
-        value = value.strip()
+        value = " ".join(value.split())
         if not 1 <= len(value) <= SESSION_NAME_MAX:
             raise ValueError(f"작업 이름은 1~{SESSION_NAME_MAX}자여야 합니다.")
         return value

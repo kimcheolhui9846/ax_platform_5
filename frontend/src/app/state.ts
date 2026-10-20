@@ -1,9 +1,8 @@
 import type { EvidenceItem, ResultView, SessionContext, SessionSummary, SessionView, TaskForm, TaskSummary, VersionView } from "../api/types";
+import { carryIsFrom } from "../lib/carry";
 import type { Images } from "../lib/document";
 import { contextOf, isListRoute, sessionIdOf, taskOf, toHash } from "../lib/routes";
 import type { Route } from "../lib/routes";
-
-export const SESSION_DELETED_NOTICE = "작업을 삭제했어요.";
 
 /** 기다리는 요청. seq가 다른 응답은 늦게 온 것이라 버린다. load는 화면을 그리려고 부른 요청의 이름(loadKey)이다. */
 export type Inflight = { seq: number; load: string | null; generating: boolean };
@@ -39,7 +38,7 @@ export type Action =
   | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
-  | { type: "sessionDeleted"; seq: number; sessionId: string }
+  | { type: "sessionDeleted"; seq: number; sessionId: string; notice: string }
   | { type: "summaryChanged"; seq: number; summary: SessionSummary; notice: string }
   | { type: "carryLoaded"; seq: number; task: string; key: string; context: SessionContext }
   | { type: "evidenceLoaded"; seq: number; sessionId: string; items: EvidenceItem[] }
@@ -201,7 +200,8 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         result: current ? null : done.result,
         version: current ? null : done.version,
         evidence: current ? null : done.evidence,
-        toast: SESSION_DELETED_NOTICE,
+        carry: done.carry !== null && carryIsFrom(done.carry.key, action.sessionId) ? null : done.carry,
+        toast: action.notice,
       };
     }
     case "summaryChanged": {
@@ -213,6 +213,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         session: current ? null : done.session,
         result: current ? null : done.result,
         version: current ? null : done.version,
+        evidence: current ? null : done.evidence,
         toast: action.notice,
       };
     }

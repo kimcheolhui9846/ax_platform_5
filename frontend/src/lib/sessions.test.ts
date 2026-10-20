@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeSessionSummary } from "../testing/factories";
-import { canRename, clip, listShrank, latestByTask, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
+import { canRename, clip, listShrank, latestByTask, shouldRefocus, resumeLabel, resumeRoute, savedDocuments, stageLabel, versionIsStale, versionLine } from "./sessions";
 
 describe("세션 요약 판단", () => {
   it("버전 한 줄", () => {
@@ -77,6 +77,15 @@ describe("canRename", () => {
     expect(canRename(" 향초 ")).toBe(true);
     expect(canRename("가".repeat(40))).toBe(true);
     expect(canRename("가".repeat(41))).toBe(false);
+  });
+});
+
+describe("shouldRefocus", () => {
+  it("대화상자가 닫히고 요청이 끝났고 돌려줄 차례일 때만", () => {
+    expect(shouldRefocus(null, false, true)).toBe(true);
+    expect(shouldRefocus("rename", false, true)).toBe(false); // 아직 열려 있다
+    expect(shouldRefocus(null, true, true)).toBe(false); // 요청 중이라 버튼이 막혀 있다
+    expect(shouldRefocus(null, false, false)).toBe(false); // 돌려줄 차례가 아니다
   });
 });
 

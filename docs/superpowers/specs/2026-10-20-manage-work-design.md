@@ -18,9 +18,10 @@
 | 경로 | 본문 | 응답 | 오류 |
 |---|---|---|---|
 | `DELETE /sessions/{id}` | — | 204 | 404, 422(헤더) |
-| `PATCH /sessions/{id}` | `{ "name": str }` 앞뒤 공백을 뺀 1~40자 | `SessionSummary` | 404, 422 |
+| `PATCH /sessions/{id}` | `{ "name": str }` 공백(줄바꿈·탭 포함)을 하나로 접고 앞뒤를 뺀 1~40자 | `SessionSummary` | 404, 422 |
 | `DELETE /sessions/{id}/versions/{n}/save` | — | `SessionSummary` | 404(작업·버전), 422 |
 
+- 이름 바꾸기와 저장 해제도 작업을 바꾼 것으로 보아 `updated_at`이 갱신된다(내 작업 목록에서 맨 위로 올라온다). 의도한 동작이다.
 - 저장 해제는 이미 저장하지 않은 버전이어도 성공(멱등). 상태·`result_stale`은 건드리지 않는다.
 - 삭제는 세션을 지운 뒤 그 세션의 결과 이미지(모든 버전과 지금 결과의 `ImageBlock.asset_id`)를 파일 저장소에서 지운다. 이미지 지우기는 없는 id면 조용히 넘어간다.
 - 잠금: 삭제도 `_session_update`처럼 잠근 뒤 다시 읽고 지운다. 같은 세션의 다음 요청은 잠금 안에서 다시 읽어 404가 된다. 잠금 객체는 남는다(만든 세션 수를 넘지 않는다).
@@ -41,7 +42,7 @@
 ## 프론트
 
 - `api/coaching.ts`: `deleteSession`, `renameSession`, `unsaveVersion`.
-- 상태(리듀서): `sessionDeleted { seq, sessionId }` — 목록에서 빼고, 지금 들고 있는 세션이 그것이면 세션·결과·버전·근거를 비운다. 알림 `작업을 삭제했어요.`. `summaryChanged { seq, summary, notice }` — 목록의 그 항목을 바꾸고, 지금 세션이 그것이면 세션·결과·버전을 비워(다음에 다시 받는다) 이름·저장 표시가 낡지 않게 한다.
+- 상태(리듀서): `sessionDeleted { seq, sessionId }` — 목록에서 빼고, 지금 들고 있는 세션이 그것이면 세션·결과·버전·근거를 비우고, 그 작업에서 이어 가던 미리보기(`carry`)도 비운다. 알림 `작업을 삭제했어요.`. `summaryChanged { seq, summary, notice }` — 목록의 그 항목을 바꾸고, 지금 세션이 그것이면 세션·결과·버전·근거를 비워(다음에 다시 받는다) 이름·저장 표시가 낡지 않게 한다.
 - 알림: 이름 `작업 이름을 바꿨어요.`, 빼기 `결과물에서 뺐어요. 작업에서 다시 저장할 수 있어요.`
 - handlers: `deleteSession(sessionId)`, `renameSession(sessionId, name)`, `unsaveVersion(sessionId, version)`.
 - 화면:

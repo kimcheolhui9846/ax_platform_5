@@ -77,6 +77,11 @@ export function canRename(text: string): boolean {
   return length >= 1 && length <= NAME_MAX;
 }
 
+/** [순수] 닫힌 대화상자가 열었던 버튼으로 포커스를 돌려줄 때인가: 닫혔고, 요청이 끝났고(막힌 버튼은 포커스를 못 받는다), 돌려줄 차례다. */
+export function shouldRefocus(open: string | null, busy: boolean, pending: boolean): boolean {
+  return open === null && !busy && pending;
+}
+
 /** [순수] 목록에서 항목이 빠졌는가(빠진 항목의 버튼은 사라지므로 포커스를 목록 제목으로 옮길 때). */
 export function listShrank(previous: number, current: number): boolean {
   return current < previous;

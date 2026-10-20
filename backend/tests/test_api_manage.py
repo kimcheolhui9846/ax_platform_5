@@ -1,4 +1,7 @@
 """작업 정리 API: 삭제(결과 이미지까지)·이름 바꾸기·결과물에서 빼기. 남의 작업은 없는 작업과 같은 404다."""
+import threading
+import time
+
 import pytest
 
 from app.api.views import session_name
@@ -85,6 +88,31 @@ def test_delete_of_someone_elses_or_unknown_session_is_404(app, client):
     assert len(app.state.locks) == 1  # 없는 id로는 잠금이 늘지 않는다
 
 
+def test_request_queued_behind_the_lock_gets_404_after_delete(app, client):
+    sid = started(client)
+    outcome: dict[str, int] = {}
+
+    def rename() -> None:
+        outcome["status"] = client.patch(f"{BASE}/sessions/{sid}", json={"name": "늦은 요청"}).status_code
+
+    with app.state.locks.hold(sid):
+        worker = threading.Thread(target=rename)
+        worker.start()
+        worker.join(timeout=0.3)
+        assert worker.is_alive()  # 잠금에 막혀 기다린다
+        app.state.store.delete(sid)  # 잠금을 쥔 쪽이 지운다
+    worker.join(timeout=5)
+
+    assert outcome == {"status": 404}  # 잠근 뒤 다시 읽으므로 지워진 작업은 404다
+    assert client.get(f"{BASE}/sessions/{sid}").status_code == 404
+
+
+def test_rename_after_delete_is_404(client):
+    sid = started(client)
+    assert client.delete(f"{BASE}/sessions/{sid}").status_code == 204
+    assert client.patch(f"{BASE}/sessions/{sid}", json={"name": "x"}).status_code == 404
+
+
 # 이름
 
 
@@ -103,6 +131,27 @@ def test_rename_strips_and_shows_in_summary_list_and_view(client):
 def test_name_defaults_to_the_first_line_of_the_request(client):
     sid = started(client, "  수제 향초\n둘째 줄")
     assert client.get(f"{BASE}/sessions/{sid}").json()["name"] == "수제 향초"
+
+
+def test_rename_collapses_inner_whitespace_and_rejects_blank_whitespace(client):
+    sid = started(client)
+
+    renamed = client.patch(f"{BASE}/sessions/{sid}", json={"name": "a\nb\t  c"})
+    assert (renamed.status_code, renamed.json()["name"]) == (200, "a b c")
+    assert client.patch(f"{BASE}/sessions/{sid}", json={"name": "\t \n"}).status_code == 422
+
+
+def test_rename_moves_the_work_to_the_top_of_the_list(client):
+    first = started(client)
+    time.sleep(0.05)  # Windows 시계는 거칠어 같은 순간으로 찍힐 수 있다
+    second = started(client, "다른 작업")
+    time.sleep(0.05)
+    assert [s["session_id"] for s in client.get(f"{BASE}/sessions").json()] == [second, first]
+
+    client.patch(f"{BASE}/sessions/{first}", json={"name": "새 이름"})
+
+    # 이름을 바꾸는 것도 작업을 바꾼 것이라 목록 맨 위로 올라온다(updated_at이 갱신된다)
+    assert [s["session_id"] for s in client.get(f"{BASE}/sessions").json()] == [first, second]
 
 
 @pytest.mark.parametrize(("name", "status"), [("   ", 422), ("", 422), ("가" * 41, 422), ("가" * 40, 200), (" " + "가" * 40 + " ", 200)])

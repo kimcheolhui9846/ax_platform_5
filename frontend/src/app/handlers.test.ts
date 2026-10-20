@@ -259,7 +259,7 @@ describe("makeHandlers — 요청", () => {
     expect(deleteSession).toHaveBeenCalledWith("sess_9");
     expect(renameSession).toHaveBeenCalledWith("sess_9", "새 이름");
     expect(unsaveVersion).toHaveBeenCalledWith("sess_9", 2);
-    expect(calls[0].done(undefined, 5)).toEqual({ type: "sessionDeleted", seq: 5, sessionId: "sess_9" });
+    expect(calls[0].done(undefined, 5)).toEqual({ type: "sessionDeleted", seq: 5, sessionId: "sess_9", notice: SESSION_DELETED_NOTICE });
     const summary = makeSessionSummary({ name: "새 이름" });
     expect(calls[1].done(summary, 6)).toEqual({ type: "summaryChanged", seq: 6, summary, notice: SESSION_RENAMED_NOTICE });
     expect(calls[2].done(summary, 7)).toEqual({ type: "summaryChanged", seq: 7, summary, notice: VERSION_UNSAVED_NOTICE });

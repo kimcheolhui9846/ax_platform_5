@@ -10,8 +10,8 @@ from app.core.state import (
     CoachingMode,
     InfoItem,
     ResultVersion,
-    SessionState,
     SESSION_NAME_MAX,
+    SessionState,
     SessionStatus,
     source_label,
 )

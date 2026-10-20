@@ -22,6 +22,11 @@ describe("safeFileName", () => {
     expect(safeFileName("가".repeat(50), "AX_x")).toBe("가".repeat(40));
   });
 
+  it("40자 경계의 이모지를 반으로 자르지 않는다", () => {
+    const text = "가".repeat(39) + "😀😀";
+    expect(safeFileName(text, "AX_x")).toBe("가".repeat(39) + "😀");
+  });
+
   it("비면 대체 이름을 쓴다", () => {
     expect(safeFileName("", "AX_x")).toBe("AX_x");
     expect(safeFileName(' / : * ? " ', "AX_x")).toBe("AX_x");
