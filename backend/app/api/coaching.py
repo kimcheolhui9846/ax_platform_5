@@ -3,9 +3,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
-from app.api.deps import Locks, Owner, Registry, Store, require_debug
+from app.api.deps import Assets, Locks, Owner, Registry, Store, require_debug
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.api.views import (
@@ -29,7 +29,7 @@ from app.core.messages import (
     unknown_task_message,
 )
 from app.core.results import utcnow
-from app.core.state import Answer, CarriedContext, SessionState, TraceEntry
+from app.core.state import Answer, CarriedContext, SessionState, TraceEntry, session_asset_ids
 from app.core.store import SessionStore
 from app.harness.base import BaseHarness, find_version
 from app.harness.carry import build_context
@@ -41,6 +41,7 @@ from app.schemas.coaching import (
     CreateSessionRequest,
     EditSectionRequest,
     EvidenceItem,
+    RenameSessionRequest,
     ResultView,
     ReviseAnswerRequest,
     SessionContext,
@@ -100,8 +101,8 @@ def _session_update(
     던진다. 하네스는 이런 실패에서 state를 시작 때로 되돌리고 trace(성공한 LLM 호출 기록 포함)와 FAILED 표시만
     남기므로, 저장해도 바뀌는 것은 그 기록뿐이다. 응답 문구는 app/api/errors.py의 예외 처리기가 정한다.
 
-    잠금은 있는(그리고 내) 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다(세션은 지우지 않으므로 확인과 잠금 사이에
-    사라질 일이 없다). 잠근 뒤 다시 읽어 앞선 요청이 저장한 최신 상태로 일한다.
+    잠금은 있는(그리고 내) 세션에만 만든다. 없는 id는 잠그기 전에 404로 끝낸다. 잠근 뒤 다시 읽으므로 앞선 요청이
+    저장한 최신 상태로 일하고, 그사이 지워졌으면 404다.
     """
     _load(registry, store, session_id, owner)
     with locks.hold(session_id):
@@ -170,6 +171,45 @@ def list_sessions(registry: Registry, store: Store, owner: Owner) -> list[Sessio
         for state in store.list_by_owner(owner)
         if state.task_type in registry
     ]
+
+
+@router.delete("/sessions/{session_id}", status_code=204, response_class=Response, responses=error_responses(404, 422))
+def delete_session(
+    session_id: str, registry: Registry, store: Store, assets: Assets, locks: Locks, owner: Owner
+) -> Response:
+    """작업을 통째로 지운다(결과 이미지 파일 포함). 되돌릴 수 없다."""
+    _load(registry, store, session_id, owner)
+    with locks.hold(session_id):
+        state, _ = _load(registry, store, session_id, owner)
+        store.delete(session_id)
+    for asset_id in session_asset_ids(state):
+        assets.delete(asset_id)
+    return Response(status_code=204)
+
+
+@router.patch("/sessions/{session_id}", response_model=SessionSummary, responses=error_responses(404, 422))
+def rename_session(
+    session_id: str, body: RenameSessionRequest, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> SessionSummary:
+    """작업 이름을 바꾼다(앞뒤 공백 제거 후 1~40자). 프롬프트에는 싣지 않는다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        state.name = body.name
+    return to_session_summary(state, harness.policy.title)
+
+
+@router.delete(
+    "/sessions/{session_id}/versions/{version}/save",
+    response_model=SessionSummary,
+    responses=error_responses(404, 422),
+)
+def unsave_version(
+    session_id: str, version: int, registry: Registry, store: Store, locks: Locks, owner: Owner
+) -> SessionSummary:
+    """그 버전의 저장 표시를 지운다(결과물 목록에서 빠진다). 저장하지 않았어도 그대로 성공한다."""
+    with _session_update(locks, registry, store, session_id, owner) as (state, harness):
+        if harness.unsave_version(state, version) is None:
+            raise HTTPException(status_code=404, detail=VERSION_NOT_FOUND_MESSAGE)
+    return to_session_summary(state, harness.policy.title)
 
 
 @router.delete("/sessions/{session_id}/context", response_model=SessionView, responses=error_responses(404, 422, 502, 503))
