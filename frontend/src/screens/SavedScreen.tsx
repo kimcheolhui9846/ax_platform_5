@@ -1,6 +1,7 @@
 import type { SessionView, TaskSummary, VersionView } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
 import { versionLine } from "../lib/sessions";
+import type { DocumentFormat } from "../lib/documentFormats";
 
 type MainProps = {
   task: TaskSummary;
@@ -8,7 +9,7 @@ type MainProps = {
   next: { title: string; onStart: () => void } | null;
   onDocuments: () => void;
   onOpen: () => void;
-  onDownload: () => void;
+  onDownload: (format: DocumentFormat) => void;
 };
 
 /** 저장 완료. 저장한 그 버전을 결과물 목록·다시 보기·내려받기로 이어 준다. */
@@ -32,7 +33,7 @@ export function SavedMain({ task, version, next, onDocuments, onOpen, onDownload
         </button>
       </div>
       <div className="saved-actions">
-        <button type="button" className="btn" onClick={onDownload}>
+        <button type="button" className="btn" onClick={() => onDownload("html")}>
           문서 내려받기
         </button>
       </div>
