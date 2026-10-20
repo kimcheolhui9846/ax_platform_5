@@ -3,8 +3,8 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-10-20
-- main: `b40711b` (PR #30까지 머지)
-- 테스트: 백엔드 708 passed, 프론트 461 passed, 빌드 OK
+- main: `ade3b08` (PR #31까지 머지)
+- 테스트: 백엔드 730 passed, 프론트 477 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -38,11 +38,13 @@
 | 측정 준비(비용 0) | #29 | trace `duration_ms`(호출마다 걸린 시간), `evals.play_questions`(실제 모델용: 계획 어긋남을 센다), 과제마다 `quick-skip.yaml`, 측정 도구 `scripts/measure.py`(과제×시나리오×한 번 호출·병렬×반복 → `rows.csv`·`summary.md`, 기본 Mock, 실제 모델은 `--budget-usd` 필수) |
 | 시연·평가 준비 | #30 | `docs/DEMO.md`(시연 순서·질문 대비), `docs/EVALUATION.md`(14장 지표를 무엇으로 재나·사용성 테스트·비교 실험), 평가 통계 `scripts/session_stats.py`(`app/harness/stats.py`, 저장소 `list_all`) |
 | 결과 문서 내보내기 | #31 | 결과·저장 완료·버전 보기의 '문서 내려받기' 메뉴: PDF(인쇄 창 'PDF로 저장')·Word(.docx)·HTML. 요청 예시를 한글 북백으로 |
+| 작업·결과물 정리 | #32 | 내 작업: 작업 삭제(확인 대화상자)·이름 바꾸기, 결과물: 결과물에서 빼기. 내려받는 파일 이름은 작업 이름 |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
 ## 다음 할 일 (WBS 순서)
 
+0. **데이터 보존: Neon Postgres(다음 PR, 사용자가 Neon 가입·주소 입력)**. **후순위: 로그인(다른 기기에서 내 작업)·결과물 공유 링크**(WBS 4.10·4.11).
 1. **디자인 검수(디자이너)** — WBS 3.3·3.4
    - 모바일 390px 화면 확인, `/preview`를 html.to.design으로 피그마에 가져와 다듬기(`design/README.md`).
    - 수정본이 오면 `design/YYYY-MM-DD-…/`에 받은 그대로 넣고 직전 원본과 비교해 바뀐 화면만 반영한다(PR #17이 본보기).
