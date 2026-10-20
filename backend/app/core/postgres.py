@@ -4,7 +4,7 @@
 """
 from psycopg_pool import ConnectionPool
 
-from app.core.assets import _ASSET_ID, Asset, _new_id
+from app.core.assets import ASSET_ID_PATTERN, Asset, new_asset_id
 from app.core.results import utcnow
 from app.core.state import SessionState
 
@@ -28,9 +28,16 @@ CREATE TABLE IF NOT EXISTS assets (
 def open_pool(url: str) -> ConnectionPool:
     """풀을 열고 표가 없으면 만든다. 풀러(pgbouncer)와 맞도록 서버 측 준비 문을 끈다."""
     pool = ConnectionPool(
-        url, min_size=1, max_size=4, kwargs={"prepare_threshold": None, "autocommit": True}, open=False
+        url,
+        min_size=1,
+        max_size=4,
+        kwargs={"prepare_threshold": None, "autocommit": True},
+        check=ConnectionPool.check_connection,  # 꺼낼 때 죽은 연결(Neon이 쉬는 동안 끊김)을 걸러 새로 연다
+        max_idle=240,
+        max_lifetime=1800,
+        open=False,
     )
-    pool.open(wait=True)
+    pool.open(wait=True, timeout=15)  # 관리형 DB가 자다 깨는 첫 연결은 몇 초 걸릴 수 있다
     try:
         with pool.connection() as conn:
             conn.execute(_SCHEMA)
@@ -82,7 +89,7 @@ class PostgresAssetStore:
         self._pool = pool
 
     def put(self, owner_id: str, data: bytes, mime: str) -> str:
-        asset_id = _new_id(mime)
+        asset_id = new_asset_id(mime)
         with self._pool.connection() as conn:
             conn.execute(
                 "INSERT INTO assets (asset_id, owner_id, mime, data) VALUES (%s, %s, %s, %s)",
@@ -91,14 +98,14 @@ class PostgresAssetStore:
         return asset_id
 
     def get(self, asset_id: str) -> Asset | None:
-        if not _ASSET_ID.fullmatch(asset_id):
+        if not ASSET_ID_PATTERN.fullmatch(asset_id):
             return None
         with self._pool.connection() as conn:
             row = conn.execute("SELECT owner_id, mime, data FROM assets WHERE asset_id = %s", (asset_id,)).fetchone()
         return Asset(owner_id=row[0], mime=row[1], data=bytes(row[2])) if row else None
 
     def delete(self, asset_id: str) -> None:
-        if not _ASSET_ID.fullmatch(asset_id):
+        if not ASSET_ID_PATTERN.fullmatch(asset_id):
             return
         with self._pool.connection() as conn:
             conn.execute("DELETE FROM assets WHERE asset_id = %s", (asset_id,))

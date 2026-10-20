@@ -2,8 +2,8 @@
 import pytest
 
 from app.core.assets import IMAGE_MIMES, InMemoryAssetStore, LocalAssetStore, UnsupportedAssetType
-from app.core.postgres import PostgresAssetStore
 from app.core.messages import ASSET_NOT_FOUND_MESSAGE
+from app.core.postgres import PostgresAssetStore
 from app.main import create_app
 from app.providers.mock import MockProvider
 from tests.conftest import CLIENT_ID, OTHER_CLIENT_ID, api_client

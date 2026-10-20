@@ -12,7 +12,7 @@ from uuid import uuid4
 from app.core.store import StoreKind
 
 IMAGE_MIMES = frozenset({"image/svg+xml", "image/png", "image/jpeg", "image/webp"})
-_ASSET_ID = re.compile(r"asset_[0-9a-f]{32}")
+ASSET_ID_PATTERN = re.compile(r"asset_[0-9a-f]{32}")
 
 
 class UnsupportedAssetType(ValueError):
@@ -37,7 +37,7 @@ class AssetStore(Protocol):
     def delete(self, asset_id: str) -> None: ...
 
 
-def _new_id(mime: str) -> str:
+def new_asset_id(mime: str) -> str:
     if mime not in IMAGE_MIMES:
         raise UnsupportedAssetType(f"이미지가 아닌 형식입니다: {mime}")
     return f"asset_{uuid4().hex}"
@@ -50,7 +50,7 @@ class InMemoryAssetStore:
         self._assets: dict[str, Asset] = {}
 
     def put(self, owner_id: str, data: bytes, mime: str) -> str:
-        asset_id = _new_id(mime)
+        asset_id = new_asset_id(mime)
         self._assets[asset_id] = Asset(owner_id=owner_id, mime=mime, data=data)
         return asset_id
 
@@ -69,7 +69,7 @@ class LocalAssetStore:
         self._root = root
 
     def put(self, owner_id: str, data: bytes, mime: str) -> str:
-        asset_id = _new_id(mime)
+        asset_id = new_asset_id(mime)
         # 임시 파일에 쓴 뒤 옮겨 반쯤 쓴 파일이 남지 않게 한다. 정보(.json)가 나중이라 .json이 있으면 .bin도 온전하다
         self._write_atomically(self._root / f"{asset_id}.bin", data)
         self._write_atomically(self._root / f"{asset_id}.json", json.dumps({"owner_id": owner_id, "mime": mime}).encode("utf-8"))
@@ -82,7 +82,7 @@ class LocalAssetStore:
         temp.replace(path)
 
     def get(self, asset_id: str) -> Asset | None:
-        if not _ASSET_ID.fullmatch(asset_id):
+        if not ASSET_ID_PATTERN.fullmatch(asset_id):
             return None
         try:
             info = json.loads((self._root / f"{asset_id}.json").read_text(encoding="utf-8"))
@@ -91,7 +91,7 @@ class LocalAssetStore:
             return None
 
     def delete(self, asset_id: str) -> None:
-        if not _ASSET_ID.fullmatch(asset_id):
+        if not ASSET_ID_PATTERN.fullmatch(asset_id):
             return
         # 정보(.json)를 먼저 지워 .json이 있으면 .bin도 온전하다는 약속을 지킨다
         (self._root / f"{asset_id}.json").unlink(missing_ok=True)
