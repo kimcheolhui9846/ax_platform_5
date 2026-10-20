@@ -96,8 +96,3 @@ class LocalAssetStore:
         # 정보(.json)를 먼저 지워 .json이 있으면 .bin도 온전하다는 약속을 지킨다
         (self._root / f"{asset_id}.json").unlink(missing_ok=True)
         (self._root / f"{asset_id}.bin").unlink(missing_ok=True)
-
-
-def build_asset_store(kind: StoreKind, root: Path) -> AssetStore:
-    """세션 저장소(STORE)와 짝을 맞춘다: sqlite면 로컬 폴더(ASSET_DIR), memory면 메모리."""
-    return LocalAssetStore(root) if kind == "sqlite" else InMemoryAssetStore()

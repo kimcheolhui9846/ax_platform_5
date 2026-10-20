@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import NonNegativeFloat, PositiveInt, ValidationInfo, field_validator
+from pydantic import NonNegativeFloat, PositiveInt, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from app.core.store import StoreKind
@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     store: StoreKind = "memory"  # sqlite면 DATABASE_PATH 파일에 세션을 남긴다(서버를 다시 켜도 남는다)
     database_path: Path = DEFAULT_DATABASE_PATH
     asset_dir: Path = DEFAULT_ASSET_DIR  # sqlite 저장소일 때 결과 이미지를 두는 폴더
+    database_url: SecretStr | None = None  # STORE=postgres일 때 접속 주소(비밀 값: 오류·로그에 싣지 않는다)
+
+    @model_validator(mode="after")
+    def _postgres_needs_url(self) -> "Settings":
+        if self.store == "postgres" and (self.database_url is None or not self.database_url.get_secret_value()):
+            raise ValueError("STORE=postgres에는 DATABASE_URL이 필요합니다.")
+        return self
 
     @field_validator("claude_stage_models", "claude_stage_efforts", mode="before")
     @classmethod

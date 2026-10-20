@@ -1,11 +1,14 @@
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 import app.config as config
+from app.core.state import SessionState
 from app.config import Settings
-from app.core.store import InMemorySessionStore, SqliteSessionStore, build_store
+from app.core.assets import InMemoryAssetStore, LocalAssetStore
+from app.core.storage import build_storage
+from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 BACKEND_DIR = Path(config.__file__).resolve().parents[1]
 
@@ -30,9 +33,62 @@ def test_store_defaults_to_memory(monkeypatch):
     assert settings.database_path == BACKEND_DIR / "data" / "sessions.db"
 
 
-def test_build_store_picks_the_kind(tmp_path):
-    assert isinstance(build_store("memory", tmp_path / "x.db"), InMemorySessionStore)
-    assert isinstance(build_store("sqlite", tmp_path / "x.db"), SqliteSessionStore)
+def test_build_storage_picks_the_kind(tmp_path):
+    memory = build_storage("memory", tmp_path / "x.db", tmp_path / "assets", None)
+    assert isinstance(memory.sessions, InMemorySessionStore) and isinstance(memory.assets, InMemoryAssetStore)
+    sqlite = build_storage("sqlite", tmp_path / "x.db", tmp_path / "assets", None)
+    assert isinstance(sqlite.sessions, SqliteSessionStore) and isinstance(sqlite.assets, LocalAssetStore)
+    memory.close()
+    sqlite.close()
+
+
+def test_build_storage_postgres_shares_one_pool_and_closes_it(_postgres_url, tmp_path):
+    from app.core.postgres import PostgresAssetStore, PostgresSessionStore
+
+    storage = build_storage("postgres", tmp_path / "x.db", tmp_path / "assets", _postgres_url)
+    assert isinstance(storage.sessions, PostgresSessionStore) and isinstance(storage.assets, PostgresAssetStore)
+    pool = storage.sessions._pool
+    assert storage.assets._pool is pool and not pool.closed
+    storage.close()
+    assert pool.closed
+
+
+def test_build_storage_postgres_without_url_fails_without_leaking(tmp_path):
+    with pytest.raises(ValueError, match="DATABASE_URL"):
+        build_storage("postgres", tmp_path / "x.db", tmp_path / "assets", None)
+
+
+def test_postgres_store_requires_database_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with pytest.raises(ValidationError, match="STORE=postgres에는 DATABASE_URL이 필요합니다."):
+        Settings(_env_file=None, store="postgres")
+
+
+def test_database_url_is_secret(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    url = "postgresql://user:hunter2secret@host/db"
+    settings = Settings(_env_file=None, store="postgres", database_url=url)
+    assert "hunter2secret" not in repr(settings) and "hunter2secret" not in str(settings)
+    assert settings.database_url.get_secret_value() == url
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(_env_file=None, store="postgres", database_url="")
+    assert "hunter2secret" not in str(excinfo.value)
+
+
+def test_create_app_on_postgres_keeps_sessions(_postgres_url, postgres_pool, tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    monkeypatch.setattr(config.settings, "store", "postgres")
+    monkeypatch.setattr(config.settings, "database_url", SecretStr(_postgres_url))
+    with TestClient(create_app()) as client:
+        app = client.app
+        state = SessionState(session_id="s-pg", owner_id="o", task_type="business_plan", raw_input="x")
+        app.state.store.save(state)
+        assert app.state.store.get("s-pg").owner_id == "o"
+        pool = app.state.store._pool
+    assert pool.closed
 
 
 def test_tests_never_touch_a_real_database():
