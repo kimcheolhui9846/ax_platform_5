@@ -171,3 +171,11 @@ def test_ai_call_limit_rejects_out_of_range(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_malformed_database_url_is_rejected_without_leaking(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with pytest.raises(ValidationError) as excinfo:
+        Settings(_env_file=None, store="postgres", database_url="host=h password=hunter2secret bad=")
+    text = str(excinfo.value)
+    assert "DATABASE_URL 형식이 올바르지 않습니다." in text and "hunter2secret" not in text

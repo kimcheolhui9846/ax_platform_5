@@ -90,9 +90,14 @@ def clock(monkeypatch):
 
 @pytest.fixture(scope="session")
 def _postgres_url(tmp_path_factory):
-    """Postgres 주소 하나를 테스트 세션 동안 쓴다. TEST_DATABASE_URL이 우선, 없으면 내장 Postgres(pgserver)."""
+    """Postgres 주소 하나를 테스트 세션 동안 쓴다. TEST_DATABASE_URL(셸 환경 변수만 읽는다)이 우선, 없으면 내장 Postgres(pgserver)."""
     url = os.environ.get("TEST_DATABASE_URL")
     if url:
+        from app.config import settings
+
+        main_url = os.environ.get("DATABASE_URL") or (settings.database_url.get_secret_value() if settings.database_url else "")
+        if url == main_url:  # 테스트는 표를 TRUNCATE한다: 실제 데이터를 지우지 않게 막는다
+            pytest.skip("TEST_DATABASE_URL이 DATABASE_URL과 같아 건너뜀(테스트 전용 DB를 쓰세요)")
         yield url
         return
     try:

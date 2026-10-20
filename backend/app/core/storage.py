@@ -12,7 +12,7 @@ from app.core.store import InMemorySessionStore, SessionStore, SqliteSessionStor
 class Storage:
     sessions: SessionStore
     assets: AssetStore
-    open: Callable[[], None]  # 서버가 시작할 때 부른다(Postgres는 연결 풀을 열고 표를 만든다)
+    open: Callable[[], None]  # 서버가 시작할 때 부른다(Postgres는 연결 풀을 열고 표를 만든다). 닫은 뒤 다시 열 수 없다(psycopg 풀): 수명 하나에 앱 인스턴스 하나
     close: Callable[[], None]  # 서버가 끝날 때 부른다(Postgres 연결 풀을 닫는다)
 
 

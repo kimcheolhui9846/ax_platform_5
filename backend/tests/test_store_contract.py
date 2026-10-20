@@ -143,3 +143,17 @@ def test_postgres_store_recovers_after_server_drops_connections(postgres_pool, _
             killer.execute("SELECT pg_terminate_backend(%s)", (pid,))
 
     assert store.get(state.session_id).session_id == state.session_id
+
+
+def test_stray_nul_never_breaks_save(store):
+    state = SessionState(task_type="branding", raw_input="a\x00b")
+    store.save(state)
+    assert store.get(state.session_id) is not None
+
+
+def test_without_nul_keeps_escaped_backslash_text():
+    from app.core.postgres import without_nul
+
+    nul, literal = chr(92) + "u0000", chr(92) * 2 + "u0000"
+    assert without_nul('"a' + nul + 'b"') == '"a' + chr(92) + 'ufffdb"'
+    assert without_nul('"a' + literal + 'b"') == '"a' + literal + 'b"'

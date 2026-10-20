@@ -2,12 +2,15 @@
 
 연결 풀 하나를 두 저장소가 나눠 쓴다. 접속 주소는 비밀 값이라 오류·로그에 싣지 않는다.
 """
+import re
+
 from psycopg_pool import ConnectionPool
 
 from app.core.assets import ASSET_ID_PATTERN, Asset, new_asset_id
 from app.core.results import utcnow
 from app.core.state import SessionState
 
+# 표 구조 변경(마이그레이션)은 유지보수자 몫이다. 아직 버전 관리는 없고 CREATE ... IF NOT EXISTS만 한다.
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT PRIMARY KEY,
@@ -25,14 +28,24 @@ CREATE TABLE IF NOT EXISTS assets (
 """
 
 
+# JSON 문자열 안의 NUL 이스케이프(백슬래시 짝수 개 뒤의 u0000만. 글자 그대로의 백슬래시+u0000은 건드리지 않는다)
+_NUL_ESCAPE = re.compile(r"(?<!\\)((?:\\\\)*)\\u0000")
+
+
+def without_nul(dumped_json: str) -> str:
+    """JSONB가 받지 못하는 NUL 이스케이프를 U+FFFD로 바꾼다(입력 경계가 놓친 NUL이 500이 되지 않게)."""
+    return _NUL_ESCAPE.sub(lambda m: m.group(1) + "\\ufffd", dumped_json)
+
+
 def make_pool(url: str) -> ConnectionPool:
-    """풀을 만든다(연결하지 않는다). 풀러(pgbouncer)와 맞도록 서버 측 준비 문을 끈다."""
+    """풀을 만든다(연결하지 않는다). 풀러(pgbouncer) 주소를 써도 되게 서버 측 준비 문을 끈다."""
     return ConnectionPool(
         url,
         min_size=1,
         max_size=4,
         kwargs={"prepare_threshold": None, "autocommit": True},
         check=ConnectionPool.check_connection,  # 꺼낼 때 죽은 연결(Neon이 쉬는 동안 끊김)을 걸러 새로 연다
+        timeout=10,  # 풀의 연결이 모두 쓰이는 중일 때 기다리는 한도(넘으면 오류. 무한정 매달리지 않는다)
         max_idle=240,
         max_lifetime=1800,
         open=False,
@@ -66,7 +79,7 @@ class PostgresSessionStore:
                 "INSERT INTO sessions (session_id, owner_id, updated_at, data) VALUES (%s, %s, %s, %s::jsonb) "
                 "ON CONFLICT (session_id) DO UPDATE SET "
                 "owner_id = EXCLUDED.owner_id, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data",
-                (state.session_id, state.owner_id, state.updated_at, state.model_dump_json()),
+                (state.session_id, state.owner_id, state.updated_at, without_nul(state.model_dump_json())),
             )
 
     def list_by_owner(self, owner_id: str) -> list[SessionState]:

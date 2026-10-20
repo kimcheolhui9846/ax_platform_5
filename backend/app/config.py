@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Annotated
 
+from psycopg.conninfo import conninfo_to_dict
 from pydantic import NonNegativeFloat, PositiveInt, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
@@ -16,7 +17,7 @@ DEFAULT_ASSET_DIR = BACKEND_DIR / "data" / "assets"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore", hide_input_in_errors=True)  # 오류에 입력 값(DATABASE_URL)을 싣지 않는다
 
     provider: str = "mock"
     claude_model: str = "claude-opus-5-5"  # PROVIDER=claude일 때 쓰는 모델
@@ -38,6 +39,17 @@ class Settings(BaseSettings):
     def _postgres_needs_url(self) -> "Settings":
         if self.store == "postgres" and (self.database_url is None or not self.database_url.get_secret_value()):
             raise ValueError("STORE=postgres에는 DATABASE_URL이 필요합니다.")
+        return self
+
+    @model_validator(mode="after")
+    def _database_url_format(self) -> "Settings":
+        """접속 주소 형식만 본다(연결하지 않는다). 오류에는 주소를 싣지 않는다(필드 검증기는 입력 값을 오류에 싣는다)."""
+        if self.database_url is None or not self.database_url.get_secret_value():
+            return self
+        try:
+            conninfo_to_dict(self.database_url.get_secret_value())
+        except Exception:
+            raise ValueError("DATABASE_URL 형식이 올바르지 않습니다.") from None
         return self
 
     @field_validator("claude_stage_models", "claude_stage_efforts", mode="before")

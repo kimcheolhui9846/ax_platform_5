@@ -20,6 +20,6 @@ pythonpath = ["."]
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
-    "pgserver>=0.1.4",
+    "pgserver>=0.1.4; python_version < '3.13'",
     "pytest>=9.1.1",
 ]

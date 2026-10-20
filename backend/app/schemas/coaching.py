@@ -12,6 +12,7 @@ from app.core.results import CardType, EvidenceRecord, ResultSection, Validation
 from app.core.state import SESSION_NAME_MAX, AnswerType, CoachingMode, InfoSource, Question, SessionStatus
 from app.harness.flow import FlowItem
 from app.harness.policy import FieldKind
+from app.schemas.request import RequestModel
 
 
 class ErrorBody(ContractModel):
@@ -66,7 +67,7 @@ class TaskForm(ContractModel):
     fields: list[FieldSummary]
 
 
-class CreateSessionRequest(BaseModel):
+class CreateSessionRequest(RequestModel):
     raw_input: str = Field(min_length=1, max_length=2000)
     notice_acknowledged: bool  # 외부 AI 전송 안내를 확인했다(false면 422)
     mode: CoachingMode = CoachingMode.STANDARD
@@ -92,7 +93,7 @@ class SessionContext(ContractModel):
     items: list[ContextItem]
 
 
-class AnswerRequest(BaseModel):
+class AnswerRequest(RequestModel):
     question_id: str
     answer_type: AnswerType
     value: str | None = None
@@ -100,18 +101,18 @@ class AnswerRequest(BaseModel):
     private: bool | None = None  # 이 답을 비공개로 정한다(없으면 그대로)
 
 
-class ReviseAnswerRequest(BaseModel):
+class ReviseAnswerRequest(RequestModel):
     answer_type: Literal[AnswerType.OPTION, AnswerType.FREE_TEXT]
     value: str | None = None
     option_ids: list[str] = Field(default_factory=list)
     private: bool | None = None
 
 
-class EditSectionRequest(BaseModel):
+class EditSectionRequest(RequestModel):
     text: str = Field(min_length=1, max_length=2500)  # 디자인의 문구 입력 상한
 
 
-class RenameSessionRequest(BaseModel):
+class RenameSessionRequest(RequestModel):
     name: str  # 공백(줄바꿈·탭 포함)을 하나로 접고 앞뒤를 뺀 1~40자
 
     @field_validator("name")
@@ -153,7 +154,7 @@ class SupplementItem(ContractModel):
     private: bool
 
 
-class SupplementsRequest(BaseModel):
+class SupplementsRequest(RequestModel):
     """{항목 이름: 값 | null}. null·빈 값이면 그 항목을 지운다."""
 
     values: dict[str, Annotated[str, Field(max_length=250)] | None]
