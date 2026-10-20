@@ -1,6 +1,7 @@
 import { useId } from "react";
 import type { ResultView, SessionView, TaskSummary, VersionSummary } from "../api/types";
 import { FlowSummary } from "../components/FlowSummary";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { ResultDocument } from "../components/ResultDocument";
 import { SupplementPanel } from "../components/SupplementPanel";
 import { STALE_BANNER, STALE_SAVE_HINT, REGENERATE_ACTION, actionState, saveButton } from "../lib/actions";
@@ -146,9 +147,7 @@ export function ResultSide({
         <button type="button" className="btn full" disabled={busy} onClick={onContinue}>
           질문 이어 가기
         </button>
-        <button type="button" className="btn full" disabled={busy || stale} aria-describedby={hinted} onClick={() => onDownload("html")}>
-          문서 내려받기
-        </button>
+        <DownloadMenu full disabled={busy || stale} describedBy={hinted} onDownload={onDownload} />
       </div>
       {stale && (
         <p id={hintId} className="small muted">

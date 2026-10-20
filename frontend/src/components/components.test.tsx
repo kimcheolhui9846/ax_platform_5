@@ -13,6 +13,7 @@ import { Composer } from "./Composer";
 import { ContextBox } from "./ContextBox";
 import { CarryFailedNotice } from "./CarryFailedNotice";
 import { CriteriaBox } from "./CriteriaBox";
+import { DownloadMenu } from "./DownloadMenu";
 import { FlowPanel } from "./FlowPanel";
 import { FlowSummary } from "./FlowSummary";
 import { QuestionCard } from "./QuestionCard";
@@ -501,5 +502,28 @@ describe("CarryFailedNotice", () => {
     const rendered = renderToString(<CarryFailedNotice busy={false} onContinue={noop} />);
     expect(rendered).toContain("이전 작업을 불러오지 못했어요. 가져오지 않고 계속할 수 있어요.");
     expect(rendered).toContain("가져오지 않고 계속");
+  });
+});
+
+describe("DownloadMenu", () => {
+  it("닫혀 있으면 버튼만 있다", () => {
+    const html = renderToString(<DownloadMenu onDownload={noop} />);
+    expect(html).toContain("문서 내려받기");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("Word(.docx)");
+  });
+
+  it("열면 PDF · Word · HTML을 고를 수 있다", () => {
+    const html = renderToString(<DownloadMenu initialOpen onDownload={noop} />);
+    expect(html).toContain('aria-expanded="true"');
+    expect(html.indexOf(">PDF<")).toBeLessThan(html.indexOf(">Word(.docx)<"));
+    expect(html.indexOf(">Word(.docx)<")).toBeLessThan(html.indexOf(">HTML<"));
+  });
+
+  it("막혀 있으면 열린 상태여도 목록을 그리지 않고 안내를 잇는다", () => {
+    const html = renderToString(<DownloadMenu initialOpen disabled describedBy="hint" onDownload={noop} />);
+    expect(html).toContain("disabled");
+    expect(html).toContain('aria-describedby="hint"');
+    expect(html).not.toContain(">PDF<");
   });
 });

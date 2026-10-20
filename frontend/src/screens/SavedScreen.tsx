@@ -1,4 +1,5 @@
 import type { SessionView, TaskSummary, VersionView } from "../api/types";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { FlowSummary } from "../components/FlowSummary";
 import { versionLine } from "../lib/sessions";
 import type { DocumentFormat } from "../lib/documentFormats";
@@ -33,9 +34,7 @@ export function SavedMain({ task, version, next, onDocuments, onOpen, onDownload
         </button>
       </div>
       <div className="saved-actions">
-        <button type="button" className="btn" onClick={() => onDownload("html")}>
-          문서 내려받기
-        </button>
+        <DownloadMenu onDownload={onDownload} />
       </div>
       {next && <p className="small muted">다음 작업에는 현재 결과의 핵심 내용과 보완 정보를 전달해요. 가져온 내용은 제외할 수 있습니다.</p>}
     </section>

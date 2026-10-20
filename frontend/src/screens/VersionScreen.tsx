@@ -1,4 +1,5 @@
 import type { TaskSummary, VersionView } from "../api/types";
+import { DownloadMenu } from "../components/DownloadMenu";
 import { ResultDocument } from "../components/ResultDocument";
 import { documentContent } from "../lib/document";
 import type { Images } from "../lib/document";
@@ -35,9 +36,7 @@ export function VersionSide({ version, onDocuments, onDownload }: SideProps) {
       <p>{`${versionLine(summary)} · ${formatDate(summary.created_at)}`}</p>
       {summary.saved && <p className="small muted">결과물에 저장한 버전이에요.</p>}
       <div className="stack8">
-        <button type="button" className="btn full" onClick={() => onDownload("html")}>
-          문서 내려받기
-        </button>
+        <DownloadMenu full onDownload={onDownload} />
         <button type="button" className="btn full" onClick={onDocuments}>
           결과물 목록 보기
         </button>

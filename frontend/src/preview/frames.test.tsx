@@ -40,6 +40,7 @@ describe("미리보기 프레임", () => {
       "result-supplemented",
       "result-evidence",
       "result-image",
+      "result-download",
       "supplement-form",
       "edit",
       "evidence",
