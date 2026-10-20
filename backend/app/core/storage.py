@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.assets import AssetStore, InMemoryAssetStore, LocalAssetStore
+from app.core.state import SessionState
 from app.core.store import InMemorySessionStore, SessionStore, SqliteSessionStore, StoreKind
 
 
@@ -31,3 +32,13 @@ def build_storage(kind: StoreKind, database_path: Path, asset_dir: Path, databas
     if kind == "sqlite":
         return Storage(SqliteSessionStore(database_path), LocalAssetStore(asset_dir), _nothing, _nothing)
     return Storage(InMemorySessionStore(), InMemoryAssetStore(), _nothing, _nothing)
+
+
+def read_all_sessions(kind: StoreKind, database_path: Path, asset_dir: Path, database_url: str | None) -> list[SessionState]:
+    """저장소를 열어 모든 세션을 읽고 닫는다(평가 통계용 한 번 읽기)."""
+    storage = build_storage(kind, database_path, asset_dir, database_url)
+    try:
+        storage.open()
+        return storage.sessions.list_all()
+    finally:
+        storage.close()

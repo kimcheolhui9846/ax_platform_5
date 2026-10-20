@@ -7,7 +7,7 @@ import app.config as config
 from app.core.state import SessionState
 from app.config import Settings
 from app.core.assets import InMemoryAssetStore, LocalAssetStore
-from app.core.storage import build_storage
+from app.core.storage import build_storage, read_all_sessions
 from app.core.store import InMemorySessionStore, SqliteSessionStore
 
 BACKEND_DIR = Path(config.__file__).resolve().parents[1]
@@ -53,6 +53,20 @@ def test_build_storage_postgres_shares_one_pool_and_closes_it(_postgres_url, tmp
     assert not pool.closed
     storage.close()
     assert pool.closed
+
+
+def test_read_all_sessions_opens_postgres_before_reading(postgres_pool, _postgres_url, tmp_path):
+    """평가 통계 경로: 만들 때 연결하지 않는 풀을 열고 읽은 뒤 닫는다."""
+    from app.core.postgres import PostgresSessionStore
+
+    PostgresSessionStore(postgres_pool).save(SessionState(task_type="branding"))
+    states = read_all_sessions("postgres", tmp_path / "x.db", tmp_path / "assets", _postgres_url)
+    assert [s.task_type for s in states] == ["branding"]
+
+
+def test_read_all_sessions_reads_sqlite_file(tmp_path):
+    SqliteSessionStore(tmp_path / "x.db").save(SessionState(task_type="branding"))
+    assert len(read_all_sessions("sqlite", tmp_path / "x.db", tmp_path / "assets", None)) == 1
 
 
 def test_build_storage_postgres_without_url_fails_without_leaking(tmp_path):

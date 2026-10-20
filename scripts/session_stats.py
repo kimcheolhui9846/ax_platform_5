@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))  # 스크립트 위치와 상관없이 app을 읽는다
 
 from app.config import settings  # noqa: E402
-from app.core.storage import build_storage  # noqa: E402
+from app.core.storage import read_all_sessions  # noqa: E402
 from app.harness.policy import FieldKind  # noqa: E402
 from app.harness.registry import TASK_TYPES, build_harness  # noqa: E402
 from app.harness.stats import metrics_table, session_metrics  # noqa: E402
@@ -37,11 +37,7 @@ def main(argv: list[str]) -> int:
         task: frozenset(f.name for f in build_harness(task, MockProvider()).policy.fields if f.kind is FieldKind.MUST_CONFIRM)
         for task in TASK_TYPES
     }
-    storage = build_storage(kind, path, settings.asset_dir, url)
-    try:
-        states = storage.sessions.list_all()
-    finally:
-        storage.close()
+    states = read_all_sessions(kind, path, settings.asset_dir, url)
     print(f"세션 {len(states)}개 · {path if kind == 'sqlite' else 'postgres'}")
     print(metrics_table(session_metrics(states, must_confirm)))
     return 0
