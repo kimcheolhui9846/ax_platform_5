@@ -87,6 +87,8 @@ BAZE(https://api.baze.co) 키 하나로 Claude와 GPT를 모두 부른다. 요�
    | GPT | `PROVIDER=openai`, `OPENAI_BASE_URL=https://api.baze.co/v1/gateway`, `OPENAI_API_KEY=<키>`, `OPENAI_MODEL`(기본 `gpt-6.1-terra`, 싸게 `gpt-6-luna`), `OPENAI_EFFORT` |
 
    두 쪽 주소·키를 모두 넣어 두면 `PROVIDER`만 바꿔 오간다. 단계별 라우팅(`CLAUDE_STAGE_*`)은 Claude에만 쓴다.
+
+   **렌더:** `render.yaml`이 주소·모델(`CLAUDE_MODEL=claude-sonnet-5-5`, `OPENAI_MODEL=gpt-6.1-terra`)을 넣고, 대시보드 Environment에는 `PROVIDER`(`mock`|`claude`|`openai`)와 키 `CLAUDE_API_KEY`·`OPENAI_API_KEY`(같은 BAZE 키)만 넣는다. 키 없이 `PROVIDER`만 바꾸면 서버가 시작하지 못한다. 공개 주소라 누구나 생성하면 BAZE 계정에 과금되므로 시연·테스트가 끝나면 `PROVIDER=mock`으로 되돌린다. 생성 요청은 버셀 프록시를 거치는데 첫 바이트까지 120초를 기다린다(Sonnet 생성은 그 안에 끝난다).
 3. 세션 하나 확인: `uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"`(제공자는 `PROVIDER`를 따른다). 여러 시나리오는 `scripts/measure.py --provider claude|openai --budget-usd 1`.
 
 GPT는 Chat Completions의 strict JSON Schema로 구조를 강제한다(`app/providers/openai_chat.py`). 하네스가 보내는 모든 응답 모델이 strict 변환을 통과하는지는 `tests/test_openai_provider.py`가 돈 없이 확인한다.
