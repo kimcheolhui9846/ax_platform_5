@@ -14,8 +14,23 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
+      # 모델 제공자는 대시보드에서 고른다(mock | claude | openai). 블루프린트가 덮어쓰지 않게 값은 여기 두지 않는다.
+      # 실제 호출은 BAZE 게이트웨이 키 하나로(docs/DEPLOY.md "BAZE"). 공개 주소라 누구나 호출하면 BAZE 계정에 과금된다.
+      # PROVIDER를 claude/openai로 바꿀 때는 그쪽 API 키도 같이 넣는다(없으면 서버가 시작하지 못한다).
       - key: PROVIDER
-        value: mock # 비용 0. 실제 Claude는 claude + ANTHROPIC_API_KEY(대시보드에만 넣는다, 개인 키는 인수 시 폐기)
+        sync: false
+      - key: CLAUDE_BASE_URL
+        value: https://api.baze.co/v1/gateway/claude
+      - key: CLAUDE_MODEL
+        value: claude-sonnet-5-5 # 비용: Opus의 절반. 더 싸게 claude-haiku-5-5
+      - key: CLAUDE_API_KEY
+        sync: false # BAZE 키. 대시보드에만(커밋 금지, 개인 키는 인수 시 폐기)
+      - key: OPENAI_BASE_URL
+        value: https://api.baze.co/v1/gateway
+      - key: OPENAI_MODEL
+        value: gpt-6.1-terra
+      - key: OPENAI_API_KEY
+        sync: false # BAZE 키(같은 값). 대시보드에만
       - key: IMAGE_PROVIDER
         value: mock
       - key: STORE
