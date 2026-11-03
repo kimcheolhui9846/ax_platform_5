@@ -26,6 +26,12 @@ def test_call_cost_uses_price_table_and_cache_rates():
     assert call_cost("claude-sonnet-5-5", cached) == pytest.approx(2.0 * 0.1 + 2.0 * 1.25)
 
 
+def test_call_cost_knows_gpt_models():
+    """GPT(PROVIDER=openai, BAZE 단가)도 추정한다. 캐시 쓰기는 OpenAI가 세지 않아 0으로 온다."""
+    assert call_cost("gpt-6.1-terra", {"input_tokens": 1_000_000, "output_tokens": 1_000_000}) == pytest.approx(6.0)
+    assert call_cost("gpt-6-luna", {"input_tokens": 1_000_000}) == pytest.approx(0.1)
+
+
 def test_call_cost_unknown_model_is_none_and_mock_or_failed_call_is_free():
     assert call_cost("other-model", {"input_tokens": 10}) is None
     assert call_cost("mock-image", {}) == call_cost("mock", {"input_tokens": 10}) == 0.0

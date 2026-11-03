@@ -2,9 +2,9 @@
 
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
-- 기준일: 2026-10-20
-- main: `68bf499` (PR #32까지 머지)
-- 테스트: 백엔드 763 passed, 프론트 481 passed, 빌드 OK
+- 기준일: 2026-11-03
+- main: `9add992` (PR #33까지 머지)
+- 테스트: 백엔드 795 passed, 프론트 481 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -40,6 +40,7 @@
 | 결과 문서 내보내기 | #31 | 결과·저장 완료·버전 보기의 '문서 내려받기' 메뉴: PDF(인쇄 창 'PDF로 저장')·Word(.docx)·HTML. 요청 예시를 한글 북백으로 |
 | 작업·결과물 정리 | #32 | 내 작업: 작업 삭제(확인 대화상자)·이름 바꾸기, 결과물: 결과물에서 빼기. 내려받는 파일 이름은 작업 이름 |
 | 데이터 보존(Neon Postgres) | #33 | STORE=postgres(세션·결과 이미지), 렌더가 다시 시작해도 남는다. 계약 테스트는 내장 Postgres(pgserver) |
+| BAZE 게이트웨이(Claude·GPT) | #34 | 키 하나로 실제 Claude·GPT 호출. `PROVIDER=openai`(`OpenAIProvider`, Chat Completions strict 스키마), 게이트웨이 주소·키 설정 `CLAUDE_BASE_URL`·`CLAUDE_API_KEY`·`OPENAI_*`(`config.provider_options`). 측정·스모크 스크립트가 두 제공자 모두 돈다. 절차 `docs/DEPLOY.md` "BAZE" |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
@@ -52,7 +53,7 @@
 2. **배포는 끝났다(2026-10-18)** — WBS 5.1·5.2. 버셀 https://ax-platform-5.vercel.app (main 머지마다 자동 배포), 렌더 https://ax-coaching-api.onrender.com (`render.yaml`, main 머지마다 자동 배포). 절차·한계는 `docs/DEPLOY.md`.
 3. **시연 전 확인** — 몇 분 전에 앱을 열어 렌더를 깨운다(15분 무요청이면 잠들고 깨는 데 약 1분). 데이터는 Neon에 있어 다시 시작해도 남는다(Neon도 한동안 쓰지 않으면 잠들어 첫 요청이 몇 초 늦다). 오래 보관할 결과는 '문서 내려받기' — PDF·Word·HTML.
 4. **실제 AI 연결** — WBS 6.1~6.3
-   - LLM 어댑터는 준비됐다(`app/providers/claude.py`). 이 프로토타입은 비용 0을 지키므로 `PROVIDER`는 `mock`으로 둔다. 테스트는 계속 Mock·가짜 응답(네트워크 없음)이다.
+   - LLM 어댑터는 Claude(`app/providers/claude.py`)·GPT(`app/providers/openai_chat.py`) 둘 다 준비됐고 BAZE 게이트웨이로 실제 호출을 확인했다(2026-11-03, `docs/DEPLOY.md` "BAZE"). 배포(렌더)는 비용 0을 지키므로 `PROVIDER=mock`으로 둔다. 개발자 로컬 `.env`는 BAZE로 실제 호출을 켤 수 있다. 테스트는 계속 Mock·가짜 응답(네트워크 없음)이다.
    - 인수하는 회사가 켤 때(실제 호출·모델 선택·비용은 그쪽이 정한다, 키는 커밋 금지):
      - `backend/.env`에 `PROVIDER=claude`와 `ANTHROPIC_API_KEY=…`를 넣는다(키가 없으면 서버 시작 때 실패한다). 모델·노력은 `CLAUDE_MODEL`(기본 `claude-opus-5-5`)·`CLAUDE_EFFORT`(기본 `medium`).
      - 세션 하나 확인(그쪽용 스크립트): `uv run --directory backend python ../scripts/claude_smoke.py product_planning "외국인 관광객 선물용 한글 북백"`(진단 → '아직 모르겠어요' 한 번 → 생성, 단계별 모델·토큰 출력). `generate`의 `output_tokens`가 상한 `MAX_TOKENS`(16000)에 가까우면 잘림(`ProviderOutputError`)이 나기 쉬우니 상한이나 결과 분량을 조정한다.
@@ -75,6 +76,7 @@
 | GitHub 저장소 | `kimcheolhui9846/ax_platform_5` | 개인 계정 | 저장소 이전(Transfer)이나 인수 기업 쪽으로 복제 |
 | 렌더 서비스 `ax-coaching-api` (https://ax-coaching-api.onrender.com) | render.com 개인 계정(Free) | 개인 서비스, Mock·데이터 휘발 | 인수 기업 계정에서 `render.yaml`로 새로 만들고 개인 서비스 삭제. 주소가 바뀌면 `frontend/vercel.json`의 `rewrites` 교체 |
 | 버셀 프로젝트 `ax-platform-5` (https://ax-platform-5.vercel.app) | vercel.com 개인 계정(Hobby) | 개인 프로젝트 | 인수 기업 계정에서 새로 가져오고 개인 프로젝트 삭제 |
+| BAZE API 키(`CLAUDE_API_KEY`·`OPENAI_API_KEY`) | 로컬 `backend/.env`(git 제외) | 개인 키(BAZE 개인 계정 과금) | BAZE에서 개인 키 폐기, 인수 기업 키로 교체 |
 | Anthropic API 키 `ANTHROPIC_API_KEY` | 로컬 `backend/.env`(git 제외) 또는 렌더 환경 변수 | 개인 키(연결 확인용, 기본 `PROVIDER=mock`이라 호출되지 않음) | 콘솔에서 개인 키 폐기(revoke), 인수 기업 키로 교체 |
 | 렌더·버셀 API 토큰(만들었다면) | 각 대시보드 | 개인 토큰 | 폐기 |
 | `frontend/vercel.json`의 `rewrites` 주소 | 저장소 | 개인 렌더 서비스 주소 | 인수 기업 렌더 주소로 교체 |

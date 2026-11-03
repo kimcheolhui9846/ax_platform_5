@@ -1,7 +1,7 @@
 """환경 설정. backend/.env 또는 환경 변수에서 읽는다. 실행 위치와 상관없이 backend/.env를 본다."""
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 from psycopg.conninfo import conninfo_to_dict
 from pydantic import NonNegativeFloat, PositiveInt, SecretStr, ValidationInfo, field_validator, model_validator
@@ -15,6 +15,8 @@ ENV_FILE = BACKEND_DIR / ".env"
 DEFAULT_DATABASE_PATH = BACKEND_DIR / "data" / "sessions.db"
 DEFAULT_ASSET_DIR = BACKEND_DIR / "data" / "assets"
 
+OpenAIEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]  # reasoning_effort 값
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore", hide_input_in_errors=True)  # 오류에 입력 값(DATABASE_URL)을 싣지 않는다
@@ -25,6 +27,13 @@ class Settings(BaseSettings):
     # 단계별 라우팅(기본 꺼짐). JSON 객체. 예: CLAUDE_STAGE_MODELS={"diagnose":"claude-haiku-5-5"}
     claude_stage_models: Annotated[dict[str, str], NoDecode] = {}
     claude_stage_efforts: Annotated[dict[str, Effort], NoDecode] = {}
+    # 게이트웨이(예: BAZE)를 거칠 때만 정한다. 비우면 공식 API와 환경 변수 ANTHROPIC_API_KEY를 쓴다.
+    claude_base_url: str | None = None
+    claude_api_key: SecretStr | None = None
+    openai_model: str = "gpt-6.1-terra"  # PROVIDER=openai일 때 쓰는 모델
+    openai_effort: OpenAIEffort = "medium"
+    openai_base_url: str | None = None  # 비우면 공식 API(또는 SDK가 읽는 환경 변수)
+    openai_api_key: SecretStr | None = None
     image_provider: str = "mock"
     # AI 동시 호출 상한(LLM·이미지 합쳐서). 자리를 이 시간 안에 못 얻으면 503. app/providers/limit.py
     ai_max_concurrent_calls: PositiveInt = 4
@@ -74,6 +83,32 @@ class Settings(BaseSettings):
                 f"라우팅할 수 없는 단계입니다: {', '.join(unknown)} (가능: {', '.join(ROUTABLE_STAGES)})"
             )
         return value
+
+
+def _secret(value: SecretStr | None) -> str | None:
+    return value.get_secret_value() if value else None
+
+
+def provider_options(settings: Settings) -> dict[str, Any]:
+    """[순수] get_provider에 넘길 값. 고른 제공자의 모델·노력·주소·키만 고른다.
+    단계별 라우팅(CLAUDE_STAGE_*)은 Claude 모델 id라 Claude에만 넘긴다."""
+    if settings.provider == "openai":
+        return {
+            "model": settings.openai_model,
+            "effort": settings.openai_effort,
+            "stage_models": {},
+            "stage_efforts": {},
+            "base_url": settings.openai_base_url,
+            "api_key": _secret(settings.openai_api_key),
+        }
+    return {
+        "model": settings.claude_model,
+        "effort": settings.claude_effort,
+        "stage_models": settings.claude_stage_models,
+        "stage_efforts": settings.claude_stage_efforts,
+        "base_url": settings.claude_base_url,
+        "api_key": _secret(settings.claude_api_key),
+    }
 
 
 settings = Settings()

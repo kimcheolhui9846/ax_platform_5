@@ -74,6 +74,23 @@ vercel.com에 GitHub 계정으로 가입하고 **Add New → Project**에서 저
 - 로컬에서 Neon으로 해 보려면 `backend/.env`에 `STORE=postgres`와 `DATABASE_URL=…`을 넣는다. 계약 테스트를 Neon에 돌리려면 셸 환경 변수 `TEST_DATABASE_URL`에 넣는다(`backend/.env`는 읽지 않는다. 없으면 테스트는 내장 Postgres `pgserver`로 돈다). **테스트는 표를 `TRUNCATE`로 비우므로 `TEST_DATABASE_URL`은 실제 데이터와 분리된 Neon 브랜치(또는 별도 데이터베이스)를 가리켜야 한다.** `DATABASE_URL`과 같으면 테스트가 건너뛴다.
 - 비밀번호가 새어 나갔으면 Neon 대시보드에서 비밀번호를 재설정하고 렌더 값을 바꾼다.
 
+## BAZE 게이트웨이로 실제 Claude·GPT 쓰기 (선택, 비용 발생)
+
+BAZE(https://api.baze.co) 키 하나로 Claude와 GPT를 모두 부른다. 요금은 키를 만든 BAZE 계정에 나간다. 키는 BAZE 왼쪽 아래 **API Gateway**에서 만들고(한 번만 보인다) 저장소에 넣지 않는다.
+
+1. 키 확인: `curl -H "Authorization: Bearer <키>" https://api.baze.co/v1/gateway/models/` → 모델 목록이 나오면 된다(401이면 다른 배포의 키).
+2. `backend/.env`(로컬) 또는 렌더 Environment에 넣는다.
+
+   | 쓰려는 모델 | 설정 |
+   |---|---|
+   | Claude | `PROVIDER=claude`, `CLAUDE_BASE_URL=https://api.baze.co/v1/gateway/claude`, `CLAUDE_API_KEY=<키>`, `CLAUDE_MODEL`(예: `claude-sonnet-5-5`) |
+   | GPT | `PROVIDER=openai`, `OPENAI_BASE_URL=https://api.baze.co/v1/gateway`, `OPENAI_API_KEY=<키>`, `OPENAI_MODEL`(기본 `gpt-6.1-terra`, 싸게 `gpt-6-luna`), `OPENAI_EFFORT` |
+
+   두 쪽 주소·키를 모두 넣어 두면 `PROVIDER`만 바꿔 오간다. 단계별 라우팅(`CLAUDE_STAGE_*`)은 Claude에만 쓴다.
+3. 세션 하나 확인: `uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"`(제공자는 `PROVIDER`를 따른다). 여러 시나리오는 `scripts/measure.py --provider claude|openai --budget-usd 1`.
+
+GPT는 Chat Completions의 strict JSON Schema로 구조를 강제한다(`app/providers/openai_chat.py`). 하네스가 보내는 모든 응답 모델이 strict 변환을 통과하는지는 `tests/test_openai_provider.py`가 돈 없이 확인한다.
+
 ## 3. 확인 순서
 
 1. 렌더 주소의 `/api/v1/coaching/tasks`가 JSON을 낸다(깨어나는 데 1분까지 걸릴 수 있다).

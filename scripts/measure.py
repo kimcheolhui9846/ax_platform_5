@@ -3,7 +3,8 @@
 실행(저장소 루트):
   uv run --directory backend python ../scripts/measure.py                         # Mock, 모든 과제, 한 번 호출·병렬
   uv run --directory backend python ../scripts/measure.py --provider claude --budget-usd 2 --repeat 3
-실제 모델(--provider claude)은 비용이 든다. 키는 환경 변수 ANTHROPIC_API_KEY, 모델·노력·단계별 라우팅은 backend/.env 설정을 따른다.
+  uv run --directory backend python ../scripts/measure.py --provider openai --budget-usd 1
+실제 모델(--provider claude|openai)은 비용이 든다. 모델·노력·주소·키(CLAUDE_*·OPENAI_*)와 단계별 라우팅은 backend/.env 설정을 따른다.
 --budget-usd는 누적 추정 비용이 그 값에 닿으면 다음 실행부터 멈춘다(추정이다. 콘솔의 사용 한도도 함께 건다).
 결과: backend/data/measure/<시각>/rows.csv(실행마다 한 줄), summary.md(과제·방식별 요약 표).
 """
@@ -16,7 +17,7 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))  # 스크립트 위치와 상관없이 app을 읽는다
 
-from app.config import settings  # noqa: E402
+from app.config import provider_options, settings  # noqa: E402
 from app.harness.measure import (  # noqa: E402
     MEASURE_PARALLEL_PATH,
     VARIANTS,
@@ -26,12 +27,12 @@ from app.harness.measure import (  # noqa: E402
     write_report,
 )
 from app.harness.registry import TASK_TYPES  # noqa: E402
-from app.providers.factory import get_provider  # noqa: E402
+from app.providers.factory import SUPPORTED, get_provider  # noqa: E402
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="하네스 측정(기본 Mock, 비용 0)")
-    parser.add_argument("--provider", choices=["mock", "claude"], default="mock")
+    parser.add_argument("--provider", choices=list(SUPPORTED), default="mock")
     parser.add_argument("--tasks", nargs="+", choices=TASK_TYPES, default=list(TASK_TYPES))
     parser.add_argument("--variants", nargs="+", choices=VARIANTS, default=list(VARIANTS))
     parser.add_argument("--repeat", type=int, default=1)
@@ -42,16 +43,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    if args.provider == "claude" and args.budget_usd is None:
+    if args.provider != "mock" and args.budget_usd is None:
         print("실제 모델은 비용이 듭니다. --budget-usd로 상한을 정해 주세요.")
         return 2
-    provider = get_provider(
-        args.provider,
-        model=settings.claude_model,
-        effort=settings.claude_effort,
-        stage_models=settings.claude_stage_models,
-        stage_efforts=settings.claude_stage_efforts,
-    )
+    chosen = settings.model_copy(update={"provider": args.provider})
+    provider = get_provider(args.provider, **provider_options(chosen))
     out = args.out or BACKEND_DIR / "data" / "measure" / datetime.now().strftime("%Y%m%d-%H%M%S")
     print(f"제공자 {args.provider} · 과제 {', '.join(args.tasks)} · 방식 {', '.join(args.variants)} · 반복 {args.repeat}")
     with tempfile.TemporaryDirectory() as workdir:

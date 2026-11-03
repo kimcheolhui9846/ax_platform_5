@@ -5,7 +5,7 @@ from pydantic import SecretStr, ValidationError
 
 import app.config as config
 from app.core.state import SessionState
-from app.config import Settings
+from app.config import Settings, provider_options
 from app.core.assets import InMemoryAssetStore, LocalAssetStore
 from app.core.storage import build_storage, read_all_sessions
 from app.core.store import InMemorySessionStore, SqliteSessionStore
@@ -179,3 +179,66 @@ def test_malformed_database_url_is_rejected_without_leaking(monkeypatch):
         Settings(_env_file=None, store="postgres", database_url="host=h password=hunter2secret bad=")
     text = str(excinfo.value)
     assert "DATABASE_URL 형식이 올바르지 않습니다." in text and "hunter2secret" not in text
+
+
+LLM_ENV = (
+    "PROVIDER", "CLAUDE_MODEL", "CLAUDE_EFFORT", "CLAUDE_BASE_URL", "CLAUDE_API_KEY",
+    "OPENAI_MODEL", "OPENAI_EFFORT", "OPENAI_BASE_URL", "OPENAI_API_KEY",
+    "CLAUDE_STAGE_MODELS", "CLAUDE_STAGE_EFFORTS",
+)
+
+
+@pytest.fixture
+def clean_llm_env(monkeypatch):
+    for name in LLM_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_llm_endpoints_default_to_the_vendor(clean_llm_env):
+    """주소·키를 정하지 않으면 SDK 기본(공식 API, 환경 변수 키)을 쓴다."""
+    settings = Settings(_env_file=None)
+    assert (settings.claude_base_url, settings.claude_api_key) == (None, None)
+    assert (settings.openai_base_url, settings.openai_api_key) == (None, None)
+
+
+def test_llm_keys_are_secret(clean_llm_env, monkeypatch):
+    monkeypatch.setenv("CLAUDE_API_KEY", "claude-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+    settings = Settings(_env_file=None)
+    assert "secret" not in repr(settings)
+    assert settings.claude_api_key.get_secret_value() == "claude-secret"
+
+
+def test_provider_options_for_claude(clean_llm_env, monkeypatch):
+    monkeypatch.setenv("CLAUDE_BASE_URL", "https://api.baze.co/v1/gateway/claude")
+    monkeypatch.setenv("CLAUDE_API_KEY", "k")
+    settings = Settings(_env_file=None, provider="claude", claude_model="claude-sonnet-5-5", claude_effort="low",
+                        claude_stage_models={"diagnose": "claude-haiku-5-5"})
+    assert provider_options(settings) == {
+        "model": "claude-sonnet-5-5",
+        "effort": "low",
+        "stage_models": {"diagnose": "claude-haiku-5-5"},
+        "stage_efforts": {},
+        "base_url": "https://api.baze.co/v1/gateway/claude",
+        "api_key": "k",
+    }
+
+
+def test_provider_options_for_openai(clean_llm_env, monkeypatch):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.baze.co/v1/gateway")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    settings = Settings(_env_file=None, provider="openai", openai_model="gpt-6-luna", openai_effort="minimal",
+                        claude_stage_models={"diagnose": "claude-haiku-5-5"})
+    assert provider_options(settings) == {
+        "model": "gpt-6-luna",
+        "effort": "minimal",
+        "stage_models": {},  # 단계별 라우팅은 Claude 설정이다. GPT에는 Claude 모델 id를 넘기지 않는다
+        "stage_efforts": {},
+        "base_url": "https://api.baze.co/v1/gateway",
+        "api_key": "k",
+    }
+
+
+def test_bad_openai_effort_is_rejected(clean_llm_env):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, openai_effort="max")

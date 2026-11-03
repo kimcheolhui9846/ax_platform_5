@@ -8,6 +8,7 @@ from app.providers.claude import ClaudeProvider
 from app.providers.factory import get_provider
 from app.providers.mock import MockProvider
 from app.providers.mock_fill import mock_instance
+from app.providers.openai_chat import OpenAIProvider
 
 
 class Kind(StrEnum):
@@ -80,3 +81,25 @@ def test_get_provider_builds_claude_without_calling(monkeypatch):
     provider = get_provider("claude", model="claude-haiku-5-5", effort="low")
     assert isinstance(provider, ClaudeProvider)
     assert (provider.name, provider.model, provider.effort) == ("claude", "claude-haiku-5-5", "low")
+
+
+def test_get_provider_builds_openai_without_calling(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    provider = get_provider(
+        "openai", model="gpt-6-luna", effort="low", base_url="https://gateway.example/v1/gateway", api_key="k"
+    )
+    assert isinstance(provider, OpenAIProvider)
+    assert (provider.name, provider.model, provider.effort) == ("openai", "gpt-6-luna", "low")
+    assert provider.client.api_key == "k"
+
+
+def test_get_provider_passes_the_endpoint_to_claude(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    provider = get_provider("claude", model="claude-haiku-5-5", effort="low", base_url="https://g.example/claude", api_key="k")
+    assert provider.client.api_key == "k"
+
+
+def test_unknown_provider_lists_the_supported_ones():
+    with pytest.raises(ValueError, match="openai"):
+        get_provider("unknown")
