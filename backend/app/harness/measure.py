@@ -25,10 +25,15 @@ MEASURE_PARALLEL_PATH = Path(__file__).resolve().parents[3] / "scripts" / "measu
 VARIANTS = ("single", "parallel")
 
 # 1M 토큰당 (입력, 출력) 달러. docs/HANDOFF.md의 참고 단가와 같게 둔다. 캐시 읽기·쓰기는 입력 단가의 배수다.
+# GPT는 BAZE 게이트웨이 단가(GET /v1/gateway/models/)다. 캐시 읽기 배수는 모델마다 조금 달라 추정이다.
 PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-opus-5-5": (4.0, 20.0),
     "claude-sonnet-5-5": (2.0, 10.0),
     "claude-haiku-5-5": (0.10, 0.50),
+    "gpt-6.1-sol": (2.0, 10.0),
+    "gpt-6.1-terra": (1.0, 5.0),
+    "gpt-6-luna": (0.10, 0.50),
+    "gpt-5.6-luna": (0.20, 1.20),
 }
 CACHE_READ_RATE = 0.1
 CACHE_WRITE_RATE = 1.25

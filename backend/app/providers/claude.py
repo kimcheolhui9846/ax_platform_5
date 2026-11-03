@@ -1,8 +1,9 @@
 """실제 Claude 제공자. 공식 SDK(anthropic)로 부르고, 결과와 오류를 LLMProvider 계약으로 바꾼다.
 
 prompt.system은 과제마다 고정이라 캐시되는 시스템 블록, prompt.user는 사용자 메시지다. 출력 구조는
-response_model의 JSON Schema로 강제한다(구조화 출력, output_config.format). 키는 환경 변수
-ANTHROPIC_API_KEY(또는 ANTHROPIC_AUTH_TOKEN)에서 SDK가 읽는다.
+response_model의 JSON Schema로 강제한다(구조화 출력, output_config.format). 키·주소는 인자(설정
+CLAUDE_API_KEY·CLAUDE_BASE_URL, 게이트웨이용)로 받고, 없으면 SDK가 환경 변수 ANTHROPIC_API_KEY(또는
+ANTHROPIC_AUTH_TOKEN)·ANTHROPIC_BASE_URL을 읽는다.
 
 SDK의 messages.parse를 쓰지 않는다. parse는 stop_reason을 보기 전에 글을 스키마로 검증해, 거절·잘림이
 스키마 실패(ProviderOutputError → 하네스가 한 번 더 부름)로 바뀌고 대체 모델이 이어 쓴 응답의 앞 조각에서
@@ -24,15 +25,23 @@ KEY_ENV_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
 class ClaudeProvider:
     name = "claude"
 
-    def __init__(self, model: str, effort: str, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        model: str,
+        effort: str,
+        client: Any | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ) -> None:
         self.model = model
         self.effort = effort
-        if client is None and not any(os.environ.get(name) for name in KEY_ENV_VARS):
+        if client is None and not (api_key or any(os.environ.get(name) for name in KEY_ENV_VARS)):
             # 키 없이 만들면 요청 때 TypeError(500)로 터진다. 서버 시작 때 바로 알린다(키 값은 싣지 않는다).
             raise ValueError(
-                "PROVIDER=claude인데 API 키가 없습니다. 환경 변수나 backend/.env에 ANTHROPIC_API_KEY를 넣으세요."
+                "PROVIDER=claude인데 API 키가 없습니다. 환경 변수 ANTHROPIC_API_KEY나 backend/.env의 CLAUDE_API_KEY를 넣으세요."
             )
-        self.client = client if client is not None else anthropic.Anthropic()
+        self.client = client if client is not None else anthropic.Anthropic(base_url=base_url, api_key=api_key)
 
     def _request(self, prompt: Prompt, response_model: type[BaseModel] | None) -> dict[str, Any]:
         output_config: dict[str, Any] = {"effort": self.effort}

@@ -8,7 +8,7 @@ from app.api import assets as assets_api, coaching
 from app.api.errors import install_error_handlers
 from app.api.locks import SessionLocks
 from app.api.responses import install_openapi
-from app.config import settings
+from app.config import provider_options, settings
 from app.core.assets import AssetStore
 from app.core.storage import build_storage
 from app.core.store import SessionStore
@@ -30,13 +30,7 @@ def create_app(
     slots = slots or CallSlots(settings.ai_max_concurrent_calls, settings.ai_queue_wait_seconds)
     llm = LimitedProvider(
         provider
-        or get_provider(
-            settings.provider,
-            model=settings.claude_model,
-            effort=settings.claude_effort,
-            stage_models=settings.claude_stage_models,
-            stage_efforts=settings.claude_stage_efforts,
-        ),
+        or get_provider(settings.provider, **provider_options(settings)),
         slots,
     )
     image = LimitedImageProvider(images or get_image_provider(settings.image_provider), slots)

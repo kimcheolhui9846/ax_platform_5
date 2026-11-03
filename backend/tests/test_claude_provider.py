@@ -181,3 +181,14 @@ def test_sdk_errors_become_provider_errors(error):
     with pytest.raises(ProviderError) as caught:
         complete(provider)
     assert not isinstance(caught.value, ProviderOutputError)
+
+
+def test_endpoint_and_key_are_passed_to_the_client(monkeypatch):
+    """게이트웨이(예: BAZE)를 거칠 때는 주소와 키를 설정에서 받는다(backend/.env는 os.environ에 들어가지 않는다)."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    provider = ClaudeProvider(
+        model="claude-sonnet-5-5", effort="low", base_url="https://gateway.example/claude", api_key="gw-key"
+    )
+    assert str(provider.client.base_url).rstrip("/") == "https://gateway.example/claude"
+    assert provider.client.api_key == "gw-key"

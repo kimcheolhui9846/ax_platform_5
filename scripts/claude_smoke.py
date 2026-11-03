@@ -1,4 +1,5 @@
-"""실제 Claude로 세션 하나를 끝까지 돌려 본다(비용 발생). 키는 환경 변수 ANTHROPIC_API_KEY.
+"""실제 모델로 세션 하나를 끝까지 돌려 본다(비용 발생). 제공자는 backend/.env의 PROVIDER(claude|openai)이고
+모델·노력·주소·키는 CLAUDE_*·OPENAI_* 설정을 따른다(BAZE 게이트웨이는 docs/DEPLOY.md "BAZE").
 
 실행(저장소 루트): uv run --directory backend python ../scripts/claude_smoke.py [과제] [요청 글]
   예) uv run --directory backend python ../scripts/claude_smoke.py product_planning "집들이 선물용 수제 향초"
@@ -9,12 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))  # 스크립트 위치와 상관없이 app을 읽는다
 
-from app.config import settings  # noqa: E402
+from app.config import provider_options, settings  # noqa: E402
 from app.core.state import Answer, AnswerType  # noqa: E402
 from app.harness.errors import GenerationFailed  # noqa: E402
 from app.harness.registry import build_harness  # noqa: E402
 from app.providers.base import ProviderError  # noqa: E402
-from app.providers.claude import ClaudeProvider  # noqa: E402
+from app.providers.factory import get_provider  # noqa: E402
 
 DEFAULT_TASK = "product_planning"
 DEFAULT_REQUEST = "집들이 선물용 수제 향초"
@@ -29,8 +30,12 @@ def print_trace(trace) -> None:
 def main(argv: list[str]) -> int:
     task = argv[1] if len(argv) > 1 else DEFAULT_TASK
     raw = argv[2] if len(argv) > 2 else DEFAULT_REQUEST
-    print(f"과제 {task} · 모델 {settings.claude_model} · 노력 {settings.claude_effort}")
-    harness = build_harness(task, ClaudeProvider(settings.claude_model, settings.claude_effort))
+    if settings.provider == "mock":
+        print("PROVIDER=mock입니다. backend/.env에서 PROVIDER=claude 또는 openai로 바꾸세요.")
+        return 2
+    options = provider_options(settings)
+    print(f"과제 {task} · 제공자 {settings.provider} · 모델 {options['model']} · 노력 {options['effort']}")
+    harness = build_harness(task, get_provider(settings.provider, **options))
     try:
         state = harness.start(raw)
         if state.pending_question is not None:
