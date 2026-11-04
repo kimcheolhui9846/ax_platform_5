@@ -229,6 +229,7 @@ def test_private_fields_must_be_fields_or_supplement_items():
         ("business_plan", ["revenue_model", "production_cost", "sale_price", "budget"]),
         ("marketing_content", ["price"]),
         ("branding", []),
+        ("ir_pitch", ["funding_amount", "current_revenue"]),
     ],
 )
 def test_private_fields_starting_values(registry, task_type, expected):

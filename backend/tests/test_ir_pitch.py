@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from app.core.results import GenerationResult, ResultCard, sections_from_cards
 from app.core.state import SessionState
 from app.harness.policy import TaskPolicy
+from app.harness.registry import TASK_TYPES, HarnessRegistry
 from app.harness.tasks.ir_pitch.output_schema import IrPitchContent
 from app.harness.tasks.ir_pitch.validators import (
     VALIDATORS,
@@ -12,7 +13,11 @@ from app.harness.tasks.ir_pitch.validators import (
     check_core_slides,
     check_unsupported_investor_claims,
 )
+from app.main import create_app
+from app.providers.mock import MockProvider
+from tests.conftest import api_client
 
+BASE = "/api/v1/coaching"
 POLICY = TaskPolicy(task_type="ir_pitch", title="IR 피치덱", heading="h", deliverable="d", fields=[])
 STATE = SessionState(task_type="ir_pitch")
 
@@ -68,3 +73,52 @@ def test_unsupported_investor_claims_are_flagged():
 
 def test_validators_are_registered_in_order():
     assert VALIDATORS == [check_ask_present, check_core_slides, check_unsupported_investor_claims]
+
+
+@pytest.fixture(scope="module")
+def harness():
+    return HarnessRegistry(MockProvider()).get("ir_pitch")
+
+
+def test_ir_pitch_is_registered_last():
+    assert TASK_TYPES[-1] == "ir_pitch"
+
+
+def test_policy_keeps_money_private_and_images_off(harness):
+    policy = harness.policy
+    assert policy.title == "IR 피치덱"
+    assert policy.raw_input_field == "company_idea"
+    assert policy.private_fields == ["funding_amount", "current_revenue"]
+    assert policy.image_generation is False
+
+
+def test_carry_over_takes_ideas_and_customers_from_earlier_tasks(harness):
+    carry = harness.policy.carry_over
+    assert carry["business_idea"] == "company_idea"
+    assert carry["product_idea"] == "company_idea"
+    assert carry["customer_problem"] == "problem"
+    assert carry["target_customer"] == "target_market"
+    assert carry["revenue_model"] == "business_model"
+
+
+def test_mock_session_generates_a_valid_pitch_deck(harness):
+    state = harness.start("한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요")
+    harness.generate(state)
+    content = harness.content_model.model_validate(state.result.content)
+    assert 5 <= len(content.slides) <= 12
+    assert state.result.sections
+
+
+def test_api_runs_ir_pitch_from_business_plan_carry():
+    client = api_client(create_app(provider=MockProvider()))
+    prev = client.post(
+        f"{BASE}/tasks/business_plan/sessions", json={"notice_acknowledged": True, "raw_input": "한글 디자인 북백 사업"}
+    ).json()["session_id"]
+    client.post(f"{BASE}/sessions/{prev}/generate")
+    view = client.post(
+        f"{BASE}/tasks/ir_pitch/sessions",
+        json={"notice_acknowledged": True, "raw_input": "투자 발표 준비", "from_session_id": prev},
+    ).json()
+    assert view["task_type"] == "ir_pitch"
+    company = next(s for s in view["summary"] if s["field"] == "company_idea")
+    assert (company["value"], company["source"]) == ("한글 디자인 북백 사업", "previous_task")

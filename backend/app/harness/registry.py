@@ -9,7 +9,7 @@ from app.providers.base import LLMProvider
 from app.providers.image import ImageProvider
 
 TASKS_DIR = Path(__file__).parent / "tasks"
-TASK_TYPES = ("business_plan", "product_planning", "branding", "marketing_content")
+TASK_TYPES = ("business_plan", "product_planning", "branding", "marketing_content", "ir_pitch")
 
 
 def harness_class(task_type: str) -> type[BaseHarness]:

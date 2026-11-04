@@ -1,0 +1,11 @@
+name: 한글 굿즈 시드 투자 기본 흐름
+raw_input: 한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요
+answers:
+  problem:
+    - answer_type: easier
+    - value: 외국인 관광객이 살 만한 세련된 한글 기념품이 적다
+  solution:
+    - value: 한글 자모를 패턴으로 쓴 생활용품을 직접 디자인해 판다
+  target_market:
+    - answer_type: option
+      option_indexes: [0]

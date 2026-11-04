@@ -113,7 +113,7 @@ def test_editing_text_keeps_the_generated_image():
 def test_branding_and_marketing_turn_images_on_by_default():
     app = create_app(provider=MockProvider())
     policies = {h.task_type: h.policy.image_generation for h in app.state.registry.all()}
-    assert policies == {"business_plan": False, "product_planning": False, "branding": True, "marketing_content": True}
+    assert policies == {"business_plan": False, "product_planning": False, "branding": True, "marketing_content": True, "ir_pitch": False}
 
 
 def test_generated_image_is_served_through_the_api():

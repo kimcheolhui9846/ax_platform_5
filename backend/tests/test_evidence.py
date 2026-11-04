@@ -117,7 +117,7 @@ def test_editing_text_keeps_the_evidence_record(harness):
 def test_evidence_api():
     client = api_client(create_app(provider=MockProvider(), debug=True))
     tasks = {t["task_type"]: t["evidence_sources"] for t in client.get(f"{BASE}/tasks").json()}
-    assert tasks == {"business_plan": 0, "product_planning": 2, "branding": 0, "marketing_content": 0}
+    assert tasks == {"business_plan": 0, "product_planning": 2, "branding": 0, "marketing_content": 0, "ir_pitch": 0}
     sid = client.post(f"{BASE}/tasks/product_planning/sessions", json={"notice_acknowledged": True, "raw_input": "한글 파우치"}).json()["session_id"]
 
     before = client.get(f"{BASE}/sessions/{sid}/evidence")
