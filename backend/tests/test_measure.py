@@ -6,9 +6,14 @@ import pytest
 from app.core.state import SessionState, TraceEntry
 from app.harness.measure import (
     MEASURE_PARALLEL_PATH,
+    MeasureReport,
+    RunDocument,
+    RunRow,
     call_cost,
+    document_name,
     load_parallel_configs,
     measure,
+    provider_totals,
     summarize,
     summary_table,
     write_report,
@@ -135,8 +140,6 @@ def test_write_report_saves_rows_and_summary(tmp_path):
 
 
 def test_summary_table_shows_percentiles_and_cost():
-    from app.harness.measure import RunRow
-
     rows = [
         RunRow(task="branding", scenario="s", variant="single", repeat=i, status="completed", generate_ms=ms, cost_usd=0.5)
         for i, ms in enumerate([100, 200, 300, 400], start=1)
@@ -148,3 +151,91 @@ def test_summary_table_shows_percentiles_and_cost():
 
 def test_script_entry_exists():
     assert (Path(__file__).resolve().parents[2] / "scripts" / "measure.py").exists()
+
+
+def test_measure_keeps_result_text_of_each_generated_run(tmp_path):
+    report = measure(
+        tasks=["product_planning"],
+        variants=["single"],
+        repeat=1,
+        provider=MockProvider(),
+        parallel_configs={},
+        budget_usd=None,
+        workdir=tmp_path,
+    )
+    assert len(report.documents) == len(report.rows)
+    assert {(d.task, d.scenario) for d in report.documents} == {(r.task, r.scenario) for r in report.rows}
+    assert all(d.full_text for d in report.documents)
+
+
+def test_measure_has_no_document_when_generation_fails(tmp_path):
+    report = measure(
+        tasks=["product_planning"],
+        variants=["single"],
+        repeat=1,
+        provider=MockProvider(fail_stages={"generate"}),
+        parallel_configs={},
+        budget_usd=None,
+        workdir=tmp_path,
+    )
+    assert report.rows and all(row.status == "failed" for row in report.rows)
+    assert report.documents == []
+
+
+def test_write_report_saves_each_result_text(tmp_path):
+    report = measure(
+        tasks=["product_planning"],
+        variants=["single"],
+        repeat=1,
+        provider=MockProvider(),
+        parallel_configs={},
+        budget_usd=None,
+        workdir=tmp_path / "work",
+    )
+    write_report(report, tmp_path / "out")
+    saved = sorted((tmp_path / "out" / "documents").glob("*.md"))
+    assert len(saved) == len(report.documents)
+    assert {p.read_text(encoding="utf-8") for p in saved} == {d.full_text for d in report.documents}
+
+
+def test_document_name_is_safe_file_name():
+    doc = RunDocument(task="branding", scenario='a/b:c*"?', variant="single", repeat=2, full_text="x")
+    assert document_name(doc) == "branding-single-2-a_b_c___.md"
+
+
+def test_provider_totals_shows_one_row_per_provider_with_models_and_cost():
+    def row(task: str, status: str, ms: int, models: str, cost: float) -> RunRow:
+        return RunRow(task=task, scenario="s", variant="single", repeat=1, status=status, generate_ms=ms, models=models, cost_usd=cost)
+
+    table = provider_totals({
+        "claude": [row("branding", "completed", 100, "claude-sonnet-5-5", 0.1), row("ir_pitch", "completed", 300, "claude-sonnet-5-5", 0.2)],
+        "openai": [row("branding", "completed", 200, "gpt-6.1-terra", 0.05), row("ir_pitch", "failed", 0, "gpt-6.1-terra", 0.01)],
+    })
+    lines = table.splitlines()
+    assert lines[0].startswith("| 제공자 | 모델 | 실행 | 완료 |")
+    assert "| claude | claude-sonnet-5-5 | 2 | 2 | 100 | 300 |" in table
+    assert "| openai | gpt-6.1-terra | 2 | 1 | 200 | 200 |" in table
+    assert "0.3000" in table and "0.0600" in table
+
+
+def test_summary_table_columns_match_provider_totals():
+    rows = [RunRow(task="branding", scenario="s", variant="single", repeat=1, status="completed", generate_ms=10)]
+    summary_cells = summary_table(rows).splitlines()[2].split("|")[3:]
+    totals_cells = provider_totals({"mock": rows}).splitlines()[2].split("|")[3:]
+    assert summary_cells == totals_cells
+
+
+def test_document_name_drops_control_chars_trailing_dots_and_long_names():
+    doc = RunDocument(task="branding", scenario="a\tb" + "c" * 100 + ". ", variant="single", repeat=1, full_text="x")
+    name = document_name(doc)
+    assert name.startswith("branding-single-1-a_b")
+    assert "\t" not in name and not name.removesuffix(".md").endswith((".", " "))
+    assert len(name.removesuffix(".md")) <= len("branding-single-1-") + 60
+
+
+def test_write_report_replaces_result_texts_of_earlier_run(tmp_path):
+    old = MeasureReport(rows=[], documents=[RunDocument(task="branding", scenario="old", variant="single", repeat=1, full_text="old")])
+    new = MeasureReport(rows=[], documents=[RunDocument(task="branding", scenario="new", variant="single", repeat=1, full_text="new")])
+    write_report(old, tmp_path)
+    write_report(new, tmp_path)
+    assert [p.name for p in (tmp_path / "documents").glob("*.md")] == ["branding-single-1-new.md"]
