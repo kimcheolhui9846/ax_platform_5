@@ -3,8 +3,8 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-11-04
-- main: `f7f3558` (PR #35까지 머지)
-- 테스트: 백엔드 855 passed, 프론트 482 passed, 빌드 OK
+- main: `4a756c7` (PR #36까지 머지)
+- 테스트: 백엔드 908 passed, 프론트 486 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -43,12 +43,13 @@
 | BAZE 게이트웨이(Claude·GPT) | #34 | 키 하나로 실제 Claude·GPT 호출. `PROVIDER=openai`(`OpenAIProvider`, Chat Completions strict 스키마), 게이트웨이 주소·키 설정 `CLAUDE_BASE_URL`·`CLAUDE_API_KEY`·`OPENAI_*`(`config.provider_options`). 측정·스모크 스크립트가 두 제공자 모두 돈다. 절차 `docs/DEPLOY.md` "BAZE" |
 | 렌더에서 실제 AI | #35 | `render.yaml`: `PROVIDER`는 대시보드에서(`sync: false`), BAZE 주소·모델은 파일, 키 `CLAUDE_API_KEY`·`OPENAI_API_KEY`는 대시보드에만 |
 | IR 피치덱 과제 | #36 | 다섯 번째 과제 `ir_pitch`(투자자 발표용 슬라이드별 원고). 결과 스키마(슬라이드 5~12장: 종류·제목 문장·원고, 한 줄 소개·투자 요청·예상 질문), 검증(투자 요청 없음=오류, 문제·해결·투자 요청 슬라이드 누락·근거 없는 기업가치·시장 규모=경고), 질문 9개(투자 유치 목적이 스탠다드에서도 물어지게 순서 조정), 희망 투자 금액·현재 매출은 처음부터 AI에 보내지 않음, 이전 과제에서 아이디어·고객·문제·수익 이어받기. 홈 카드 5개(홀수면 마지막 카드가 한 줄) |
+| 테스트 케이스(TC2·TC4~TC8) | #37 | 제출용 테스트 케이스 = 인수 테스트 + 엑셀. `backend/tests/acceptance/test_tcN_*.py`(사용자가 API로 하는 순서, 공통 흐름 `flow.py`)·`frontend/src/acceptance/tc8.test.ts`. 원본 `docs/test-cases.yaml` → `scripts/test_cases.py run`이 자동 테스트를 돌려 `docs/TEST-CASES.xlsx`에 결과·통과·실행일을 채운다(수동 행은 `manual_result`·`ran_on`). `tests/test_test_cases_doc.py`가 참조 위치·엑셀 행을 확인. 렌더 실제 Claude로 IR 1회 확인(TC4-4) 뒤 슬라이드 종류를 한국어 이름으로 쓰게 지침 수정 |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
 ## 다음 할 일 (WBS 순서)
 
-**진행 중인 묶음(2026-11-04 요청, 테스트 케이스 = 자동 테스트 + `docs/TEST-CASES.xlsx`)**: #36 IR 과제(이 PR) → #37 `task/37-test-cases` 테스트 케이스 문서와 TC2(외부 메모리 동적 참조 = README '설계 고민 기록' 1번: 무상태 처리 + 세션 저장소 + 동시 호출 상한)·TC4(과제별 하네스, IR 포함 5개)·TC5(호출 상한 503, 세션 불변)·TC6(모드별 컨텍스트)·TC7(이어가기 오류: 404·없는 버전·미리보기 실패·빼기·비공개 유지)·TC8(결과 생성·PDF/Word/HTML) → #38 `task/38-frontend-perf` TC1(화면 전환 = 클릭 → reducer·화면 모델 계산 0.5ms 이하, vitest로 매번 확인) → #39 `task/39-provider-compare` TC3(OpenAI vs Claude 같은 시나리오 비교, **예산 상한 $5, 실행 직전 사용자 승인**).
+**진행 중인 묶음(2026-11-04 요청, 테스트 케이스 = 자동 테스트 + `docs/TEST-CASES.xlsx`)**: #36 IR 과제(완료) → #37 테스트 케이스 문서와(완료, 이 PR) TC2(외부 메모리 동적 참조 = README '설계 고민 기록' 1번: 무상태 처리 + 세션 저장소 + 동시 호출 상한)·TC4(과제별 하네스, IR 포함 5개)·TC5(호출 상한 503, 세션 불변)·TC6(모드별 컨텍스트)·TC7(이어가기 오류: 404·없는 버전·미리보기 실패·빼기·비공개 유지)·TC8(결과 생성·PDF/Word/HTML) → #38 `task/38-frontend-perf` TC1(화면 전환 = 클릭 → reducer·화면 모델 계산 0.5ms 이하, vitest로 매번 확인) → #39 `task/39-provider-compare` TC3(OpenAI vs Claude 같은 시나리오 비교, **예산 상한 $5, 실행 직전 사용자 승인**).
 
 0. **Neon 가입·`DATABASE_URL` 입력(사용자)** — `docs/DEPLOY.md` "Neon 연결". PR #33 머지 전에 렌더 Environment에 넣는다(안 넣으면 서버가 시작하지 못한다). **후순위: 로그인(다른 기기에서 내 작업)·결과물 공유 링크**(WBS 4.10·4.11).
 1. **디자인 검수(디자이너)** — WBS 3.3·3.4
@@ -90,6 +91,8 @@
 
 ## 남겨 둔 것·알려진 한계
 
+- **정밀 모드가 더 깊게 묻지 않는다(하네스 튜닝 과제, WBS 6.2)**: 준비도 기준(`readiness_threshold` 0.7)이 상한보다 먼저 차서, 실제 질문 수(빠른/스탠다드/정밀)가 사업계획·상품기획 3/4/4, 브랜딩·마케팅 3/3/3, IR 3/5/5다. 정밀 상한 10에는 어느 과제도 닿지 않는다. 모드별로 준비도 기준을 달리 두는 등 정책을 튜닝할 때 TC6-3·TC4-3 기대값도 같이 고친다.
+- 테스트 케이스 엑셀의 TC8-7(실제 브라우저 'PDF로 저장')은 수동 행이라 직접 확인한 뒤 `docs/test-cases.yaml`에 `manual_result`·`ran_on`을 적고 `run`을 다시 돌린다.
 - IR 피치덱은 슬라이드 원고를 결과 카드(제안 카드에 슬라이드 순서대로)와 `full_text`에 싣도록 지침을 뒀다. 디자인된 슬라이드 파일(.pptx)은 만들지 않는다. 실제 모델로 원고가 카드에 제대로 실리는지는 #39 측정 때 함께 본다(Mock은 자리표시 본문이라 '핵심 슬라이드가 빠졌습니다' 경고가 뜬다).
 - 이어가기는 이전 결과의 사실·보완 정보를 새 과제의 **필드**로만 옮긴다. 새 과제의 보완 항목(`supplement_fields`)으로 옮기는 것은 하지 않았다(브랜딩처럼 겹치는 필드가 적은 과제는 가져오는 값이 적다).
 - 외부 전송 보호(#24)가 막지 못하는 것:

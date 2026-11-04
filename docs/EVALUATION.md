@@ -45,5 +45,6 @@ Mock이어도 **질문 흐름은 실제와 같다**(고정 질문·선택지·�
 ## 4. 발표에서 보여 줄 것
 
 - 시연: `docs/DEMO.md`
+- 테스트 케이스: `docs/TEST-CASES.xlsx`(원본 `docs/test-cases.yaml`, `scripts/test_cases.py run`이 자동 테스트를 돌려 결과를 채운다)
 - 지금 잰 것: 사용성 테스트 결과(2장)와 `session_stats` 표
 - 앞으로 잴 것: 실제 모델 측정(로드맵 0단계)과 비교 실험(3장) — 도구와 절차가 준비돼 있다는 것
