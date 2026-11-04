@@ -305,7 +305,8 @@ def document_name(document: RunDocument) -> str:
 
 
 def write_report(report: MeasureReport, out_dir: Path) -> tuple[Path, Path]:
-    """rows.csv(실행마다 한 줄)와 summary.md(요약 표)를 쓴다."""
+    """rows.csv(실행마다 한 줄), summary.md(요약 표), documents/(실행마다 결과 글)를 쓴다.
+    documents/는 이번 실행의 글만 남게 먼저 비운다."""
     out_dir.mkdir(parents=True, exist_ok=True)
     rows_path, summary_path = out_dir / "rows.csv", out_dir / "summary.md"
     with rows_path.open("w", encoding="utf-8", newline="") as fp:
@@ -320,6 +321,7 @@ def write_report(report: MeasureReport, out_dir: Path) -> tuple[Path, Path]:
         encoding="utf-8",
     )
     docs_dir = out_dir / "documents"
+    shutil.rmtree(docs_dir, ignore_errors=True)
     if report.documents:
         docs_dir.mkdir(exist_ok=True)
     for document in report.documents:

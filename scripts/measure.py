@@ -6,7 +6,7 @@
   uv run --directory backend python ../scripts/measure.py --provider openai --budget-usd 1
 실제 모델(--provider claude|openai)은 비용이 든다. 모델·노력·주소·키(CLAUDE_*·OPENAI_*)와 단계별 라우팅은 backend/.env 설정을 따른다.
 --budget-usd는 누적 추정 비용이 그 값에 닿으면 다음 실행부터 멈춘다(추정이다. 콘솔의 사용 한도도 함께 건다).
-결과: backend/data/measure/<시각>/rows.csv(실행마다 한 줄), summary.md(과제·방식별 요약 표).
+결과: backend/data/measure/<시각>/rows.csv(실행마다 한 줄), summary.md(과제·방식별 요약 표), documents/(실행마다 결과 글).
 """
 import argparse
 import sys

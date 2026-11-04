@@ -6,9 +6,14 @@ import pytest
 from app.core.state import SessionState, TraceEntry
 from app.harness.measure import (
     MEASURE_PARALLEL_PATH,
+    MeasureReport,
+    RunDocument,
+    RunRow,
     call_cost,
+    document_name,
     load_parallel_configs,
     measure,
+    provider_totals,
     summarize,
     summary_table,
     write_report,
@@ -135,8 +140,6 @@ def test_write_report_saves_rows_and_summary(tmp_path):
 
 
 def test_summary_table_shows_percentiles_and_cost():
-    from app.harness.measure import RunRow
-
     rows = [
         RunRow(task="branding", scenario="s", variant="single", repeat=i, status="completed", generate_ms=ms, cost_usd=0.5)
         for i, ms in enumerate([100, 200, 300, 400], start=1)
@@ -196,15 +199,11 @@ def test_write_report_saves_each_result_text(tmp_path):
 
 
 def test_document_name_is_safe_file_name():
-    from app.harness.measure import RunDocument, document_name
-
     doc = RunDocument(task="branding", scenario='a/b:c*"?', variant="single", repeat=2, full_text="x")
     assert document_name(doc) == "branding-single-2-a_b_c___.md"
 
 
 def test_provider_totals_shows_one_row_per_provider_with_models_and_cost():
-    from app.harness.measure import RunRow, provider_totals
-
     def row(task: str, status: str, ms: int, models: str, cost: float) -> RunRow:
         return RunRow(task=task, scenario="s", variant="single", repeat=1, status=status, generate_ms=ms, models=models, cost_usd=cost)
 
@@ -220,8 +219,6 @@ def test_provider_totals_shows_one_row_per_provider_with_models_and_cost():
 
 
 def test_summary_table_columns_match_provider_totals():
-    from app.harness.measure import RunRow, provider_totals
-
     rows = [RunRow(task="branding", scenario="s", variant="single", repeat=1, status="completed", generate_ms=10)]
     summary_cells = summary_table(rows).splitlines()[2].split("|")[3:]
     totals_cells = provider_totals({"mock": rows}).splitlines()[2].split("|")[3:]
@@ -229,10 +226,16 @@ def test_summary_table_columns_match_provider_totals():
 
 
 def test_document_name_drops_control_chars_trailing_dots_and_long_names():
-    from app.harness.measure import RunDocument, document_name
-
     doc = RunDocument(task="branding", scenario="a\tb" + "c" * 100 + ". ", variant="single", repeat=1, full_text="x")
     name = document_name(doc)
     assert name.startswith("branding-single-1-a_b")
     assert "\t" not in name and not name.removesuffix(".md").endswith((".", " "))
     assert len(name.removesuffix(".md")) <= len("branding-single-1-") + 60
+
+
+def test_write_report_replaces_result_texts_of_earlier_run(tmp_path):
+    old = MeasureReport(rows=[], documents=[RunDocument(task="branding", scenario="old", variant="single", repeat=1, full_text="old")])
+    new = MeasureReport(rows=[], documents=[RunDocument(task="branding", scenario="new", variant="single", repeat=1, full_text="new")])
+    write_report(old, tmp_path)
+    write_report(new, tmp_path)
+    assert [p.name for p in (tmp_path / "documents").glob("*.md")] == ["branding-single-1-new.md"]

@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from app.harness.measure import compare, provider_totals, write_comparison
 from app.providers.base import ProviderResponse, Usage
 from app.providers.mock import MockProvider
@@ -42,7 +44,7 @@ def test_compare_splits_budget_equally_between_providers(tmp_path):
         providers={"first": PricedProvider(), "second": PricedProvider()},
         tasks=["branding"],
         repeat=3,
-        budget_usd=0.02,
+        budget_usd=1.2,  # 실행 한 번 약 $0.8(유료 호출 2번). 나누면 $0.6씩이라 1번에서 멈추고, 안 나누면 2번째도 돈다
         workdir=tmp_path,
     )
     for report in reports.values():
@@ -98,7 +100,5 @@ def test_compare_script_refuses_same_provider_twice(tmp_path):
 
 
 def test_compare_needs_at_least_one_provider(tmp_path):
-    import pytest
-
     with pytest.raises(ValueError):
         compare(providers={}, tasks=["branding"], repeat=1, budget_usd=1.0, workdir=tmp_path)
