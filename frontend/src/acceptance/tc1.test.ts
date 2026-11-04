@@ -162,6 +162,7 @@ const QUESTION_FLOW: Transition[] = [
 
 const RESULT_FLOW: Transition[] = [
   {
+    // 생성 요청을 기다리는 동안이라 불러오기가 없다(needsLoad는 요청 중이면 부르지 않는다)
     name: "확인 → 생성 중(초안 만들기)",
     from: at(CONFIRM, { session: CONFIRMING }),
     actions: [requested(1, null, true)],
