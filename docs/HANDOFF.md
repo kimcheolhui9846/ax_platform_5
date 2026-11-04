@@ -44,7 +44,7 @@
 | 렌더에서 실제 AI | #35 | `render.yaml`: `PROVIDER`는 대시보드에서(`sync: false`), BAZE 주소·모델은 파일, 키 `CLAUDE_API_KEY`·`OPENAI_API_KEY`는 대시보드에만 |
 | IR 피치덱 과제 | #36 | 다섯 번째 과제 `ir_pitch`(투자자 발표용 슬라이드별 원고). 결과 스키마(슬라이드 5~12장: 종류·제목 문장·원고, 한 줄 소개·투자 요청·예상 질문), 검증(투자 요청 없음=오류, 문제·해결·투자 요청 슬라이드 누락·근거 없는 기업가치·시장 규모=경고), 질문 9개(투자 유치 목적이 스탠다드에서도 물어지게 순서 조정), 희망 투자 금액·현재 매출은 처음부터 AI에 보내지 않음, 이전 과제에서 아이디어·고객·문제·수익 이어받기. 홈 카드 5개(홀수면 마지막 카드가 한 줄) |
 | 테스트 케이스(TC2·TC4~TC8) | #37 | 제출용 테스트 케이스 = 인수 테스트 + 엑셀. `backend/tests/acceptance/test_tcN_*.py`(사용자가 API로 하는 순서, 공통 흐름 `flow.py`)·`frontend/src/acceptance/tc8.test.ts`. 원본 `docs/test-cases.yaml` → `scripts/test_cases.py run`이 자동 테스트를 돌려 `docs/TEST-CASES.xlsx`에 결과·통과·실행일을 채운다(수동 행은 `manual_result`·`ran_on`). `tests/test_test_cases_doc.py`가 참조 위치·엑셀 행을 확인. 렌더 실제 Claude로 IR 1회 확인(TC4-4) 뒤 슬라이드 종류를 한국어 이름으로 쓰게 지침 수정 |
-| 화면 전환 계산 시간(TC1) | #38 | 버튼 → 다음 화면의 상태 갱신·화면 판단(reducer → screenModel·needsLoad, 네트워크·렌더 제외)을 화면 전환 15개마다 중앙값으로 재는 인수 테스트 `frontend/src/acceptance/tc1.test.ts`(기준 0.5ms, 측정 도우미 `testing/timing.ts`). 시작 전 측정 약 0.001ms라 코드 최적화는 하지 않았다 |
+| 화면 전환 계산 시간(TC1) | #38 | 버튼 → 다음 화면의 상태 갱신·화면 판단(reducer → screenModel·needsLoad, 네트워크·렌더 제외)을 화면 전환 15개(실제 앱에서 가능한 시작 상태 → 이동·요청·응답, 도착 화면·남은 불러오기 없음 확인)마다 중앙값으로 재는 인수 테스트 `frontend/src/acceptance/tc1.test.ts`(기준 0.5ms, 측정 도우미 `testing/timing.ts`). 시작 전 측정 중앙값 약 0.0013ms(개발 PC)라 코드 최적화는 하지 않았다 |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 

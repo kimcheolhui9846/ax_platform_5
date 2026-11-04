@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { EvidenceItem } from "../api/types";
 import { needsLoad } from "../app/load";
+import type { Load } from "../app/load";
 import { screenModel } from "../app/screenModel";
 import type { ScreenModel } from "../app/screenModel";
 import { initialState, reducer } from "../app/state";
@@ -88,55 +89,67 @@ const VERSION: Route = { name: "version", sessionId: SID, version: 1 };
 const WORK: Route = { name: "work" };
 const DOCUMENTS: Route = { name: "documents" };
 
-/** 응답을 기다리는 요청(seq 1). 응답 동작은 이 요청의 것일 때만 받아들여진다. */
-const WAITING = { seq: 1, load: null, generating: false };
-
 /** route 화면에 과제 목록을 받아 둔 상태. */
 function at(route: Route, data: Partial<AppState> = {}): AppState {
   return { ...initialState(route), tasks: TASKS, ...data };
 }
 
 type Transition = { name: string; from: AppState; actions: Action[]; screen: string };
+type Arrival = { screen: string; load: Load | null };
 
-/** 도착한 화면. 질문 화면은 어느 질문인지까지 본다(질문 → 다음 질문도 바뀐 것이 확인되게). */
+/** 도착한 화면. 질문 화면은 어느 질문인지, 결과 화면은 결과가 있는지까지 본다. */
 function shown(model: ScreenModel): string {
-  return model.kind === "question" ? `question:${model.question.question_id}` : model.kind;
+  if (model.kind === "question") return `question:${model.question.question_id}`;
+  if (model.kind === "result") return `result:${model.result === null ? "empty" : "ready"}`;
+  return model.kind;
 }
 
 /** 화면 전환 하나: 동작을 reducer에 넣고, 그릴 화면과 불러올 데이터를 정한다. */
-function transit(t: Transition): string {
+function transit(t: Transition): Arrival {
   const state = t.actions.reduce(reducer, t.from);
-  needsLoad(state);
-  return shown(screenModel(state));
+  return { screen: shown(screenModel(state)), load: needsLoad(state) };
 }
 
-/** 화면 전환마다 도착한 화면이 맞는지, 계산 시간 중앙값이 기준 이하인지 확인한다. */
+/** 화면 전환마다 도착한 화면이 맞고 더 불러올 데이터가 없는지, 계산 시간 중앙값이 기준 이하인지 확인한다. */
 function check(transitions: Transition[]) {
   for (const t of transitions) {
-    expect(transit(t), t.name).toBe(t.screen);
+    expect(transit(t), t.name).toEqual({ screen: t.screen, load: null });
     expect(medianMs(() => transit(t)), t.name).toBeLessThanOrEqual(LIMIT_MS);
   }
 }
 
+/** 버튼이나 불러오기가 보낸 요청(seq). 응답 동작은 같은 seq일 때만 받아들여진다. */
+function requested(seq: number, load: string | null, generating = false): Action {
+  return { type: "requested", seq, load, generating };
+}
+
+// 시작 상태는 실제 앱이 그 화면에서 가질 수 있는 상태다(이동하면 다른 과제·세션의 데이터는 비워진다).
+// 응답을 기다리는 전환은 요청부터 응답, 이어지는 불러오기까지 넣어 도착 화면에 모자란 데이터가 없게 한다.
 const QUESTION_FLOW: Transition[] = [
-  { name: "홈 → 요청(과제 카드)", from: at(HOME, { sessions: SESSIONS, form: FORM }), actions: [{ type: "navigated", route: REQUEST }], screen: "request" },
+  {
+    name: "홈 → 요청(과제 카드, 입력 양식 응답)",
+    from: at(HOME, { sessions: SESSIONS }),
+    actions: [{ type: "navigated", route: REQUEST }, requested(1, "form:product_planning"), { type: "formLoaded", seq: 1, form: FORM }],
+    screen: "request",
+  },
   { name: "요청 → 모드(다음)", from: at(REQUEST, { form: FORM }), actions: [{ type: "navigated", route: MODE }], screen: "mode" },
   {
-    name: "모드 → 첫 질문(세션 만들기 응답)",
-    from: at(MODE, { form: FORM, inflight: WAITING }),
-    actions: [{ type: "sessionLoaded", seq: 1, session: ASKING, next: QUESTION, noticeConsumed: "product_planning", notice: null }],
+    name: "모드 → 첫 질문(모드 선택, 세션 만들기 응답)",
+    from: at(MODE, { form: FORM }),
+    actions: [requested(1, null), { type: "sessionLoaded", seq: 1, session: ASKING, next: QUESTION, noticeConsumed: "product_planning", notice: null }],
     screen: "question:q_next",
   },
   {
     name: "질문 → 다음 질문(답하기 응답)",
-    from: at(QUESTION, { session: ANSWERING, inflight: WAITING }),
-    actions: [{ type: "sessionLoaded", seq: 1, session: ASKING, next: null, noticeConsumed: null, notice: null }],
+    from: at(QUESTION, { session: ANSWERING }),
+    actions: [requested(1, null), { type: "sessionLoaded", seq: 1, session: ASKING, next: QUESTION, noticeConsumed: null, notice: null }],
     screen: "question:q_next",
   },
   {
+    // ASKING에 걸린 q_next가 마지막 질문이다. 답하면 남은 질문이 없는 세션(CONFIRMING)이 온다
     name: "마지막 질문 → 확인(답하기 응답)",
-    from: at(QUESTION, { session: ASKING, inflight: WAITING }),
-    actions: [{ type: "sessionLoaded", seq: 1, session: CONFIRMING, next: CONFIRM, noticeConsumed: null, notice: null }],
+    from: at(QUESTION, { session: ASKING }),
+    actions: [requested(1, null), { type: "sessionLoaded", seq: 1, session: CONFIRMING, next: CONFIRM, noticeConsumed: null, notice: null }],
     screen: "confirm",
   },
   {
@@ -151,14 +164,20 @@ const RESULT_FLOW: Transition[] = [
   {
     name: "확인 → 생성 중(초안 만들기)",
     from: at(CONFIRM, { session: CONFIRMING }),
-    actions: [{ type: "requested", seq: 1, load: null, generating: true }],
+    actions: [requested(1, null, true)],
     screen: "generating",
   },
   {
-    name: "생성 중 → 결과(생성 응답)",
-    from: at(CONFIRM, { session: CONFIRMING, inflight: { seq: 1, load: null, generating: true } }),
-    actions: [{ type: "resultLoaded", seq: 1, result: RESULT, next: RESULT_ROUTE, outdatesSession: true, notice: null }],
-    screen: "result",
+    // 생성 응답은 세션을 낡게 표시하므로 세션을 다시 받아야 결과가 보인다
+    name: "생성 중 → 결과(생성 응답, 세션 다시 받기)",
+    from: at(CONFIRM, { session: CONFIRMING }),
+    actions: [
+      requested(1, null, true),
+      { type: "resultLoaded", seq: 1, result: RESULT, next: RESULT_ROUTE, outdatesSession: true, notice: null },
+      requested(2, `session:${SID}`),
+      { type: "sessionLoaded", seq: 2, session: DONE, next: null, noticeConsumed: null, notice: null },
+    ],
+    screen: "result:ready",
   },
   {
     name: "결과 → 문구 수정",
@@ -167,24 +186,26 @@ const RESULT_FLOW: Transition[] = [
     screen: "edit",
   },
   {
-    name: "결과 → 근거 검토(자료 응답)",
-    from: at(EVIDENCE, { session: DONE, result: RESULT, inflight: WAITING }),
-    actions: [{ type: "evidenceLoaded", seq: 1, sessionId: SID, items: EVIDENCE_ITEMS }],
+    name: "결과 → 근거 검토(이동, 자료 응답)",
+    from: at(RESULT_ROUTE, { session: DONE, result: RESULT }),
+    actions: [{ type: "navigated", route: EVIDENCE }, requested(1, `evidence:${SID}`), { type: "evidenceLoaded", seq: 1, sessionId: SID, items: EVIDENCE_ITEMS }],
     screen: "evidence",
   },
   {
     name: "결과 → 저장 완료(저장 응답)",
-    from: at(RESULT_ROUTE, { session: DONE, result: RESULT, inflight: WAITING }),
-    actions: [{ type: "versionSaved", seq: 1, version: SAVED_VERSION, next: SAVED }],
+    from: at(RESULT_ROUTE, { session: DONE, result: RESULT }),
+    actions: [requested(1, null), { type: "versionSaved", seq: 1, version: SAVED_VERSION, next: SAVED }],
     screen: "saved",
   },
   {
-    name: "내 작업 → 버전 보기(이동, 버전 응답)",
-    from: at(WORK, { sessions: SESSIONS, session: DONE }),
+    name: "내 작업 → 버전 보기(이동, 세션·버전 응답)",
+    from: at(WORK, { sessions: SESSIONS }),
     actions: [
       { type: "navigated", route: VERSION },
-      { type: "requested", seq: 1, load: "version:sess_1:1", generating: false },
-      { type: "versionLoaded", seq: 1, version: SAVED_VERSION },
+      requested(1, `session:${SID}`),
+      { type: "sessionLoaded", seq: 1, session: DONE, next: null, noticeConsumed: null, notice: null },
+      requested(2, `version:${SID}:1`),
+      { type: "versionLoaded", seq: 2, version: SAVED_VERSION },
     ],
     screen: "version",
   },
@@ -196,7 +217,7 @@ const LIST_FLOW: Transition[] = [
     from: at(RESULT_ROUTE, { session: DONE, result: RESULT, sessions: SESSIONS }),
     actions: [
       { type: "navigated", route: WORK },
-      { type: "requested", seq: 1, load: "sessions", generating: false },
+      requested(1, "sessions"),
       { type: "sessionsLoaded", seq: 1, sessions: SESSIONS },
     ],
     screen: "work",
