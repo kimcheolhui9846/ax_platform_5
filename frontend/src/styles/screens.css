@@ -5,6 +5,7 @@
 /* 홈 */
 .home { gap: var(--space-6); }
 .taskgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6); }
+.taskgrid > .task:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .task { gap: var(--space-3); }
 .task .btn { margin-top: auto; }
 

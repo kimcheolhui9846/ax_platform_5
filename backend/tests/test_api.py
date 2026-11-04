@@ -33,6 +33,7 @@ def test_list_tasks(client):
         "product_planning",
         "branding",
         "marketing_content",
+        "ir_pitch",
     ]
     product = next(t for t in response.json() if t["task_type"] == "product_planning")
     assert product["heading"] == "만들고 싶은 상품을 구체화하고 싶어요"

@@ -29,3 +29,10 @@ marketing_content:
       content: [channel, key_message, cta]
     - name: pieces
       content: [contents]
+ir_pitch:
+  max_workers: 2
+  parts:
+    - name: story
+      content: [one_liner, slides, ask]
+    - name: questions
+      content: [investor_questions]

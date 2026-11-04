@@ -35,6 +35,14 @@ export const TASKS: TaskSummary[] = [
     deliverable: "게시글 · 행동 유도 문구",
     evidence_sources: 0,
   },
+  {
+    task_type: "ir_pitch",
+    title: "IR 피치덱",
+    description: "투자자를 설득할 발표 흐름과 슬라이드별 원고를 정리해요.",
+    heading: "투자자 앞에서 발표할 자료가 필요해요",
+    deliverable: "피치덱 슬라이드 · 발표 원고",
+    evidence_sources: 0,
+  },
 ];
 
 export const PRODUCT = TASKS[1];

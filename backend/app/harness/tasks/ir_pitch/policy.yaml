@@ -1,0 +1,101 @@
+task_type: ir_pitch
+title: IR 피치덱
+description: 투자자를 설득할 발표 흐름과 슬라이드별 원고를 정리해요.
+heading: 투자자 앞에서 발표할 자료가 필요해요
+deliverable: 피치덱 슬라이드 · 발표 원고
+input_placeholder: 예) 한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요
+input_examples:
+  - 한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요
+  - 반려견 산책 대행 앱으로 엔젤 투자자에게 발표하려고 해요
+raw_input_field: company_idea
+readiness_threshold: 0.7
+question_caps: { quick: 3, standard: 5, precise: 10 }
+max_easier_level: 4
+fields:
+  - name: company_idea
+    label: 사업 한 줄 소개
+    kind: must_confirm
+    weight: 3
+    question: 투자자에게 이 사업을 한 문장으로 소개한다면 어떻게 말할까요?
+    easier_questions:
+      - question: 무엇을, 누구에게 파는 사업인지 짧게 말해 주세요.
+  - name: problem
+    label: 해결할 문제
+    kind: must_confirm
+    weight: 3
+    question: 고객이 겪는 문제 중 이 사업이 해결하는 것은 무엇인가요?
+    easier_questions:
+      - question: 이 사업이 없으면 고객은 어떤 점이 가장 불편할까요?
+      - question: 아래 중 가장 가까운 불편을 골라 주세요.
+        options: [시간이 오래 걸린다, 비용이 비싸다, 마음에 드는 선택지가 없다, 방법을 잘 모른다]
+  - name: solution
+    label: 해결 방식
+    kind: must_confirm
+    weight: 3
+    question: 그 문제를 어떤 방식으로 해결하나요?
+    easier_questions:
+      - question: 다른 곳과 비교해 이 사업만 다르게 하는 점 하나를 말해 주세요.
+  - name: target_market
+    label: 목표 시장·고객
+    kind: must_confirm
+    weight: 2
+    question: 가장 먼저 공략할 시장과 고객은 누구인가요?
+    options: [20~30대 직장인, 자녀를 둔 부모, 대학생, 소상공인]
+    easier_questions:
+      - question: 둘 중 더 가까운 쪽을 골라 주세요.
+        options: [개인 고객, 가게·회사 같은 사업자]
+  - name: investment_purpose
+    label: 투자 유치 목적
+    kind: ai_suggest
+    weight: 2
+    question: 투자를 받으면 어디에 쓰고 싶나요?
+    options: [제품 개발, 마케팅, 제작 설비, 인력 채용]
+    multi_select: true
+    easier_questions:
+      - question: 돈이 생긴다면 가장 먼저 해결하고 싶은 일은 무엇인가요?
+  - name: business_model
+    label: 수익 구조
+    kind: ai_suggest
+    weight: 2
+    question: 어떻게 돈을 버나요?
+    options: [제품 판매, 구독, 수수료, 광고]
+    easier_questions:
+      - question: 고객이 돈을 내는 순간은 언제인가요?
+  - name: traction
+    label: 지금까지의 성과
+    kind: ai_suggest
+    weight: 2
+    question: 지금까지 확인한 성과가 있나요?
+    options: [시제품 완성, 첫 판매 발생, 사전 신청자 확보, 고객 인터뷰 진행]
+    multi_select: true
+    easier_questions:
+      - question: 고객 반응을 직접 확인해 본 적이 있나요? 있다면 어떤 반응이었나요?
+  - name: competition
+    label: 경쟁과 차별점
+    kind: ai_suggest
+    weight: 1
+    question: 비슷한 제품이나 서비스와 비교해 무엇이 다른가요?
+    options: [더 저렴하다, 디자인이 다르다, 더 빠르다, 직접 만든다]
+    easier_questions:
+      - question: 고객이 이 사업 대신 고를 만한 다른 선택지는 무엇인가요?
+  - name: team
+    label: 팀
+    kind: ai_suggest
+    weight: 1
+    question: 이 사업을 하는 팀은 누구이고 어떤 강점이 있나요?
+    options: [혼자 운영, 디자이너 포함, 개발자 포함, 업계 경력 보유]
+    multi_select: true
+    easier_questions:
+      - question: 이 사업을 잘 해낼 수 있는 이유를 하나만 말해 주세요.
+private_fields: [funding_amount, current_revenue]
+supplement_fields:
+  - { name: funding_amount, label: 희망 투자 금액, example: 시드 3억 원 }
+  - { name: current_revenue, label: 현재 매출, example: 월 200만 원 }
+  - { name: investor_type, label: 투자자 유형, example: 액셀러레이터 }
+  - { name: pitch_length, label: 발표 시간, example: 5분 }
+carry_over: { business_idea: company_idea, product_idea: company_idea, product_and_customer: company_idea, product: company_idea, customer_problem: problem, target_customer: target_market, user: target_market, core_customer: target_market, revenue_model: business_model, differentiation: competition }
+rules:
+  - 근거 없는 시장 규모·기업가치를 사실처럼 제시하지 않는다
+  - 임의의 매출 전망이나 성장률을 만들지 않는다
+  - 확인하지 않은 성과·투자 유치 이력을 사실처럼 쓰지 않는다
+  - 투자 수익을 보장하는 표현을 쓰지 않는다
