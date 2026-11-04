@@ -293,12 +293,14 @@ def provider_totals(results: Mapping[str, Sequence[RunRow]]) -> str:
     return _table(TOTALS_HEADER, {(name, _models(rows)): rows for name, rows in results.items()})
 
 
-UNSAFE_FILE_CHARS = re.compile(r'[\\/:*?"<>|]')
+UNSAFE_FILE_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+SCENARIO_NAME_LIMIT = 60  # 파일 이름이 너무 길어지지 않게
 
 
 def document_name(document: RunDocument) -> str:
-    """[순수] 결과 글 파일 이름(과제-방식-반복-시나리오.md). 파일 이름에 못 쓰는 글자는 '_'."""
-    scenario = UNSAFE_FILE_CHARS.sub("_", document.scenario)
+    """[순수] 결과 글 파일 이름(과제-방식-반복-시나리오.md). 파일 이름에 못 쓰는 글자(제어 문자 포함)는 '_',
+    시나리오 이름은 앞 60자까지, 끝의 점·공백은 뺀다(Windows가 거부한다)."""
+    scenario = UNSAFE_FILE_CHARS.sub("_", document.scenario)[:SCENARIO_NAME_LIMIT].rstrip(". ")
     return f"{document.task}-{document.variant}-{document.repeat}-{scenario}.md"
 
 
@@ -317,9 +319,10 @@ def write_report(report: MeasureReport, out_dir: Path) -> tuple[Path, Path]:
         "Mock의 토큰 수는 글자 수다.\n\n" + summary_table(report.rows) + note,
         encoding="utf-8",
     )
-    for document in report.documents:
-        docs_dir = out_dir / "documents"
+    docs_dir = out_dir / "documents"
+    if report.documents:
         docs_dir.mkdir(exist_ok=True)
+    for document in report.documents:
         (docs_dir / document_name(document)).write_text(document.full_text, encoding="utf-8")
     return rows_path, summary_path
 
@@ -333,6 +336,8 @@ def compare(
     workdir: Path,
 ) -> dict[str, MeasureReport]:
     """같은 과제·시나리오를 제공자마다 한 번 호출 방식으로 돈다. 예산은 제공자마다 똑같이 나눈다."""
+    if not providers:
+        raise ValueError("비교할 제공자가 없습니다.")
     share = None if budget_usd is None else budget_usd / len(providers)
     return {
         name: measure(

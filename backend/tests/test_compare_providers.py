@@ -1,4 +1,5 @@
 """제공자 비교(TC3): 같은 평가 시나리오를 제공자마다 돌려 나란히 표로 낸다. 테스트는 Mock(비용 0)."""
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -74,7 +75,7 @@ def _run_script(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        env={**__import__("os").environ, "PYTHONIOENCODING": "utf-8", "PROVIDER": "mock"},
+        env={**os.environ, "PYTHONIOENCODING": "utf-8", "PROVIDER": "mock"},
         timeout=120,
     )
 
@@ -94,3 +95,10 @@ def test_compare_script_refuses_real_provider_without_budget(tmp_path):
 def test_compare_script_refuses_same_provider_twice(tmp_path):
     done = _run_script("--providers", "mock", "mock", "--out", str(tmp_path))
     assert done.returncode == 2
+
+
+def test_compare_needs_at_least_one_provider(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError):
+        compare(providers={}, tasks=["branding"], repeat=1, budget_usd=1.0, workdir=tmp_path)

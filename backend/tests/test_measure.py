@@ -226,3 +226,13 @@ def test_summary_table_columns_match_provider_totals():
     summary_cells = summary_table(rows).splitlines()[2].split("|")[3:]
     totals_cells = provider_totals({"mock": rows}).splitlines()[2].split("|")[3:]
     assert summary_cells == totals_cells
+
+
+def test_document_name_drops_control_chars_trailing_dots_and_long_names():
+    from app.harness.measure import RunDocument, document_name
+
+    doc = RunDocument(task="branding", scenario="a\tb" + "c" * 100 + ". ", variant="single", repeat=1, full_text="x")
+    name = document_name(doc)
+    assert name.startswith("branding-single-1-a_b")
+    assert "\t" not in name and not name.removesuffix(".md").endswith((".", " "))
+    assert len(name.removesuffix(".md")) <= len("branding-single-1-") + 60
