@@ -3,7 +3,7 @@ import pytest
 
 from app.main import create_app
 from app.providers.mock import MockProvider
-from tests.acceptance.flow import BASE, answer_all, finished, start
+from tests.acceptance.flow import BASE, answer, answer_all, finished, start
 from tests.conftest import api_client
 
 MODES = ["quick", "standard", "precise"]
@@ -21,11 +21,7 @@ def values(view: dict) -> set[str]:
 def test_tc6_1_모드가_다른_세션은_서로의_답을_보지_않는다(client):
     views = {mode: start(client, "business_plan", f"{mode} 모드 아이디어", mode=mode) for mode in MODES}
     for mode, view in views.items():
-        question = view["next_question"]
-        client.post(
-            f"{BASE}/sessions/{view['session_id']}/answers",
-            json={"question_id": question["question_id"], "answer_type": "free_text", "value": f"{mode} 전용 답"},
-        )
+        answer(client, view, f"{mode} 전용 답")
     for mode, view in views.items():
         seen = values(client.get(f"{BASE}/sessions/{view['session_id']}").json())
         assert f"{mode} 전용 답" in seen and f"{mode} 모드 아이디어" in seen
@@ -47,11 +43,12 @@ def test_tc6_2_이어가기_컨텍스트는_모드와_상관없이_똑같이_들
     assert carried["quick"] == carried["standard"] == carried["precise"]
 
 
-def test_tc6_3_모드마다_질문_상한이_다르게_적용된다(client):
-    caps = {"quick": 3, "standard": 5, "precise": 10}
+def test_tc6_3_빠른_모드는_상한만큼_묻고_표준_모드는_더_묻는다(client):
+    """정책의 모드별 상한(question_caps)을 읽어 확인한다. 빠른 모드는 상한을 모두 채우고 표준보다 적게 묻는다.
+    정밀 모드의 상한(10)은 준비도가 먼저 차서 닿지 않으므로 '상한 이하'만 본다."""
+    caps = client.app.state.registry.get("business_plan").policy.question_caps
+    asked = {mode: set(answer_all(client, start(client, "business_plan", mode=mode))[1]) for mode in MODES}
     for mode in MODES:
-        _, asked = answer_all(client, start(client, "business_plan", mode=mode))
-        assert len(set(asked)) <= caps[mode]
-    _, quick = answer_all(client, start(client, "business_plan", mode="quick"))
-    _, precise = answer_all(client, start(client, "business_plan", mode="precise"))
-    assert len(set(quick)) <= len(set(precise))
+        assert len(asked[mode]) <= caps[mode], f"{mode}: {len(asked[mode])} > {caps[mode]}"
+    assert len(asked["quick"]) == caps["quick"]
+    assert len(asked["quick"]) < len(asked["standard"])

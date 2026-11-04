@@ -39,6 +39,16 @@ class Case(BaseModel):
     method: Literal["자동", "수동", "예정"]
     tests: list[str] = Field(default_factory=list)
     note: str = ""
+    manual_result: Literal["통과", "실패"] | None = None
+    ran_on: str | None = None
+
+    @model_validator(mode="after")
+    def _manual_result_only_for_manual(self) -> "Case":
+        if (self.manual_result is None) != (self.ran_on is None):
+            raise ValueError(f"{self.id}: manual_result와 ran_on은 함께 적어야 합니다")
+        if self.manual_result is not None and self.method != "수동":
+            raise ValueError(f"{self.id}: manual_result는 수동 케이스에만 적습니다")
+        return self
 
     @model_validator(mode="after")
     def _tests_match_method(self) -> "Case":
@@ -77,12 +87,15 @@ def build(cases: list[Case], results: dict[str, str], ran_on: str | None, out: P
         cell.font = Font(bold=True)
     for c in cases:
         result = results.get(c.id, "")
+        row_ran_on = ran_on if result else ""
+        if c.method == "수동" and c.manual_result is not None:
+            result, row_ran_on = c.manual_result, c.ran_on
         sheet.append([
             c.id, c.item, c.title, c.precondition,
             "\n".join(f"{i}. {s}" for i, s in enumerate(c.steps, 1)),
             c.expected, c.method, "\n".join(c.tests),
             result, "O" if result == "통과" else ("X" if result == "실패" else ""),
-            ran_on if result else "", c.note,
+            row_ran_on, c.note,
         ])
     for i, width in enumerate(WIDTHS, 1):
         sheet.column_dimensions[sheet.cell(1, i).column_letter].width = width
@@ -94,20 +107,31 @@ def build(cases: list[Case], results: dict[str, str], ran_on: str | None, out: P
 
 
 def _backend_outcomes(refs: list[str], tmp: Path) -> dict[str, bool]:
+    """backend 참조 → 통과 여부. 보고서가 없으면(pytest가 못 돌았으면) 모두 실패."""
     if not refs:
         return {}
     report = tmp / "backend.xml"
     files = sorted({r.removeprefix("backend:").split("::")[0] for r in refs})
     subprocess.run(["uv", "run", "--directory", str(ROOT / "backend"), "pytest", *files, f"--junitxml={report}", "-q"], check=False)
-    passed: dict[str, bool] = {}
+    if not report.exists():
+        print("backend 테스트 보고서가 없습니다. backend 자동 테스트를 모두 실패로 처리합니다.", file=sys.stderr)
+        return {r: False for r in refs}
+    passed: dict[tuple[str, str], bool] = {}
     for case in ET.parse(report).iter("testcase"):
-        name = case.get("name", "").split("[")[0]
+        stem = case.get("classname", "").split(".")[-1]
+        key = (stem, case.get("name", "").split("[")[0])
         ok = not any(child.tag in ("failure", "error", "skipped") for child in case)
-        passed[name] = passed.get(name, True) and ok
-    return {r: passed.get(r.split("::")[1].split("[")[0], False) for r in refs}
+        passed[key] = passed.get(key, True) and ok
+
+    def key_of(ref: str) -> tuple[str, str]:
+        file, name = ref.removeprefix("backend:").split("::")
+        return Path(file).stem, name.split("[")[0]
+
+    return {r: passed.get(key_of(r), False) for r in refs}
 
 
 def _frontend_outcomes(refs: list[str], tmp: Path) -> dict[str, bool]:
+    """frontend 참조 → 통과 여부. 보고서가 없으면(vitest가 못 돌았으면) 모두 실패."""
     if not refs:
         return {}
     report = tmp / "frontend.json"
@@ -116,6 +140,9 @@ def _frontend_outcomes(refs: list[str], tmp: Path) -> dict[str, bool]:
         ["npm", "--prefix", str(ROOT / "frontend"), "exec", "--", "vitest", "run", *files, "--reporter=json", f"--outputFile={report}"],
         check=False, shell=sys.platform == "win32", cwd=ROOT / "frontend",
     )
+    if not report.exists():
+        print("frontend 테스트 보고서가 없습니다. frontend 자동 테스트를 모두 실패로 처리합니다.", file=sys.stderr)
+        return {r: False for r in refs}
     data = json.loads(report.read_text(encoding="utf-8"))
     passed = {
         a["title"]: a["status"] == "passed"
@@ -139,7 +166,14 @@ def main() -> None:
                 **_backend_outcomes([r for r in refs if r.startswith("backend:")], Path(tmp)),
                 **_frontend_outcomes([r for r in refs if r.startswith("frontend:")], Path(tmp)),
             }
-        build(cases, case_results(cases, outcomes), date.today().isoformat(), OUTPUT)
+        results = case_results(cases, outcomes)
+        build(cases, results, date.today().isoformat(), OUTPUT)
+        failed = [case_id for case_id, result in results.items() if result == "실패"]
+        print(f"저장: {OUTPUT.relative_to(ROOT)}")
+        if failed:
+            print(f"실패한 자동 케이스: {', '.join(failed)}", file=sys.stderr)
+            sys.exit(1)
+        return
     print(f"저장: {OUTPUT.relative_to(ROOT)}")
 
 

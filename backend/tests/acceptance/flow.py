@@ -32,6 +32,17 @@ def answer_all(client: TestClient, view: dict, limit: int = 15) -> tuple[dict, l
     raise AssertionError(f"질문이 {limit}번 안에 끝나지 않았습니다: {asked}")
 
 
+def answer(client: TestClient, view: dict, value: str, private: bool = False) -> dict:
+    """걸린 질문에 자유 입력으로 한 번 답한다. 200이 아니면 실패. 갱신된 세션 화면."""
+    question = view["next_question"]
+    response = client.post(
+        f"{BASE}/sessions/{view['session_id']}/answers",
+        json={"question_id": question["question_id"], "answer_type": "free_text", "value": value, "private": private},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 def generate(client: TestClient, session_id: str) -> dict:
     response = client.post(f"{BASE}/sessions/{session_id}/generate")
     assert response.status_code == 200, response.text

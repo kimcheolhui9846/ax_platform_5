@@ -29,3 +29,4 @@ def test_tc8_2_다시_생성하면_버전이_쌓이고_지난_버전을_다시_�
     assert generate(client, sid)["version"]["version"] == 2
     first = client.get(f"{BASE}/sessions/{sid}/versions/1")
     assert first.status_code == 200
+    assert first.json()["version"]["version"] == 1

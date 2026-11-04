@@ -34,7 +34,7 @@ cases:
   - 서버를 띄우고 과제 5개의 하네스 객체 id를 적어 둔다
   - 세션을 20개 만든다(과제를 번갈아 가며)
   - 하네스 객체 id를 다시 읽는다
-  expected: 하네스 객체는 과제 수(5)만큼이고, 세션을 만들기 전후 id가 같다
+  expected: 하네스 객체는 과제 수만큼이고, 세션을 만들기 전후 id가 같으며 세션을 만드는 동안 하네스를 다시 만들지 않는다
   method: 자동
   tests:
   - backend:tests/acceptance/test_tc2_external_memory.py::test_tc2_2_파이프라인은_과제마다_한_번만_만들고_요청은_참조만_한다
@@ -80,9 +80,9 @@ cases:
   title: 같은 문장도 과제마다 다른 금지 규칙으로 검사한다
   precondition: 과제별 검증 규칙(금지 표현)
   steps:
-  - '''예상 매출 100% 무조건''이 든 결과를 만든다'
+  - '''예상 매출 100% 무조건. 이 이름으로 확정''이 든 결과를 만든다'
   - 사업계획·마케팅·IR·브랜딩·상품기획 각 하네스의 검증기로 검사한다
-  expected: 사업계획은 시장 주장, 마케팅은 과장, IR은 투자자 대상 주장 규칙만 걸리고 브랜딩·상품기획은 걸리지 않는다
+  expected: 사업계획은 시장 주장, 마케팅은 과장, IR은 투자자 대상 주장 규칙만 걸리고, 브랜딩은 이름 확정 표현 규칙만 걸리며, 상품기획은 걸리지 않는다
   method: 자동
   tests:
   - backend:tests/acceptance/test_tc4_task_harness.py::test_tc4_2_같은_문장도_과제마다_다른_금지_규칙으로_검사한다
@@ -94,7 +94,7 @@ cases:
   steps:
   - 과제와 모드마다 세션을 시작해 질문이 끝날 때까지 답한다
   - 물은 서로 다른 필드 수를 센다
-  expected: 물은 필드 수가 그 과제 정책의 모드별 상한(question_caps) 이하
+  expected: 모든 과제·모드에서 물은 필드 수가 그 과제 정책의 모드별 상한(question_caps) 이하이고, 빠른 모드는 상한(3)을 정확히 채운다
   method: 자동
   tests:
   - backend:tests/acceptance/test_tc4_task_harness.py::test_tc4_3_과제마다_모드별_질문_상한을_지킨다
@@ -109,7 +109,9 @@ cases:
   - 결과를 읽는다
   expected: 슬라이드 10장이 제안 카드로 나오고, 미확인 정보는 '확인할 것'으로, 비공개 금액은 '(금액 직접 기입)'으로 표시된다
   method: 수동
-  note: 2026-11-04 렌더 실제 Claude 1회 확인, 슬라이드 종류 영어 표기는 Task 6 지침으로 수정
+  note: 2026-11-04 렌더 실제 Claude 1회 확인, 슬라이드 종류 영어 표기는 IR 생성 지침에 한국어 슬라이드 이름을 추가해 수정
+  manual_result: 통과
+  ran_on: '2026-11-04'
 - id: TC5-1
   group: TC5
   item: db 생성 호출 상한 적용 되는지
@@ -174,16 +176,16 @@ cases:
 - id: TC6-3
   group: TC6
   item: 컨텍스트 메모리 각 코칭 모드별로 따로 적용되는지
-  title: 모드마다 질문 상한이 다르게 적용된다
+  title: 빠른 모드는 상한만큼 묻고 표준 모드는 더 묻는다
   precondition: 사업계획 과제
   steps:
-  - quick·standard·precise 세션을 각각 끝까지 답한다
+  - quick·standard·precise 세션을 각각 한 번씩 끝까지 답한다
   - 물은 필드 수를 센다(상한 3·5·10)
-  - quick과 precise의 수를 비교한다
-  expected: 모드별로 상한 이하이고 quick이 precise보다 많지 않다
+  - quick과 standard의 수를 비교한다
+  expected: 세 모드 모두 정책 상한 이하이고, quick은 상한(3)을 정확히 채우며 standard보다 적게 묻는다(precise 상한 10은 준비도가 먼저 차서 닿지 않는다)
   method: 자동
   tests:
-  - backend:tests/acceptance/test_tc6_mode_context.py::test_tc6_3_모드마다_질문_상한이_다르게_적용된다
+  - backend:tests/acceptance/test_tc6_mode_context.py::test_tc6_3_빠른_모드는_상한만큼_묻고_표준_모드는_더_묻는다
 - id: TC7-1
   group: TC7
   item: 컨텍스트 메모리 다음 task시 전송 오류

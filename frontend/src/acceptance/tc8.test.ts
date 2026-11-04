@@ -24,7 +24,7 @@ describe("TC8 결과 내보내기", () => {
 
   it("TC8-4 PDF로 여는 인쇄용 HTML에 제목·기준·섹션 본문·인쇄 규칙이 들어간다", () => {
     const html = documentHtml(exported().content);
-    expect(html).toContain("상품기획 초안");
+    expect(html).toContain(`${makeTask().title} 초안`);
     expect(html).toContain(shown.summary[0].label);
     expect(html).toContain("집들이 선물용 수제 향초.");
     expect(html).toMatch(/@page|@media print/);

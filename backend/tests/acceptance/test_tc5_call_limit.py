@@ -46,7 +46,7 @@ def test_tc5_3_동시에_몰리면_상한만큼만_통과하고_성공한_수만
     app = create_app(provider=SlowProvider(), slots=slots)
     codes: list[int] = []
     lock = threading.Lock()
-    barrier = threading.Barrier(6)
+    barrier = threading.Barrier(6, timeout=5)
 
     def create() -> None:
         client = api_client(app)
@@ -62,6 +62,7 @@ def test_tc5_3_동시에_몰리면_상한만큼만_통과하고_성공한_수만
         t.join()
 
     assert set(codes) <= {201, 503}
-    assert 1 <= codes.count(201) <= 6 and codes.count(503) >= 1
+    assert len(codes) == 6
+    assert codes.count(201) >= 1 and codes.count(503) >= 1
     saved = api_client(app).get(f"{BASE}/sessions").json()
     assert len(saved) == codes.count(201)
