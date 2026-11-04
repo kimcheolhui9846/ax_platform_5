@@ -10,7 +10,7 @@ from app.core.messages import (
 from app.main import create_app
 from app.providers.limit import CallSlots
 from app.providers.mock import MockProvider
-from tests.acceptance.flow import BASE, finished, start
+from tests.acceptance.flow import BASE, answer_all, finished, generate, start
 from tests.conftest import OTHER_CLIENT_ID, api_client
 
 
@@ -77,3 +77,25 @@ def test_tc7_5_가져온_내용을_빼면_이전_과제_값이_사라진다(app)
     assert all(item["source"] != "previous_task" for item in cleared.json()["summary"])
     assert cleared.json()["context"] is None
 
+
+
+def test_tc7_6_사용자가_비공개로_정한_답은_다음_과제에서도_비공개다(app):
+    """사업계획에서 '이 답은 AI에 보내지 않기'를 고른 답은 IR의 같은 내용(problem)으로 넘어와도 비공개로 남는다."""
+    client = api_client(app)
+    view = start(client, "business_plan", "한글 디자인 북백 사업")
+    first = view["next_question"]
+    assert first["field"] == "customer_problem"
+    view = client.post(
+        f"{BASE}/sessions/{view['session_id']}/answers",
+        json={"question_id": first["question_id"], "answer_type": "free_text", "value": "비밀 고객 문제", "private": True},
+    ).json()
+    view, _ = answer_all(client, view)
+    prev = view["session_id"]
+    generate(client, prev)
+
+    carried = start(client, "ir_pitch", "투자 발표 준비", from_session_id=prev)
+    assert any(i["field"] == "problem" and i["source"] == "previous_task" for i in carried["summary"])
+    assert "problem" in carried["private_names"]
+
+    preview = client.get(f"{BASE}/tasks/ir_pitch/context", params={"session_id": prev}).json()
+    assert [i["private"] for i in preview["items"] if i["field"] == "problem"] == [True]
