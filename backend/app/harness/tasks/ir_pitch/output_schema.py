@@ -20,4 +20,4 @@ class IrPitchContent(BaseModel):
     one_liner: str = Field(description="투자자에게 회사를 한 문장으로 소개")
     slides: list[PitchSlide] = Field(min_length=5, max_length=12, description="발표 순서대로 놓은 슬라이드")
     ask: str = Field(description="투자 요청: 원하는 투자 형태와 자금 사용 계획")
-    investor_questions: list[str] = Field(description="투자자가 물을 만한 질문과 답을 준비할 것")
+    investor_questions: list[str] = Field(min_length=1, description="투자자가 물을 만한 질문(질문만, 답은 발표자가 준비)")

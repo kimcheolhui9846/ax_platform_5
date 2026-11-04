@@ -33,6 +33,6 @@ ir_pitch:
   max_workers: 2
   parts:
     - name: story
-      content: [one_liner, slides]
-    - name: ask
-      content: [ask, investor_questions]
+      content: [one_liner, slides, ask]
+    - name: questions
+      content: [investor_questions]

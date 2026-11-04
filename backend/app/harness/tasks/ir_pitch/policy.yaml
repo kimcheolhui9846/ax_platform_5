@@ -6,7 +6,7 @@ deliverable: 피치덱 슬라이드 · 발표 원고
 input_placeholder: 예) 한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요
 input_examples:
   - 한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요
-  - 반려견 산책 대행 앱으로 정부 지원사업에 지원하려고 해요
+  - 반려견 산책 대행 앱으로 엔젤 투자자에게 발표하려고 해요
 raw_input_field: company_idea
 readiness_threshold: 0.7
 question_caps: { quick: 3, standard: 5, precise: 10 }
@@ -44,6 +44,15 @@ fields:
     easier_questions:
       - question: 둘 중 더 가까운 쪽을 골라 주세요.
         options: [개인 고객, 가게·회사 같은 사업자]
+  - name: investment_purpose
+    label: 투자 유치 목적
+    kind: ai_suggest
+    weight: 2
+    question: 투자를 받으면 어디에 쓰고 싶나요?
+    options: [제품 개발, 마케팅, 제작 설비, 인력 채용]
+    multi_select: true
+    easier_questions:
+      - question: 돈이 생긴다면 가장 먼저 해결하고 싶은 일은 무엇인가요?
   - name: business_model
     label: 수익 구조
     kind: ai_suggest
@@ -57,7 +66,7 @@ fields:
     kind: ai_suggest
     weight: 2
     question: 지금까지 확인한 성과가 있나요?
-    options: [아직 없음, 시제품 완성, 첫 판매 발생, 사전 신청자 확보, 고객 인터뷰 진행]
+    options: [시제품 완성, 첫 판매 발생, 사전 신청자 확보, 고객 인터뷰 진행]
     multi_select: true
     easier_questions:
       - question: 고객 반응을 직접 확인해 본 적이 있나요? 있다면 어떤 반응이었나요?
@@ -78,15 +87,6 @@ fields:
     multi_select: true
     easier_questions:
       - question: 이 사업을 잘 해낼 수 있는 이유를 하나만 말해 주세요.
-  - name: investment_purpose
-    label: 투자 유치 목적
-    kind: ai_suggest
-    weight: 2
-    question: 투자를 받으면 어디에 쓰고 싶나요?
-    options: [제품 개발, 마케팅, 제작 설비, 인력 채용]
-    multi_select: true
-    easier_questions:
-      - question: 돈이 생긴다면 가장 먼저 해결하고 싶은 일은 무엇인가요?
 private_fields: [funding_amount, current_revenue]
 supplement_fields:
   - { name: funding_amount, label: 희망 투자 금액, example: 시드 3억 원 }

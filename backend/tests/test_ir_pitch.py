@@ -122,3 +122,50 @@ def test_api_runs_ir_pitch_from_business_plan_carry():
     assert view["task_type"] == "ir_pitch"
     company = next(s for s in view["summary"] if s["field"] == "company_idea")
     assert (company["value"], company["source"]) == ("한글 디자인 북백 사업", "previous_task")
+
+
+def test_standard_mode_asks_the_investment_purpose(harness):
+    from app.core.state import Answer, AnswerType
+
+    state = harness.start("한글 디자인 굿즈 브랜드로 시드 투자를 받고 싶어요")
+    asked = []
+    for _ in range(30):
+        question = state.pending_question
+        if question is None:
+            break
+        asked.append(question.field)
+        harness.apply_answer(
+            state, Answer(question_id=question.question_id, answer_type=AnswerType.FREE_TEXT, value="답변 내용입니다")
+        )
+    assert "investment_purpose" in asked
+
+
+def test_investor_questions_must_not_be_empty():
+    bad = content()
+    bad["investor_questions"] = []
+    with pytest.raises(ValidationError):
+        IrPitchContent.model_validate(bad)
+
+
+def test_private_revenue_model_stays_private_when_carried_into_ir_pitch():
+    from app.core.state import InfoItem, InfoSource
+
+    app = create_app(provider=MockProvider(), debug=True)
+    client = api_client(app)
+    prev = client.post(
+        f"{BASE}/tasks/business_plan/sessions", json={"notice_acknowledged": True, "raw_input": "한글 굿즈 사업"}
+    ).json()
+    sid = prev["session_id"]
+    state = app.state.store.get(sid)
+    state.facts["revenue_model"] = InfoItem(value="비밀수익구조XYZ", source=InfoSource.USER_FREE_TEXT)
+    app.state.store.save(state)
+    client.post(f"{BASE}/sessions/{sid}/generate")
+
+    preview = client.get(f"{BASE}/tasks/ir_pitch/context", params={"session_id": sid}).json()
+    item = next(i for i in preview["items"] if i["field"] == "business_model")
+    assert (item["value"], item["private"]) == ("비밀수익구조XYZ", True)
+    view = client.post(
+        f"{BASE}/tasks/ir_pitch/sessions",
+        json={"raw_input": "투자 발표", "notice_acknowledged": True, "from_session_id": sid},
+    ).json()
+    assert "business_model" in view["private_names"]
