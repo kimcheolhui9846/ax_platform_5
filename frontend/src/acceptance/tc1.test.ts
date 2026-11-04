@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { EvidenceItem } from "../api/types";
 import { needsLoad } from "../app/load";
 import { screenModel } from "../app/screenModel";
 import type { ScreenModel } from "../app/screenModel";
@@ -33,6 +34,13 @@ const SUMMARY = FIELDS.map((field) => ({ ...ROW, field }));
 const ANSWERED = FIELDS.map((field, i) =>
   makeFlowItem({ field, status: "answered", answer: "답", question: makeQuestion({ question_id: `q_${i}`, field }) }),
 );
+const LAST = makeQuestion({ question_id: "q_9", field: "field_9" });
+const ANSWERING = makeSession({
+  mode: "precise",
+  next_question: LAST,
+  summary: SUMMARY.slice(0, 9),
+  flow: [...ANSWERED.slice(0, 9), makeFlowItem({ field: "field_9", status: "current", question: LAST })],
+});
 const NEXT = makeQuestion({ question_id: "q_next", field: "extra" });
 const ASKING = makeSession({
   mode: "precise",
@@ -51,6 +59,17 @@ const SECTIONS = Array.from({ length: 12 }, (_, i) => ({
   blocks: [{ type: "text" as const, text: "본문 문장. ".repeat(200) }],
 }));
 const RESULT = makeResult({ summary: SUMMARY, result: { ...BASE_RESULT.result, sections: SECTIONS } });
+const EVIDENCE_ITEMS: EvidenceItem[] = Array.from({ length: 5 }, (_, i) => ({
+  id: `source_${i}`,
+  title: `근거 자료 ${i + 1}`,
+  publisher: "발행 기관",
+  meta: "2026 · 보고서",
+  summary: "자료 요약 문장. ".repeat(40),
+  scope: "적용 범위",
+  url: "https://example.com/report",
+  applies_to: "diagnosis",
+  record: null,
+}));
 const SAVED_VERSION = makeVersionView({
   version: { ...RESULT.version, saved: true },
   result: RESULT.result,
@@ -77,13 +96,18 @@ function at(route: Route, data: Partial<AppState> = {}): AppState {
   return { ...initialState(route), tasks: TASKS, ...data };
 }
 
-type Transition = { name: string; from: AppState; actions: Action[]; screen: ScreenModel["kind"] };
+type Transition = { name: string; from: AppState; actions: Action[]; screen: string };
+
+/** 도착한 화면. 질문 화면은 어느 질문인지까지 본다(질문 → 다음 질문도 바뀐 것이 확인되게). */
+function shown(model: ScreenModel): string {
+  return model.kind === "question" ? `question:${model.question.question_id}` : model.kind;
+}
 
 /** 화면 전환 하나: 동작을 reducer에 넣고, 그릴 화면과 불러올 데이터를 정한다. */
-function transit(t: Transition): ScreenModel["kind"] {
+function transit(t: Transition): string {
   const state = t.actions.reduce(reducer, t.from);
   needsLoad(state);
-  return screenModel(state).kind;
+  return shown(screenModel(state));
 }
 
 /** 화면 전환마다 도착한 화면이 맞는지, 계산 시간 중앙값이 기준 이하인지 확인한다. */
@@ -101,13 +125,13 @@ const QUESTION_FLOW: Transition[] = [
     name: "모드 → 첫 질문(세션 만들기 응답)",
     from: at(MODE, { form: FORM, inflight: WAITING }),
     actions: [{ type: "sessionLoaded", seq: 1, session: ASKING, next: QUESTION, noticeConsumed: "product_planning", notice: null }],
-    screen: "question",
+    screen: "question:q_next",
   },
   {
     name: "질문 → 다음 질문(답하기 응답)",
-    from: at(QUESTION, { session: ASKING, inflight: WAITING }),
+    from: at(QUESTION, { session: ANSWERING, inflight: WAITING }),
     actions: [{ type: "sessionLoaded", seq: 1, session: ASKING, next: null, noticeConsumed: null, notice: null }],
-    screen: "question",
+    screen: "question:q_next",
   },
   {
     name: "마지막 질문 → 확인(답하기 응답)",
@@ -145,7 +169,7 @@ const RESULT_FLOW: Transition[] = [
   {
     name: "결과 → 근거 검토(자료 응답)",
     from: at(EVIDENCE, { session: DONE, result: RESULT, inflight: WAITING }),
-    actions: [{ type: "evidenceLoaded", seq: 1, sessionId: SID, items: [] }],
+    actions: [{ type: "evidenceLoaded", seq: 1, sessionId: SID, items: EVIDENCE_ITEMS }],
     screen: "evidence",
   },
   {
@@ -155,9 +179,13 @@ const RESULT_FLOW: Transition[] = [
     screen: "saved",
   },
   {
-    name: "내 작업 → 버전 보기(버전 응답)",
-    from: at(VERSION, { session: DONE, inflight: WAITING }),
-    actions: [{ type: "versionLoaded", seq: 1, version: SAVED_VERSION }],
+    name: "내 작업 → 버전 보기(이동, 버전 응답)",
+    from: at(WORK, { sessions: SESSIONS, session: DONE }),
+    actions: [
+      { type: "navigated", route: VERSION },
+      { type: "requested", seq: 1, load: "version:sess_1:1", generating: false },
+      { type: "versionLoaded", seq: 1, version: SAVED_VERSION },
+    ],
     screen: "version",
   },
 ];
