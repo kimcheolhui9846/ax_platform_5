@@ -1,0 +1,345 @@
+# 테스트 케이스 원본. 고친 뒤: uv run --directory backend python ../scripts/test_cases.py run
+cases:
+- id: TC1-1
+  group: TC1
+  item: 프론트엔드 수정 후 최적화(리액트 반응 속도 0.5ms 이하)
+  title: 버튼을 눌러 다음 화면으로 넘어갈 때 상태 갱신과 화면 판단이 0.5ms 이하
+  precondition: 화면 상태·응답 데이터는 미리 준비(네트워크 제외)
+  steps:
+  - 화면마다 이동 버튼에 해당하는 동작으로 reducer와 화면 모델을 계산한다
+  - 반복 측정해 중앙값을 잰다
+  expected: 화면 전환 하나의 계산 시간 중앙값 0.5ms 이하
+  method: 예정
+  note: 'PR #38에서 자동 테스트로 바꾼다'
+- id: TC2-1
+  group: TC2
+  item: 외부 메모리 참조 동적 연결(스레드 참조 전송 정의)
+  title: 세션은 서버 메모리가 아니라 바깥 저장소에 있어 서버를 새로 띄워도 이어진다
+  precondition: 같은 SQLite 파일을 여는 서버 두 개(A, B)
+  steps:
+  - A에서 사업계획 세션을 만들고 첫 질문에 답한다
+  - 같은 DB를 여는 새 서버 B로 세션을 조회한다
+  - B에서 남은 질문에 답하고 결과를 만든다
+  expected: B에서 A의 답이 보이고, 이어서 답한 뒤 결과 버전 1이 생긴다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc2_external_memory.py::test_tc2_1_세션은_바깥_저장소에_있어_서버를_새로_띄워도_이어진다
+  note: README '설계 고민 기록' 1번(요청 상한 시 오버플로우를 외부 메모리 동적 참조로 해결)
+- id: TC2-2
+  group: TC2
+  item: 외부 메모리 참조 동적 연결(스레드 참조 전송 정의)
+  title: 파이프라인은 과제마다 한 번만 만들고 요청은 참조만 한다
+  precondition: 서버 한 개(Mock 제공자)
+  steps:
+  - 서버를 띄우고 과제 5개의 하네스 객체 id를 적어 둔다
+  - 세션을 20개 만든다(과제를 번갈아 가며)
+  - 하네스 객체 id를 다시 읽는다
+  expected: 하네스 객체는 과제 수만큼이고, 세션을 만들기 전후 id가 같으며 세션을 만드는 동안 하네스를 다시 만들지 않는다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc2_external_memory.py::test_tc2_2_파이프라인은_과제마다_한_번만_만들고_요청은_참조만_한다
+- id: TC2-3
+  group: TC2
+  item: 외부 메모리 참조 동적 연결(스레드 참조 전송 정의)
+  title: AI 호출이 상한에 차도 넘치지 않고 503이며 조회는 막히지 않는다
+  precondition: AI 호출 자리 1개·대기 0초, 브랜딩 세션 하나
+  steps:
+  - 자리를 모두 점유한 채 결과 생성을 요청한다
+  - 같은 동안 세션 목록과 세션 하나를 조회한다
+  expected: 생성은 503과 Retry-After 헤더, 목록·조회는 200이고 세션 상태는 그대로이며 결과는 없다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc2_external_memory.py::test_tc2_3_AI_호출이_상한에_차도_넘치지_않고_503이며_조회는_막히지_않는다
+- id: TC3-1
+  group: TC3
+  item: api 테스트(오픈 ai vs 클로드) == 비용 발생
+  title: 같은 평가 시나리오를 OpenAI·Claude로 돌려 시간·토큰·비용·결과 품질 비교
+  precondition: 실제 호출이라 실행 전 승인 필요
+  steps:
+  - scripts/measure.py로 두 제공자를 같은 시나리오로 돌린다(예산 상한 $5)
+  - 결과 표를 비교한다
+  expected: 두 제공자 모두 시나리오를 끝까지 완료하고 비교 표가 남는다
+  method: 예정
+  note: 'PR #39(실제 호출, 실행 전 승인)'
+- id: TC4-1
+  group: TC4
+  item: 하네스 파이프라인 각 task 별 적용
+  title: 과제마다 자기 정책의 질문을 묻고 자기 스키마로 결과를 낸다
+  precondition: 과제 5개 전부(매개변수), Mock 제공자
+  steps:
+  - 과제 세션을 시작해 나오는 질문에 모두 답한다
+  - 결과를 생성한다
+  - 세션 목록의 제목을 읽는다
+  expected: 물은 질문은 그 과제 정책의 필드이고, 결과 content가 그 과제 스키마를 통과하며, 목록 제목이 정책 제목과 같다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc4_task_harness.py::test_tc4_1_과제마다_자기_정책의_질문을_묻고_자기_스키마로_결과를_낸다
+- id: TC4-2
+  group: TC4
+  item: 하네스 파이프라인 각 task 별 적용
+  title: 같은 문장도 과제마다 다른 금지 규칙으로 검사한다
+  precondition: 과제별 검증 규칙(금지 표현)
+  steps:
+  - '''예상 매출 100% 무조건. 이 이름으로 확정''이 든 결과를 만든다'
+  - 사업계획·마케팅·IR·브랜딩·상품기획 각 하네스의 검증기로 검사한다
+  expected: 사업계획은 시장 주장, 마케팅은 과장, IR은 투자자 대상 주장 규칙만 걸리고, 브랜딩은 이름 확정 표현 규칙만 걸리며, 상품기획은 걸리지 않는다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc4_task_harness.py::test_tc4_2_같은_문장도_과제마다_다른_금지_규칙으로_검사한다
+- id: TC4-3
+  group: TC4
+  item: 하네스 파이프라인 각 task 별 적용
+  title: 과제마다 모드별 질문 상한을 지킨다
+  precondition: 과제 5개 x 모드 3개(quick·standard·precise)
+  steps:
+  - 과제와 모드마다 세션을 시작해 질문이 끝날 때까지 답한다
+  - 물은 서로 다른 필드 수를 센다
+  expected: 모든 과제·모드에서 물은 필드 수가 그 과제 정책의 모드별 상한(question_caps) 이하이고, 빠른 모드는 상한(3)을 정확히 채운다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc4_task_harness.py::test_tc4_3_과제마다_모드별_질문_상한을_지킨다
+- id: TC4-4
+  group: TC4
+  item: 하네스 파이프라인 각 task 별 적용
+  title: 실제 모델로 IR 결과가 제안 카드·확인할 것·비공개 표기를 지켜 나온다
+  precondition: 렌더에 올린 서버가 실제 Claude 제공자로 동작
+  steps:
+  - 배포한 API에서 IR 발표 과제 세션을 빠른 모드로 만든다
+  - 결과를 생성한다
+  - 결과를 읽는다
+  expected: 슬라이드 10장이 제안 카드로 나오고, 미확인 정보는 '확인할 것'으로, 비공개 금액은 '(금액 직접 기입)'으로 표시된다
+  method: 수동
+  note: 2026-11-04 렌더 실제 Claude 1회 확인, 슬라이드 종류 영어 표기는 IR 생성 지침에 한국어 슬라이드 이름을 추가해 수정
+  manual_result: 통과
+  ran_on: '2026-11-04'
+- id: TC5-1
+  group: TC5
+  item: db 생성 호출 상한 적용 되는지
+  title: 붐비면 세션 생성은 503이고 DB에 작업이 생기지 않는다
+  precondition: AI 호출 자리 1개·대기 0초
+  steps:
+  - 자리를 점유한 채 상품기획 세션 생성을 요청한다
+  - 세션 목록을 조회한다
+  expected: 503과 Retry-After 5초, 세션 목록은 비어 있다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc5_call_limit.py::test_tc5_1_붐비면_세션_생성은_503이고_DB에_작업이_생기지_않는다
+- id: TC5-2
+  group: TC5
+  item: db 생성 호출 상한 적용 되는지
+  title: 자리가 나면 같은 요청이 성공해 한 건만 저장된다
+  precondition: AI 호출 자리 1개·대기 0초
+  steps:
+  - 자리를 점유한 채 세션 생성을 요청한다(503)
+  - 자리를 풀고 같은 요청을 다시 보낸다
+  - 세션 목록을 조회한다
+  expected: 두 번째는 성공하고 목록에는 그 세션 한 건만 있다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc5_call_limit.py::test_tc5_2_자리가_나면_같은_요청이_성공해_한_건만_저장된다
+- id: TC5-3
+  group: TC5
+  item: db 생성 호출 상한 적용 되는지
+  title: 동시에 몰리면 상한만큼만 통과하고 성공한 수만큼만 저장된다
+  precondition: AI 호출 자리 2개·대기 0초, 호출마다 0.3초 걸리는 제공자
+  steps:
+  - 사용자 6명이 동시에 세션 생성을 요청한다
+  - 저장된 세션 목록을 센다
+  expected: 응답은 201과 503뿐이고 503이 하나 이상이며, 저장된 작업 수는 201 응답 수와 같다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc5_call_limit.py::test_tc5_3_동시에_몰리면_상한만큼만_통과하고_성공한_수만큼만_저장된다
+- id: TC6-1
+  group: TC6
+  item: 컨텍스트 메모리 각 코칭 모드별로 따로 적용되는지
+  title: 모드가 다른 세션은 서로의 답을 보지 않는다
+  precondition: 사업계획 세션 3개(quick·standard·precise)
+  steps:
+  - 모드마다 다른 아이디어 글로 세션을 만들고 첫 질문에 모드 전용 답을 한다
+  - 각 세션을 다시 조회한다
+  expected: 각 세션에는 자기 모드의 아이디어와 답만 보이고 다른 모드의 것은 없다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc6_mode_context.py::test_tc6_1_모드가_다른_세션은_서로의_답을_보지_않는다
+- id: TC6-2
+  group: TC6
+  item: 컨텍스트 메모리 각 코칭 모드별로 따로 적용되는지
+  title: 이어가기 컨텍스트는 모드와 상관없이 똑같이 들어간다
+  precondition: 결과를 낸 사업계획 작업
+  steps:
+  - 그 작업에서 이어 IR 세션을 quick·standard·precise로 각각 만든다
+  - 각 세션의 가져온 값(출처 previous_task)을 모은다
+  expected: 가져온 값이 있고 세 모드가 같은 (필드, 값) 목록이다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc6_mode_context.py::test_tc6_2_이어가기_컨텍스트는_모드와_상관없이_똑같이_들어간다
+- id: TC6-3
+  group: TC6
+  item: 컨텍스트 메모리 각 코칭 모드별로 따로 적용되는지
+  title: 빠른 모드는 상한만큼 묻고 표준 모드는 더 묻는다
+  precondition: 사업계획 과제
+  steps:
+  - quick·standard·precise 세션을 각각 한 번씩 끝까지 답한다
+  - 물은 필드 수를 센다(상한 3·5·10)
+  - quick과 standard의 수를 비교한다
+  expected: 세 모드 모두 정책 상한 이하이고, quick은 상한(3)을 정확히 채우며 standard보다 적게 묻는다(precise 상한 10은 준비도가 먼저 차서 닿지 않는다)
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc6_mode_context.py::test_tc6_3_빠른_모드는_상한만큼_묻고_표준_모드는_더_묻는다
+- id: TC7-1
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: 남의 이전 작업이나 없는 작업은 404이고 새 작업이 생기지 않는다
+  precondition: 내 결과 작업 하나, 다른 사용자
+  steps:
+  - 다른 사용자가 내 작업을 이어가기 출처로 IR 세션을 만든다
+  - 내가 없는 작업 id를 출처로 만든다
+  - 각각 세션 목록을 비교한다
+  expected: 둘 다 404와 '이전 작업 없음' 문구이고 세션 목록은 그대로다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_1_남의_이전_작업이나_없는_작업은_404이고_새_작업이_생기지_않는다
+- id: TC7-2
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: 결과가 없는 이전 작업은 404
+  precondition: 결과를 만들지 않은 사업계획 세션
+  steps:
+  - 그 세션을 출처로 IR 세션을 만든다
+  expected: 404와 '결과가 아직 없음' 문구
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_2_결과가_없는_이전_작업은_404
+- id: TC7-3
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: 없는 버전은 404, 버전 0은 422
+  precondition: 결과가 버전 1뿐인 사업계획 작업
+  steps:
+  - from_version=9로 IR 세션을 만든다
+  - from_version=0으로 만든다
+  expected: 9는 404와 '버전 없음' 문구, 0은 422
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_3_없는_버전은_404_버전_0은_422
+- id: TC7-4
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: AI가 붐비면 503이고 새 작업이 생기지 않는다
+  precondition: AI 호출 자리 1개·대기 0초, 결과를 낸 사업계획 작업
+  steps:
+  - 자리를 점유한 채 이어가기로 IR 세션 생성을 요청한다
+  - 세션 목록을 비교한다
+  expected: 503과 'AI 붐빔' 문구이고 세션 목록은 그대로다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_4_AI가_붐비면_503이고_새_작업이_생기지_않는다
+- id: TC7-5
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: 가져온 내용을 빼면 이전 과제 값이 사라진다
+  precondition: 이어가기로 만든 IR 세션(가져온 값이 있음)
+  steps:
+  - IR 세션에 가져온 값(previous_task)이 있는지 확인한다
+  - '''가져온 내용 빼기''(DELETE context)를 호출한다'
+  expected: 200이고 요약에 previous_task 값이 없으며 가져온 기준 표시(context)도 없다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_5_가져온_내용을_빼면_이전_과제_값이_사라진다
+- id: TC7-6
+  group: TC7
+  item: 컨텍스트 메모리 다음 task시 전송 오류
+  title: 사용자가 비공개로 정한 답은 다음 과제에서도 비공개다
+  precondition: 사업계획 첫 질문(customer_problem)에 '🔒 이 답은 AI에 보내지 않기'를 골라 답한 작업
+  steps:
+  - 비공개로 첫 답을 하고 나머지 질문에 답해 결과를 만든다
+  - 그 작업을 출처로 IR 세션을 만든다(problem 필드로 넘어옴)
+  - 세션의 비공개 이름과 이어가기 미리보기를 읽는다
+  expected: IR 세션에 problem이 previous_task 값으로 있고 비공개 이름에 problem이 들며, 미리보기의 그 항목 private가 true
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc7_carry_errors.py::test_tc7_6_사용자가_비공개로_정한_답은_다음_과제에서도_비공개다
+- id: TC8-1
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: 생성하면 섹션이 있는 결과와 버전 1이 생기고 저장하면 결과물에 모인다
+  precondition: IR 과제 세션, Mock 제공자
+  steps:
+  - 질문에 모두 답하고 결과를 생성한다
+  - 버전 1을 저장한다
+  - 세션 목록의 저장한 버전을 읽는다
+  expected: 결과에 섹션과 전체 글이 있고 버전은 1, 저장한 버전 목록은 [1]
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc8_result.py::test_tc8_1_생성하면_섹션이_있는_결과와_버전_1이_생기고_저장하면_결과물에_모인다
+- id: TC8-2
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: 다시 생성하면 버전이 쌓이고 지난 버전을 다시 볼 수 있다
+  precondition: 결과를 한 번 만든 사업계획 세션
+  steps:
+  - 한 번 더 생성한다
+  - 버전 1을 조회한다
+  expected: 새 버전 번호는 2이고 버전 1 조회가 200
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc8_result.py::test_tc8_2_다시_생성하면_버전이_쌓이고_지난_버전을_다시_볼_수_있다
+- id: TC8-3
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: 결과 화면에서 내려받는 문서 이름은 '{작업 이름}_V{n}'이다
+  precondition: 결과 화면 상태(작업 이름 '수제 향초 기획안', 버전 1)
+  steps:
+  - 결과 화면 모델에서 내려받을 문서를 만든다
+  - 문서 기본 이름을 읽는다
+  expected: '''수제 향초 기획안_V1'''
+  method: 자동
+  tests:
+  - frontend:src/acceptance/tc8.test.ts::TC8-3 결과 화면에서 내려받는 문서 이름은 '{작업 이름}_V{n}'이다
+- id: TC8-4
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: PDF로 여는 인쇄용 HTML에 제목·기준·섹션 본문·인쇄 규칙이 들어간다
+  precondition: 같은 결과 문서
+  steps:
+  - 문서를 인쇄용 HTML로 바꾼다
+  - HTML 문자열을 검사한다
+  expected: 제목, 반영한 기준 라벨, 섹션 본문, @page 또는 @media print 규칙이 들어 있다
+  method: 자동
+  tests:
+  - frontend:src/acceptance/tc8.test.ts::TC8-4 PDF로 여는 인쇄용 HTML에 제목·기준·섹션 본문·인쇄 규칙이 들어간다
+- id: TC8-5
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: Word(.docx) 문서에도 같은 섹션 제목이 들어간다
+  precondition: 같은 결과 문서
+  steps:
+  - 문서를 Word 형식으로 만들어 압축을 푼다
+  - word/document.xml을 읽는다
+  expected: 첫 섹션 제목과 본문 문장이 들어 있다
+  method: 자동
+  tests:
+  - frontend:src/acceptance/tc8.test.ts::TC8-5 Word(.docx) 문서에도 같은 섹션 제목이 들어간다
+- id: TC8-6
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: HTML 파일 이름 확장자는 형식을 따른다
+  precondition: 같은 결과 문서
+  steps:
+  - 문서 기본 이름에 html·docx 형식으로 파일 이름을 만든다
+  expected: '''수제 향초 기획안_V1.html'', ''수제 향초 기획안_V1.docx'''
+  method: 자동
+  tests:
+  - frontend:src/acceptance/tc8.test.ts::TC8-6 HTML 파일 이름 확장자는 형식을 따른다
+- id: TC8-7
+  group: TC8
+  item: 결과 생성 및 pdf 내보내기
+  title: 실제 브라우저에서 PDF로 저장
+  precondition: 결과가 있는 세션의 결과 화면
+  steps:
+  - 문서 내려받기 → PDF를 누른다
+  - 인쇄 창에서 'PDF로 저장'을 고른다
+  - 저장한 PDF를 연다
+  expected: 제목·반영한 기준·섹션 본문이 PDF에 그대로 있고 파일 이름이 '{작업 이름}_V{n}'이다
+  method: 수동
+  note: 인쇄 창은 자동화 브라우저에서 열린 채 멈춰 자동 테스트에서 뺐다

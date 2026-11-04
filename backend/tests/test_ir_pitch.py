@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from app.core.results import GenerationResult, ResultCard, sections_from_cards
 from app.core.state import SessionState
 from app.harness.policy import TaskPolicy
+from app.harness.prompting import context_keys
 from app.harness.registry import TASK_TYPES, HarnessRegistry
 from app.harness.tasks.ir_pitch.output_schema import IrPitchContent
 from app.harness.tasks.ir_pitch.validators import (
@@ -15,7 +16,7 @@ from app.harness.tasks.ir_pitch.validators import (
 )
 from app.main import create_app
 from app.providers.mock import MockProvider
-from tests.conftest import api_client
+from tests.conftest import SAMPLE_PART, api_client
 
 BASE = "/api/v1/coaching"
 POLICY = TaskPolicy(task_type="ir_pitch", title="IR 피치덱", heading="h", deliverable="d", fields=[])
@@ -169,3 +170,34 @@ def test_private_revenue_model_stays_private_when_carried_into_ir_pitch():
         json={"raw_input": "투자 발표", "notice_acknowledged": True, "from_session_id": sid},
     ).json()
     assert "business_model" in view["private_names"]
+
+
+SLIDE_NAMES = {
+    "cover": "표지", "problem": "문제", "solution": "해결", "market": "시장", "business_model": "비즈니스 모델",
+    "traction": "성과", "competition": "경쟁", "team": "팀", "financials": "재무 계획", "ask": "투자 요청",
+}
+
+
+def render_generate_system(harness) -> str:
+    """test_tasks.py::test_every_stage_template_renders와 같은 방식으로 generate 단계의 system 블록을 얻는다."""
+    state = harness.start("테스트 입력")
+    values = {
+        "state": state,
+        "policy": harness.policy,
+        "profile": state.profile,
+        "field": harness.policy.fields[0] if harness.policy.fields else None,
+        "level": 3,
+        "previous": [],
+        "result_text": "결과",
+        "heading": "섹션 제목",
+        "text": "섹션 본문",
+        "part": SAMPLE_PART,
+    }
+    return harness.prompts.render("generate", **{key: values[key] for key in context_keys("generate")}).system
+
+
+def test_generate_prompt_tells_korean_slide_names(harness):
+    """실제 모델이 카드에 'cover —'처럼 영어 종류를 쓴 적이 있다(2026-11-04). 화면에는 한국어 이름을 쓰게 한다."""
+    system = render_generate_system(harness)
+    for english, korean in SLIDE_NAMES.items():
+        assert f"{english}={korean}" in system
