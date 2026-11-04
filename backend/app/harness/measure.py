@@ -6,6 +6,7 @@ docs/HARNESS-ROADMAP.md 0단계 표를 채우는 도구다. 실행은 scripts/me
 """
 import csv
 import math
+import re
 import shutil
 import time
 from collections.abc import Mapping, Sequence
@@ -63,8 +64,19 @@ class RunRow(BaseModel):
     error: str = ""
 
 
+class RunDocument(BaseModel):
+    """실행 한 번이 만든 결과 글(품질을 눈으로 비교). 생성까지 가지 못한 실행은 남지 않는다."""
+
+    task: str
+    scenario: str
+    variant: str
+    repeat: int
+    full_text: str
+
+
 class MeasureReport(BaseModel):
     rows: list[RunRow]
+    documents: list[RunDocument] = []
     stopped_by_budget: bool = False
 
 
@@ -161,7 +173,9 @@ def _elapsed_ms(started: float) -> int:
     return round((time.perf_counter() - started) * 1000)
 
 
-def run_once(harness: BaseHarness, scenario_name: str, scenario, variant: str, repeat: int) -> RunRow:
+def run_once(
+    harness: BaseHarness, scenario_name: str, scenario, variant: str, repeat: int
+) -> tuple[RunRow, RunDocument | None]:
     """시나리오 한 번. 질문 단계와 생성의 벽시계 시간을 따로 잰다. 예외는 기록하고 다음 실행으로 넘어간다."""
     state, mismatches, question_ms, generate_ms, error = None, [], 0, 0, ""
     started = time.perf_counter()
@@ -179,10 +193,17 @@ def run_once(harness: BaseHarness, scenario_name: str, scenario, variant: str, r
             error = f"{type(exc).__name__}: {exc}"
         if not question_ms:
             question_ms = _elapsed_ms(started)
-    return summarize(
+    row = summarize(
         harness.task_type, scenario_name, variant, repeat, state,
         mismatches=mismatches, question_ms=question_ms, generate_ms=generate_ms, error=error,
     )
+    result = state.result if state is not None else None
+    document = (
+        RunDocument(task=harness.task_type, scenario=scenario_name, variant=variant, repeat=repeat, full_text=result.full_text)
+        if result is not None
+        else None
+    )
+    return row, document
 
 
 def measure(
@@ -197,6 +218,7 @@ def measure(
 ) -> MeasureReport:
     """과제 × 시나리오 × 방식 × 반복을 돈다. 누적 추정 비용이 budget_usd에 닿으면 다음 실행부터 멈춘다."""
     rows: list[RunRow] = []
+    documents: list[RunDocument] = []
     spent = 0.0
     for task in tasks:
         for variant in variants:
@@ -204,11 +226,13 @@ def measure(
             for scenario in load_scenarios(harness.task_dir):
                 for n in range(1, repeat + 1):
                     if budget_usd is not None and spent >= budget_usd:
-                        return MeasureReport(rows=rows, stopped_by_budget=True)
-                    row = run_once(harness, scenario.name, scenario, variant, n)
+                        return MeasureReport(rows=rows, documents=documents, stopped_by_budget=True)
+                    row, document = run_once(harness, scenario.name, scenario, variant, n)
                     rows.append(row)
+                    if document is not None:
+                        documents.append(document)
                     spent += row.cost_usd or 0.0
-    return MeasureReport(rows=rows)
+    return MeasureReport(rows=rows, documents=documents)
 
 
 def _percentile(values: Sequence[int], q: float) -> int:
@@ -221,32 +245,61 @@ def _mean(values: Sequence[float]) -> str:
     return f"{sum(values) / len(values):.1f}" if values else "-"
 
 
-SUMMARY_HEADER = (
-    "| 과제 | 방식 | 실행 | 완료 | 생성 p50(ms) | 생성 p95(ms) | 질문 평균(ms) | 호출 평균 | 실패 호출 | 유출 차단 "
-    "| 입력 토큰 평균 | 출력 토큰 평균 | 경고 평균 | 계획 어긋남 | 비용 합($) |"
+STAT_COLUMNS = (
+    "실행 | 완료 | 생성 p50(ms) | 생성 p95(ms) | 질문 평균(ms) | 호출 평균 | 실패 호출 | 유출 차단 "
+    "| 입력 토큰 평균 | 출력 토큰 평균 | 경고 평균 | 계획 어긋남 | 비용 합($)"
 )
+SUMMARY_HEADER = f"| 과제 | 방식 | {STAT_COLUMNS} |"
+TOTALS_HEADER = f"| 제공자 | 모델 | {STAT_COLUMNS} |"
+
+
+def _group_cells(group: Sequence[RunRow]) -> str:
+    """[순수] 실행 묶음의 통계 칸(STAT_COLUMNS 순서, 앞뒤 '|' 없이)."""
+    done = [r for r in group if r.status == "completed"]
+    times = [r.generate_ms for r in done]
+    costs = [r.cost_usd for r in group]
+    cost = "-" if any(c is None for c in costs) else f"{sum(c for c in costs if c is not None):.4f}"
+    return (
+        f"{len(group)} | {len(done)} | "
+        f"{_percentile(times, 0.5) if times else '-'} | {_percentile(times, 0.95) if times else '-'} | "
+        f"{_mean([r.question_ms for r in group])} | {_mean([r.calls for r in group])} | "
+        f"{sum(r.failed_calls for r in group)} | {sum(r.prompt_leaks for r in group)} | "
+        f"{_mean([r.input_tokens for r in group])} | {_mean([r.output_tokens for r in group])} | "
+        f"{_mean([r.warnings for r in group])} | {sum(r.mismatches for r in group)} | {cost}"
+    )
+
+
+def _table(header: str, groups: Mapping[tuple[str, str], Sequence[RunRow]]) -> str:
+    lines = [header, "|" + "---|" * (header.count("|") - 1)]
+    lines += [f"| {a} | {b} | {_group_cells(group)} |" for (a, b), group in groups.items()]
+    return "\n".join(lines)
 
 
 def summary_table(rows: Sequence[RunRow]) -> str:
     """[순수] 과제·방식별 요약 표(마크다운). 로드맵 0단계 표에 옮겨 적는다."""
-    lines = [SUMMARY_HEADER, "|" + "---|" * (SUMMARY_HEADER.count("|") - 1)]
     groups: dict[tuple[str, str], list[RunRow]] = {}
     for row in rows:
         groups.setdefault((row.task, row.variant), []).append(row)
-    for (task, variant), group in groups.items():
-        done = [r for r in group if r.status == "completed"]
-        times = [r.generate_ms for r in done]
-        costs = [r.cost_usd for r in group]
-        cost = "-" if any(c is None for c in costs) else f"{sum(c for c in costs if c is not None):.4f}"
-        lines.append(
-            f"| {task} | {variant} | {len(group)} | {len(done)} | "
-            f"{_percentile(times, 0.5) if times else '-'} | {_percentile(times, 0.95) if times else '-'} | "
-            f"{_mean([r.question_ms for r in group])} | {_mean([r.calls for r in group])} | "
-            f"{sum(r.failed_calls for r in group)} | {sum(r.prompt_leaks for r in group)} | "
-            f"{_mean([r.input_tokens for r in group])} | {_mean([r.output_tokens for r in group])} | "
-            f"{_mean([r.warnings for r in group])} | {sum(r.mismatches for r in group)} | {cost} |"
-        )
-    return "\n".join(lines)
+    return _table(SUMMARY_HEADER, groups)
+
+
+def _models(rows: Sequence[RunRow]) -> str:
+    names = {name for row in rows for name in row.models.split(",") if name}
+    return ", ".join(sorted(names)) or "-"
+
+
+def provider_totals(results: Mapping[str, Sequence[RunRow]]) -> str:
+    """[순수] 제공자별 전체 합계 표(마크다운). 같은 시나리오를 돈 제공자를 한 줄씩 나란히 둔다."""
+    return _table(TOTALS_HEADER, {(name, _models(rows)): rows for name, rows in results.items()})
+
+
+UNSAFE_FILE_CHARS = re.compile(r'[\\/:*?"<>|]')
+
+
+def document_name(document: RunDocument) -> str:
+    """[순수] 결과 글 파일 이름(과제-방식-반복-시나리오.md). 파일 이름에 못 쓰는 글자는 '_'."""
+    scenario = UNSAFE_FILE_CHARS.sub("_", document.scenario)
+    return f"{document.task}-{document.variant}-{document.repeat}-{scenario}.md"
 
 
 def write_report(report: MeasureReport, out_dir: Path) -> tuple[Path, Path]:
@@ -264,4 +317,49 @@ def write_report(report: MeasureReport, out_dir: Path) -> tuple[Path, Path]:
         "Mock의 토큰 수는 글자 수다.\n\n" + summary_table(report.rows) + note,
         encoding="utf-8",
     )
+    for document in report.documents:
+        docs_dir = out_dir / "documents"
+        docs_dir.mkdir(exist_ok=True)
+        (docs_dir / document_name(document)).write_text(document.full_text, encoding="utf-8")
     return rows_path, summary_path
+
+
+def compare(
+    *,
+    providers: Mapping[str, LLMProvider],
+    tasks: Sequence[str],
+    repeat: int,
+    budget_usd: float | None,
+    workdir: Path,
+) -> dict[str, MeasureReport]:
+    """같은 과제·시나리오를 제공자마다 한 번 호출 방식으로 돈다. 예산은 제공자마다 똑같이 나눈다."""
+    share = None if budget_usd is None else budget_usd / len(providers)
+    return {
+        name: measure(
+            tasks=tasks,
+            variants=["single"],
+            repeat=repeat,
+            provider=provider,
+            parallel_configs={},
+            budget_usd=share,
+            workdir=workdir / name,
+        )
+        for name, provider in providers.items()
+    }
+
+
+def write_comparison(reports: Mapping[str, MeasureReport], out_dir: Path) -> Path:
+    """compare.md(제공자별 합계 + 제공자마다 과제별 표)와 제공자별 측정 결과 폴더를 쓴다."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    parts = [
+        "# 제공자 비교\n\n같은 평가 시나리오를 한 번 호출 방식으로 돌렸다. 시간은 벽시계, 비용은 단가표"
+        "(app/harness/measure.py)로 낸 추정이다. 결과 글은 제공자 폴더의 documents/에 있다.",
+        "## 합계\n\n" + provider_totals({name: report.rows for name, report in reports.items()}),
+    ]
+    for name, report in reports.items():
+        write_report(report, out_dir / name)
+        note = "\n\n예산(제공자 몫)에 닿아 중간에 멈췄다." if report.stopped_by_budget else ""
+        parts.append(f"## {name}\n\n{summary_table(report.rows)}{note}")
+    path = out_dir / "compare.md"
+    path.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
+    return path
