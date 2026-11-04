@@ -33,7 +33,7 @@
    - 설정은 `render.yaml`에 다 있다: 루트 폴더 `backend`, 설치 `uv sync --frozen --no-dev`, 실행 `uvicorn`, 상태 확인 `/api/v1/coaching/tasks`, 환경 변수 `PROVIDER=mock`·`STORE=postgres`·`DEBUG=false`.
    - `DATABASE_URL`은 비밀 값이라 블루프린트 화면이 값을 물어본다. 아래 "Neon 연결"에서 만든 연결 문자열을 붙여 넣는다. API 키는 넣지 않는다.
 4. 첫 배포가 끝나면(몇 분) 서비스 주소를 확인한다. 보통 `https://ax-coaching-api.onrender.com`이다.
-   - 브라우저로 `https://<주소>/api/v1/coaching/tasks`를 열어 과제 4개가 JSON으로 나오면 성공이다. `/docs`는 API 문서다.
+   - 브라우저로 `https://<주소>/api/v1/coaching/tasks`를 열어 과제 5개가 JSON으로 나오면 성공이다. `/docs`는 API 문서다.
 5. **주소가 `ax-coaching-api.onrender.com`과 다르면**(이름이 이미 쓰여 뒤에 글자가 붙은 경우) `frontend/vercel.json`의 `rewrites` 주소를 그 주소로 고쳐 PR을 올린다.
 
 이후 main에 머지할 때마다 렌더가 자동으로 다시 배포한다(데이터는 Neon에 있어 지워지지 않는다).
@@ -51,7 +51,7 @@ vercel.com에 GitHub 계정으로 가입하고 **Add New → Project**에서 저
 | Environment Variables | **없음**(`VITE_API_BASE`는 비워 둔다. `/api`는 rewrites가 렌더로 넘긴다) |
 
 배포가 끝나면:
-- `https://<프로젝트>.vercel.app/` — 앱(과제 4개가 보이면 렌더와 연결된 것)
+- `https://<프로젝트>.vercel.app/` — 앱(과제 5개가 보이면 렌더와 연결된 것)
 - `https://<프로젝트>.vercel.app/preview` — 화면 미리보기 갤러리(디자이너가 html.to.design으로 가져가는 주소)
 - main은 정식 주소, PR마다 미리보기 주소가 생긴다. 빌드 명령에 테스트가 있어서 테스트가 실패하면 배포되지 않는다.
 
@@ -96,7 +96,7 @@ GPT는 Chat Completions의 strict JSON Schema로 구조를 강제한다(`app/pro
 ## 3. 확인 순서
 
 1. 렌더 주소의 `/api/v1/coaching/tasks`가 JSON을 낸다(깨어나는 데 1분까지 걸릴 수 있다).
-2. 버셀 주소의 홈에 과제 4개가 보인다.
+2. 버셀 주소의 홈에 과제 5개가 보인다.
 3. 과제 하나로 요청 → 모드 → 질문 → 초안 만들기까지 돈다(Mock 글).
 4. `/preview`가 열린다.
 
