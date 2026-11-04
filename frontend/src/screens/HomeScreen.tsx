@@ -9,7 +9,7 @@ type Props = {
   onWork: () => void;
 };
 
-/** 홈: 과제 네 개 중 하나를 고른다. 진행 중인 세션이 있는 과제는 이어서 할 수 있다. */
+/** 홈: 과제 중 하나를 고른다. 진행 중인 세션이 있는 과제는 이어서 할 수 있다. */
 export function HomeScreen({ tasks, sessions, onStart, onResume, onWork }: Props) {
   const latest = latestByTask(sessions);
   return (

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { STALE_NOTICE, STALE_SAVE_HINT } from "../lib/actions";
 import { HOME } from "../lib/routes";
 import { NOOP_HANDLERS } from "../preview/handlers";
+import { TASKS } from "../preview/fixtures";
 import { makeContext, makeFlowItem, makeForm, makeQuestion, makeResult, makeSession, makeSessionSummary, makeTask, makeVersionView } from "../testing/factories";
 import type { ScreenModel } from "./screenModel";
 import { AppView, pageTitle, projectOf, renderScreen } from "./view";
@@ -32,6 +33,19 @@ describe("renderScreen", () => {
     expect(main).toContain("완성할 것 · 상품 콘셉트 · 첫 제작 기획서");
     expect(main).toContain("상품기획 시작하기 →");
     expect(side).toBeNull();
+  });
+
+  it("홈은 API가 준 과제를 모두 카드로(IR 피치덱 포함)", () => {
+    expect(TASKS.map((t) => t.task_type)).toEqual([
+      "business_plan",
+      "product_planning",
+      "branding",
+      "marketing_content",
+      "ir_pitch",
+    ]);
+    const { main } = draw({ kind: "home", tasks: TASKS, sessions: [] });
+    expect(main.match(/class="card task stack"/g)).toHaveLength(5);
+    expect(main).toContain("IR 피치덱 시작하기 →");
   });
 
   it("요청은 입력창과 예시", () => {
