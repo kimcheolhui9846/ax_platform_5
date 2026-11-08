@@ -132,3 +132,116 @@ def test_set_settings_replaces_settings():
     service.set_settings(state, InventorySettings(address="서울시 어딘가", stale_days=3))
     assert state.settings.address == "서울시 어딘가"
     assert state.settings.stale_days == 3
+
+
+from datetime import date  # noqa: E402
+
+from app.core.messages import (  # noqa: E402
+    INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
+    INVENTORY_EMPTY_CLOSE_MESSAGE,
+    INVENTORY_NEGATIVE_STOCK_MESSAGE,
+    INVENTORY_UNKNOWN_ITEM_MESSAGE,
+    unconfirmed_anomaly_message,
+)
+from app.inventory.models import AdjustEntry  # noqa: E402
+from app.inventory.rules import AnomalyKind  # noqa: E402
+from app.schemas.inventory import Adjustment, CloseRequest  # noqa: E402
+
+DAY = date(2026, 11, 8)
+
+
+def stocked(*quantities):
+    state = fresh()
+    items = service.add_items(state, [draft(f"품목{i}", quantity=q) for i, q in enumerate(quantities)])
+    return state, [i.item_id for i in items]
+
+
+def test_record_close_appends_counts_then_adjustments_and_close():
+    state, [a, b] = stocked(D(10), D(10))
+    close = service.record_close(
+        state,
+        CloseRequest(close_date=DAY, counts={a: D(8)}, adjustments=[Adjustment(item_id=a, delta=D(-1), reason="파손")]),
+    )
+
+    assert state.closes == [close]
+    assert close.counts == {a: D(8)}  # b는 미입력(0이 아니다)
+    assert on_hand(state.ledger, a) == D(7)
+    assert on_hand(state.ledger, b) == D(10)
+    assert [type(e) for e in state.ledger[-2:]] == [CountEntry, AdjustEntry]
+    assert all(e.close_id == close.close_id for e in state.ledger[-2:])
+
+
+def test_check_close_lists_anomalies_without_changing_state():
+    state, [a, b] = stocked(D(10), D(10))
+    before = state.model_copy(deep=True)
+
+    found = service.check_close(state, {a: D(12), b: D(9)})
+
+    assert [(x.item_id, x.kind) for x in found] == [(a, AnomalyKind.INCREASE)]
+    assert state == before
+
+
+def test_record_close_requires_confirming_every_anomaly():
+    state, [a, b] = stocked(D(10), D(10))
+    counts = {a: D(12), b: D(1)}
+    with pytest.raises(InventoryError, match=unconfirmed_anomaly_message(["품목1"])):  # 품목0(a)은 확인했다
+        service.record_close(state, CloseRequest(close_date=DAY, counts=counts, confirmed=[a]))
+    assert state.closes == []  # 실패하면 아무것도 남기지 않는다(service는 검사를 모두 끝낸 뒤 고친다)
+
+    service.record_close(state, CloseRequest(close_date=DAY, counts=counts, confirmed=[a, b]))
+    assert on_hand(state.ledger, b) == D(1)
+
+
+def test_same_day_close_again_last_count_wins():
+    state, [a] = stocked(D(10))
+    service.record_close(state, CloseRequest(close_date=DAY, counts={a: D(9)}))
+    service.record_close(state, CloseRequest(close_date=DAY, counts={a: D(8)}))
+    assert on_hand(state.ledger, a) == D(8)
+    assert len(state.closes) == 2
+
+
+@pytest.mark.parametrize(
+    ("request_kwargs", "message"),
+    [
+        ({}, INVENTORY_EMPTY_CLOSE_MESSAGE),
+        ({"counts": {"it_none": D(1)}}, INVENTORY_UNKNOWN_ITEM_MESSAGE),
+        ({"adjustments": [{"item_id": "NEW", "delta": "1", "reason": "r"}]}, INVENTORY_ADJUST_UNCOUNTED_MESSAGE),
+        ({"adjustments": [{"item_id": "A", "delta": "-11", "reason": "r"}]}, INVENTORY_NEGATIVE_STOCK_MESSAGE),
+    ],
+)
+def test_record_close_rejections_leave_state_untouched(request_kwargs, message):
+    state, [a] = stocked(D(10))
+    [new] = service.add_items(state, [draft("새 품목")])
+    for adj in request_kwargs.get("adjustments", []):
+        adj["item_id"] = {"A": a, "NEW": new.item_id}[adj["item_id"]]
+    before = state.model_copy(deep=True)
+
+    with pytest.raises(InventoryError, match=message):
+        service.record_close(state, CloseRequest(close_date=DAY, **request_kwargs))
+    assert state == before
+
+
+def test_archived_items_cannot_be_closed():
+    state, [a] = stocked(D(10))
+    service.update_item(state, a, ItemPatch(archived=True))
+    with pytest.raises(InventoryError, match=INVENTORY_UNKNOWN_ITEM_MESSAGE):
+        service.record_close(state, CloseRequest(close_date=DAY, counts={a: D(1)}))
+
+
+def test_adjust_counted_in_same_close_is_allowed():
+    state = fresh()
+    [item] = service.add_items(state, [draft()])
+    service.record_close(
+        state,
+        CloseRequest(
+            close_date=DAY,
+            counts={item.item_id: D(3)},
+            adjustments=[Adjustment(item_id=item.item_id, delta=D(2), reason="찾음")],
+        ),
+    )
+    assert on_hand(state.ledger, item.item_id) == D(5)
+
+
+def test_adjustment_delta_cannot_be_zero():
+    with pytest.raises(ValueError):
+        Adjustment(item_id="it_x", delta=D(0), reason="r")

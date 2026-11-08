@@ -3,18 +3,26 @@
 함수는 받은 state를 고친다. 규칙에 어긋나면 InventoryError(422)·InventoryNotFound(404)를 던지고,
 라우터는 그때 저장하지 않으므로(복사본을 고치고 성공해야 저장) 요청은 원자적이다.
 """
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from decimal import Decimal
 
 from app.core.messages import (
+    INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
+    INVENTORY_EMPTY_CLOSE_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
+    INVENTORY_NEGATIVE_STOCK_MESSAGE,
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_TARGET_BELOW_MIN_MESSAGE,
     INVENTORY_UNIT_LOCKED_MESSAGE,
+    INVENTORY_UNKNOWN_ITEM_MESSAGE,
     INVENTORY_UNKNOWN_SUPPLIER_MESSAGE,
     duplicate_item_message,
+    unconfirmed_anomaly_message,
 )
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import (
+    AdjustEntry,
+    Close,
     CountEntry,
     InventorySettings,
     InventoryState,
@@ -23,7 +31,8 @@ from app.inventory.models import (
     ReorderPolicy,
     Supplier,
 )
-from app.schemas.inventory import ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
+from app.inventory.rules import Anomaly, find_anomalies, on_hand
+from app.schemas.inventory import CloseRequest, ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
 
 _KEEP_WHEN_NULL = ("name", "kind", "unit", "procurement", "archived")
 
@@ -123,3 +132,44 @@ def set_policy(state: InventoryState, item_id: str, policy: ReorderPolicy) -> No
     if policy.target_stock < policy.min_stock:
         raise InventoryError(INVENTORY_TARGET_BELOW_MIN_MESSAGE)
     state.policies[item_id] = policy
+
+
+def _active_item_ids(state: InventoryState) -> set[str]:
+    return {i.item_id for i in state.items if not i.archived}
+
+
+def check_close(state: InventoryState, counts: Mapping[str, Decimal]) -> list[Anomaly]:
+    """저장하지 않고 이상 수량만 찾는다."""
+    return find_anomalies(state.ledger, counts, state.settings.anomaly_drop_ratio)
+
+
+def record_close(state: InventoryState, request: CloseRequest) -> Close:
+    """검사를 모두 끝낸 뒤에만 state를 고친다(실패하면 그대로)."""
+    if not request.counts and not request.adjustments:
+        raise InventoryError(INVENTORY_EMPTY_CLOSE_MESSAGE)
+    active = _active_item_ids(state)
+    touched = set(request.counts) | {a.item_id for a in request.adjustments}
+    if not touched <= active:
+        raise InventoryError(INVENTORY_UNKNOWN_ITEM_MESSAGE)
+
+    unconfirmed = [a for a in check_close(state, request.counts) if a.item_id not in set(request.confirmed)]
+    if unconfirmed:
+        raise InventoryError(unconfirmed_anomaly_message(find_item(state, a.item_id).name for a in unconfirmed))
+
+    close = Close(close_date=request.close_date, counts=dict(request.counts))
+    entries = [CountEntry(item_id=i, quantity=q, close_id=close.close_id) for i, q in request.counts.items()]
+    entries += [
+        AdjustEntry(item_id=a.item_id, delta=a.delta, reason=a.reason, close_id=close.close_id)
+        for a in request.adjustments
+    ]
+    ledger = [*state.ledger, *entries]
+    for item_id in {a.item_id for a in request.adjustments}:
+        result = on_hand(ledger, item_id)
+        if result is None:
+            raise InventoryError(INVENTORY_ADJUST_UNCOUNTED_MESSAGE)
+        if result < 0:
+            raise InventoryError(INVENTORY_NEGATIVE_STOCK_MESSAGE)
+
+    state.ledger = ledger
+    state.closes.append(close)
+    return close
