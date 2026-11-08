@@ -577,8 +577,142 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record Close */
+        /**
+         * Record Close
+         * @description S05 하루 마감. 저장한 직후 같은 잠금 안에서 자동 주문을 돌린다(주문 결과와 상관없이 마감은 저장된다).
+         *
+         *     거래처가 예외를 내도 run_auto_orders는 그 주문을 접수 불명으로 남기므로 마감은 저장된다. 마감 검사(422)가
+         *     실패하면 자동 주문은 돌지 않고 아무것도 저장되지 않는다.
+         */
         post: operations["record_close_api_v1_inventory_closes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Place Order
+         * @description S07 주문 확인. 같은 request_id면 거래처를 다시 부르지 않고 기존 주문을 돌려준다.
+         */
+        post: operations["place_order_api_v1_inventory_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/orders/{order_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Order
+         * @description S10 상태 재조회. 접수 불명 주문만 거래처에 다시 묻는다(다시 주문하지 않는다).
+         */
+        post: operations["refresh_order_api_v1_inventory_orders__order_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/orders/{order_id}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive */
+        post: operations["receive_api_v1_inventory_orders__order_id__receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/holds/{hold_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Hold */
+        post: operations["resolve_hold_api_v1_inventory_holds__hold_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}/auto-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Auto Order */
+        put: operations["set_auto_order_api_v1_inventory_items__item_id__auto_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}/policy/suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Policy
+         * @description S03 AI 추천 받기. 추천은 '확인 전'으로 두고 기준은 바꾸지 않는다.
+         */
+        post: operations["suggest_policy_api_v1_inventory_items__item_id__policy_suggestion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}/policy/suggestion/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Suggestion */
+        post: operations["apply_suggestion_api_v1_inventory_items__item_id__policy_suggestion_apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -633,6 +767,46 @@ export interface components {
          * @enum {string}
          */
         AnswerType: "option" | "free_text" | "easier" | "skip";
+        /** AutoOrderOutcome */
+        AutoOrderOutcome: {
+            /** Item Id */
+            item_id: string;
+            /** Order Id */
+            order_id: string | null;
+            status: components["schemas"]["OrderStatus"] | null;
+            hold_reason: components["schemas"]["HoldReason"] | null;
+        };
+        /**
+         * AutoOrderRequest
+         * @description S08 자동 주문 설정. 켤 때는 consent가 true여야 한다. 끄면 이후 실행만 멈춘다(접수된 주문은 그대로).
+         */
+        AutoOrderRequest: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Consent
+             * @default false
+             */
+            consent: boolean;
+            /** Per Order Limit */
+            per_order_limit: number | string;
+            /** Monthly Limit */
+            monthly_limit: number | string;
+        };
+        /** AutoOrderSetting */
+        AutoOrderSetting: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Consented At */
+            consented_at: string | null;
+            /** Per Order Limit */
+            per_order_limit: string;
+            /** Monthly Limit */
+            monthly_limit: string;
+        };
         /** BulkItemsRequest */
         BulkItemsRequest: {
             /** Items */
@@ -697,6 +871,8 @@ export interface components {
         CloseView: {
             close: components["schemas"]["Close"];
             inventory: components["schemas"]["InventoryView"];
+            /** Auto Orders */
+            auto_orders: components["schemas"]["AutoOrderOutcome"][];
         };
         /**
          * CoachingMode
@@ -827,6 +1003,33 @@ export interface components {
          * @enum {string}
          */
         FlowStatus: "answered" | "current" | "upcoming" | "skipped" | "paused";
+        /** Hold */
+        Hold: {
+            /** Hold Id */
+            hold_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Order Id */
+            order_id: string | null;
+            reason: components["schemas"]["HoldReason"];
+            /** Current Unit Price */
+            current_unit_price: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Resolved
+             * @default false
+             */
+            resolved: boolean;
+        };
+        /**
+         * HoldReason
+         * @enum {string}
+         */
+        HoldReason: "price_changed" | "limit_exceeded" | "out_of_stock" | "stale_count" | "unknown" | "address_missing";
         /**
          * ImageBlock
          * @description 결과 섹션의 이미지 블록. 파일은 AssetStore에 있고 여기에는 그 id만 둔다.
@@ -902,6 +1105,10 @@ export interface components {
             suppliers: components["schemas"]["Supplier"][];
             settings: components["schemas"]["InventorySettings"];
             last_close: components["schemas"]["Close"] | null;
+            /** Orders */
+            orders: components["schemas"]["Order"][];
+            /** Holds */
+            holds: components["schemas"]["Hold"][];
         };
         /** Item */
         Item: {
@@ -978,6 +1185,8 @@ export interface components {
             policy: components["schemas"]["ReorderPolicy"] | null;
             /** Last Counted At */
             last_counted_at: string | null;
+            suggestion: components["schemas"]["PolicySuggestion"] | null;
+            auto_order: components["schemas"]["AutoOrderSetting"] | null;
         };
         /** LabeledAssumption */
         LabeledAssumption: {
@@ -1017,7 +1226,7 @@ export interface components {
         };
         /**
          * MockOutcome
-         * @description 모의 거래처가 낼 결과(PR #41의 SupplierProvider Mock이 쓴다).
+         * @description 모의 거래처가 낼 결과(supplier.py의 MockSupplier가 쓴다).
          * @enum {string}
          */
         MockOutcome: "accept" | "price_changed" | "out_of_stock" | "unknown_then_accept";
@@ -1026,6 +1235,105 @@ export interface components {
             mode: components["schemas"]["CoachingMode"];
             /** Question Cap */
             question_cap: number;
+        };
+        /** Order */
+        Order: {
+            /** Order Id */
+            order_id: string;
+            /** Request Id */
+            request_id: string;
+            /** Supplier Id */
+            supplier_id: string;
+            /** Lines */
+            lines: components["schemas"]["OrderLine"][];
+            /** Total */
+            total: string;
+            origin: components["schemas"]["OrderOrigin"];
+            status: components["schemas"]["OrderStatus"];
+            reject_reason: components["schemas"]["RejectReason"] | null;
+            /** Current Prices */
+            current_prices: {
+                [key: string]: string;
+            };
+            /** Supplier Ref */
+            supplier_ref: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OrderLine */
+        OrderLine: {
+            /** Item Id */
+            item_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Unit Price */
+            unit_price: string;
+            /**
+             * Received
+             * @default 0
+             */
+            received: string;
+        };
+        /** OrderLineRequest */
+        OrderLineRequest: {
+            /** Item Id */
+            item_id: string;
+            /** Quantity */
+            quantity: number | string;
+            /** Unit Price */
+            unit_price?: number | string | null;
+        };
+        /**
+         * OrderOrigin
+         * @enum {string}
+         */
+        OrderOrigin: "manual" | "auto";
+        /**
+         * OrderRequest
+         * @description S07 주문 확인. 같은 request_id로 다시 보내면 새로 주문하지 않고 기존 주문을 돌려준다.
+         */
+        OrderRequest: {
+            /** Request Id */
+            request_id: string;
+            /** Lines */
+            lines: components["schemas"]["OrderLineRequest"][];
+        };
+        /**
+         * OrderStatus
+         * @enum {string}
+         */
+        OrderStatus: "accepted" | "rejected" | "unknown" | "partially_received" | "received";
+        /** OrderView */
+        OrderView: {
+            order: components["schemas"]["Order"];
+            inventory: components["schemas"]["InventoryView"];
+        };
+        /**
+         * PolicySuggestion
+         * @description AI 추천(확인 전). 적용해야 기준(ReorderPolicy)이 된다.
+         */
+        PolicySuggestion: {
+            /** Min Stock */
+            min_stock: string;
+            /** Target Stock */
+            target_stock: string;
+            /** Purchase Unit */
+            purchase_unit: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * Procurement
@@ -1079,6 +1387,28 @@ export interface components {
              */
             ai_suggested: boolean;
         };
+        /** ReceiptLine */
+        ReceiptLine: {
+            /** Item Id */
+            item_id: string;
+            /** Quantity */
+            quantity: number | string;
+            /**
+             * Already Counted
+             * @default false
+             */
+            already_counted: boolean;
+        };
+        /** ReceiptRequest */
+        ReceiptRequest: {
+            /** Lines */
+            lines: components["schemas"]["ReceiptLine"][];
+        };
+        /**
+         * RejectReason
+         * @enum {string}
+         */
+        RejectReason: "price_changed" | "out_of_stock";
         /** RenameSessionRequest */
         RenameSessionRequest: {
             /** Name */
@@ -3210,6 +3540,368 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CloseView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    place_order_api_v1_inventory_orders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    refresh_order_api_v1_inventory_orders__order_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    receive_api_v1_inventory_orders__order_id__receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    resolve_hold_api_v1_inventory_holds__hold_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hold_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_auto_order_api_v1_inventory_items__item_id__auto_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    suggest_policy_api_v1_inventory_items__item_id__policy_suggestion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출 또는 결과 생성 실패 */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description AI 호출이 몰려 자리가 없음(Retry-After 뒤 다시 시도) */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    apply_suggestion_api_v1_inventory_items__item_id__policy_suggestion_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
