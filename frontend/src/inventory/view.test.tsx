@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CloseCheckView, InventoryView, ItemView } from "../api/types";
 import { railProps } from "../app/view";
 import { closeModel, itemsModel, stockModel } from "./screenModel";
-import { EMPTY_CLOSE } from "./state";
+import { EMPTY_CLOSE, initialInventoryState } from "./state";
 import { InventoryView as InventoryScreen } from "./view";
 import type { InventoryHandlers, InventoryScreenModel } from "./view";
 import { CloseScreen } from "../screens/inventory/CloseScreen";
@@ -13,6 +13,7 @@ import { StockScreen } from "../screens/inventory/StockScreen";
 import { ItemEditForm, PolicyForm } from "../screens/inventory/ItemForms";
 
 const noop = () => {};
+const NO_SAVES = initialInventoryState().saved;
 const ON = new Proxy({}, { get: () => noop }) as InventoryHandlers;
 const FILTER = { query: "", kind: "all" as const };
 
@@ -87,7 +88,7 @@ describe("ItemsScreen·품목 양식", () => {
     last_counted_at: "2026-11-01T00:00:00Z",
     suggestion: { min_stock: "5", target_stock: "20", purchase_unit: "5", reason: "최근 사용량 기준" },
   } as Partial<ItemView>);
-  const row = itemsModel(view([suggested]), 0).rows[0];
+  const row = itemsModel(view([suggested]), NO_SAVES).rows[0];
   const policy = (busy: "suggest" | "save" | null) =>
     renderToString(<PolicyForm item={row} busy={busy} onSave={noop} onSuggest={noop} onApply={noop} onEdited={noop} />);
   it("추천은 '확인 전'과 이유, 적용 버튼으로 보인다", () => {
@@ -111,7 +112,7 @@ describe("ItemsScreen·품목 양식", () => {
     expect(edit({ ...row, counted: false })).not.toContain("단위를 바꿀 수 없어요");
   });
   it("품목 탭은 요청 중이면 입력과 버튼을 막는다", () => {
-    const html = renderToString(<ItemsScreen model={itemsModel(view([suggested]), 0)} busy="save" on={ON} />);
+    const html = renderToString(<ItemsScreen model={itemsModel(view([suggested]), NO_SAVES)} busy="save" on={ON} />);
     expect(html).toContain("저장 중…");
     expect(html).not.toMatch(/<(input|button|select)(?![^>]*disabled)[^>]*>/);
   });
@@ -130,6 +131,6 @@ describe("InventoryView", () => {
     expect(draw("stock", { kind: "unavailable" })).toContain("다시 시도");
   });
   it("품목·기준 탭", () => {
-    expect(draw("items", { kind: "items", model: itemsModel(view([]), 0) })).toContain("품목 일괄 등록");
+    expect(draw("items", { kind: "items", model: itemsModel(view([]), NO_SAVES) })).toContain("품목 일괄 등록");
   });
 });

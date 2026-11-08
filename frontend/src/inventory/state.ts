@@ -2,12 +2,16 @@ import type { CloseCheckView, CloseView, InventoryView, ItemKind } from "../api/
 
 export type InventoryCall = "load" | "save" | "check" | "close" | "suggest";
 
+/** 저장 요청을 낸 양식(성공한 양식만 새 값으로 다시 시작한다). */
+export type InventoryForm = "bulk" | "item" | "supplier" | "policy" | "settings";
+export const INVENTORY_FORMS: readonly InventoryForm[] = ["bulk", "item", "supplier", "policy", "settings"];
+
 export type AdjustmentInput = { delta: string; reason: string };
 
 export type InventoryState = {
   view: InventoryView | null; // 마지막으로 받은 재고 전체
   loadFailed: boolean; // 처음 불러오기 실패(다시 시도 버튼)
-  inflight: { seq: number; kind: InventoryCall } | null; // 지금 기다리는 요청 하나
+  inflight: { seq: number; kind: InventoryCall; form: InventoryForm | null } | null; // 지금 기다리는 요청 하나
   toast: string | null;
   filter: { query: string; kind: ItemKind | "all" }; // 현황·마감 공용 검색·분류
   close: {
@@ -19,11 +23,11 @@ export type InventoryState = {
     date: string; // 고른 마감 날짜 YYYY-MM-DD
   };
   dirty: boolean; // 저장하지 않은 입력이 있다(탭 옮길 때 확인)
-  savedCount: number; // 저장이 성공한 횟수(양식을 새 값으로 다시 시작하는 key)
+  saved: Record<InventoryForm, number>; // 양식마다 저장이 성공한 횟수(그 양식의 key)
 };
 
 export type InventoryAction =
-  | { type: "requested"; seq: number; kind: InventoryCall }
+  | { type: "requested"; seq: number; kind: InventoryCall; form?: InventoryForm }
   | { type: "failed"; seq: number; message: string }
   | { type: "loaded"; seq: number; view: InventoryView }
   | { type: "checked"; seq: number; check: CloseCheckView }
@@ -50,7 +54,7 @@ export function initialInventoryState(today = ""): InventoryState {
     filter: { query: "", kind: "all" },
     close: { ...EMPTY_CLOSE, date: today },
     dirty: false,
-    savedCount: 0,
+    saved: { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 },
   };
 }
 
@@ -58,7 +62,7 @@ export function initialInventoryState(today = ""): InventoryState {
 export function inventoryReducer(state: InventoryState, action: InventoryAction): InventoryState {
   switch (action.type) {
     case "requested":
-      return { ...state, inflight: { seq: action.seq, kind: action.kind }, toast: null };
+      return { ...state, inflight: { seq: action.seq, kind: action.kind, form: action.form ?? null }, toast: null };
     case "failed": {
       const inflight = state.inflight;
       if (inflight === null || inflight.seq !== action.seq) return state;
@@ -72,7 +76,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         inflight: null,
         view: action.view,
         loadFailed: false,
-        savedCount: state.inflight?.kind === "save" ? state.savedCount + 1 : state.savedCount,
+        saved: savedAfter(state),
       };
     case "checked":
       if (!isCurrent(state, action.seq)) return state;
@@ -85,7 +89,6 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         view: action.result.inventory,
         loadFailed: false,
         dirty: false,
-        savedCount: state.savedCount + 1,
         close: { ...EMPTY_CLOSE, date: state.close.date, result: action.result },
       };
     case "filterChanged":
@@ -118,6 +121,12 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
     case "toastClosed":
       return { ...state, toast: null };
   }
+}
+
+/** 저장 응답이면 그 요청을 낸 양식의 횟수만 하나 올린다. */
+function savedAfter(state: InventoryState): InventoryState["saved"] {
+  const form = state.inflight?.kind === "save" ? state.inflight.form : null;
+  return form === null ? state.saved : { ...state.saved, [form]: state.saved[form] + 1 };
 }
 
 function isCurrent(state: InventoryState, seq: number): boolean {

@@ -26,7 +26,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
   const selected = model.rows.find((r) => r.itemId === selectedId) ?? null;
   return (
     <div className="stack">
-      <BulkItemsForm key={`bulk:${model.savedCount}`} suppliers={model.suppliers} busy={busy} onCreate={on.onCreateItems} onEdited={on.onEdited} />
+      <BulkItemsForm key={`bulk:${model.saved.bulk}`} suppliers={model.suppliers} busy={busy} onCreate={on.onCreateItems} onEdited={on.onEdited} />
       <section className="card stack" aria-label="품목 선택">
         <h2>품목 편집·보충 기준</h2>
         {model.rows.length === 0 ? (
@@ -49,7 +49,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
       {selected !== null && (
         <>
           <ItemEditForm
-            key={`edit:${selected.itemId}:${selected.name}:${selected.option}:${selected.kind}:${selected.unit}:${selected.procurement}:${selected.supplierId}`}
+            key={`edit:${model.saved.item}:${selected.itemId}:${selected.name}:${selected.option}:${selected.kind}:${selected.unit}:${selected.procurement}:${selected.supplierId}`}
             item={selected}
             suppliers={model.suppliers}
             busy={busy}
@@ -57,7 +57,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
             onEdited={on.onEdited}
           />
           <PolicyForm
-            key={`policy:${selected.itemId}:${selected.policyText}`}
+            key={`policy:${model.saved.policy}:${selected.itemId}:${selected.policyText}`}
             item={selected}
             busy={busy}
             onSave={on.onSavePolicy}
@@ -68,7 +68,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
         </>
       )}
       <SuppliersSection
-        key={`suppliers:${model.savedCount}`}
+        key={`suppliers:${model.saved.supplier}`}
         suppliers={model.suppliers}
         busy={busy}
         onCreate={on.onCreateSupplier}
@@ -76,7 +76,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
         onEdited={on.onEdited}
       />
       <SettingsForm
-        key={`settings:${model.settings.address}:${model.settings.anomaly_drop_ratio}:${model.settings.stale_days}`}
+        key={`settings:${model.saved.settings}:${model.settings.address}:${model.settings.anomaly_drop_ratio}:${model.settings.stale_days}`}
         settings={model.settings}
         busy={busy}
         onSave={on.onSaveSettings}

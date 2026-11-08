@@ -195,10 +195,10 @@ export type ItemRow = {
   policyText: string;
   suggestion: { label: string; reason: string; text: string } | null;
 };
-export type ItemsModel = { savedCount: number; rows: ItemRow[]; suppliers: Supplier[]; settings: InventorySettings };
+export type ItemsModel = { saved: InventoryState["saved"]; rows: ItemRow[]; suppliers: Supplier[]; settings: InventorySettings };
 
-/** savedCount: 저장이 성공한 횟수(양식 key). */
-export function itemsModel(view: InventoryView, savedCount: number): ItemsModel {
+/** saved: 양식마다 저장이 성공한 횟수(양식 key). */
+export function itemsModel(view: InventoryView, saved: InventoryState["saved"]): ItemsModel {
   const rows = view.items
     .filter((v) => !v.item.archived)
     .map((v): ItemRow => {
@@ -240,5 +240,5 @@ export function itemsModel(view: InventoryView, savedCount: number): ItemsModel 
               },
       };
     });
-  return { savedCount, rows, suppliers: view.suppliers, settings: view.settings };
+  return { saved, rows, suppliers: view.suppliers, settings: view.settings };
 }

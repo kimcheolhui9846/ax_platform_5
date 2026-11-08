@@ -131,16 +131,21 @@ describe("inventoryReducer 그 밖", () => {
 });
 
 describe("inventoryReducer 저장 횟수·마감 날짜", () => {
-  it("저장이 성공한 응답에서만 savedCount가 는다", () => {
+  it("저장이 성공한 응답에서만 그 양식의 횟수가 는다", () => {
     const base = initialInventoryState("2026-11-08");
-    const saved = run([{ type: "requested", seq: 1, kind: "save" }, { type: "loaded", seq: 1, view: view("a") }], base);
-    expect(saved.savedCount).toBe(1);
-    const failed = run([{ type: "requested", seq: 1, kind: "save" }, { type: "failed", seq: 1, message: "x" }], base);
-    expect(failed.savedCount).toBe(0);
-    const suggested = run([{ type: "requested", seq: 1, kind: "suggest" }, { type: "loaded", seq: 1, view: view("a") }], base);
-    expect(suggested.savedCount).toBe(0);
+    const save = (form: "bulk" | "settings") => [
+      { type: "requested", seq: 1, kind: "save", form } as const,
+      { type: "loaded", seq: 1, view: view("a") } as const,
+    ];
+    const settings = run(save("settings"), base);
+    expect(settings.saved).toEqual({ bulk: 0, item: 0, supplier: 0, policy: 0, settings: 1 });
+    expect(run(save("bulk"), settings).saved).toEqual({ bulk: 1, item: 0, supplier: 0, policy: 0, settings: 1 });
+    const failed = run([{ type: "requested", seq: 1, kind: "save", form: "bulk" }, { type: "failed", seq: 1, message: "x" }], base);
+    expect(failed.saved).toEqual(base.saved);
+    const suggested = run([{ type: "requested", seq: 1, kind: "suggest", form: "policy" }, { type: "loaded", seq: 1, view: view("a") }], base);
+    expect(suggested.saved).toEqual(base.saved);
     const closed = run([{ type: "requested", seq: 1, kind: "close" }, { type: "closed", seq: 1, result: result("n") }], base);
-    expect(closed.savedCount).toBe(1);
+    expect(closed.saved).toEqual(base.saved);
   });
   it("마감 날짜는 초기값에서 시작하고 바꾸면 검사·결과를 비우되 저장 뒤에도 남는다", () => {
     const s = run([
