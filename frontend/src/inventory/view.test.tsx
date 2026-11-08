@@ -5,8 +5,9 @@ import type { CloseCheckView, InventoryView, ItemView } from "../api/types";
 import { railProps } from "../app/view";
 import { closeModel, itemsModel, stockModel } from "./screenModel";
 import { EMPTY_CLOSE, initialInventoryState } from "./state";
-import { InventoryView as InventoryScreen } from "./view";
+import { InventoryView as InventoryScreen, inventoryTitle } from "./view";
 import type { InventoryHandlers, InventoryScreenModel } from "./view";
+import { INVENTORY_HINT } from "./view";
 import { CloseScreen } from "../screens/inventory/CloseScreen";
 import { ItemsScreen } from "../screens/inventory/ItemsScreen";
 import { StockScreen } from "../screens/inventory/StockScreen";
@@ -103,6 +104,14 @@ describe("ItemsScreen·품목 양식", () => {
     expect(html).toContain("추천 받는 중…");
     expect(html).not.toMatch(/<(input|button)(?![^>]*disabled)[^>]*>/);
   });
+  it("저장한 보충 기준이 없으면 추천 버튼을 막고 먼저 저장하라고 안내한다", () => {
+    const suggestButton = (r: typeof row) =>
+      renderToString(<PolicyForm item={r} busy={null} onSave={noop} onSuggest={noop} onApply={noop} onEdited={noop} />).match(/<button[^>]*>AI 추천 받기<\/button>/)?.[0] ?? "";
+    const saved = { ...row, policy: { min_stock: "5", target_stock: "20", purchase_unit: "5", lead_days: 2, unit_price: "1000" } };
+    expect(suggestButton({ ...row, policy: null })).toContain("disabled");
+    expect(renderToString(<PolicyForm item={{ ...row, policy: null }} busy={null} onSave={noop} onSuggest={noop} onApply={noop} onEdited={noop} />)).toContain("보충 기준을 저장하면 AI 추천을 받을 수 있어요");
+    expect(suggestButton(saved)).not.toContain("disabled");
+  });
   it("저장 중엔 '저장 중…'", () => {
     expect(policy("save")).toContain("저장 중…");
   });
@@ -110,6 +119,12 @@ describe("ItemsScreen·품목 양식", () => {
     const edit = (r: typeof row) => renderToString(<ItemEditForm item={r} suppliers={[]} busy={null} onSave={noop} onEdited={noop} />);
     expect(edit(row)).toContain("단위를 바꿀 수 없어요");
     expect(edit({ ...row, counted: false })).not.toContain("단위를 바꿀 수 없어요");
+  });
+  it("수량 기록이 있는 품목은 단위 입력을 막는다", () => {
+    const edit = (r: typeof row) => renderToString(<ItemEditForm item={r} suppliers={[]} busy={null} onSave={noop} onEdited={noop} />);
+    const unit = (html: string) => html.match(/<input[^>]*id="[^"]*-edit-unit"[^>]*>/)?.[0] ?? "";
+    expect(unit(edit(row))).toContain("disabled");
+    expect(unit(edit({ ...row, counted: false }))).not.toContain("disabled");
   });
   it("품목 탭은 요청 중이면 입력과 버튼을 막는다", () => {
     const html = renderToString(<ItemsScreen model={itemsModel(view([suggested]), NO_SAVES)} busy="save" on={ON} />);
@@ -129,6 +144,15 @@ describe("InventoryView", () => {
   });
   it("불러오지 못하면 다시 시도", () => {
     expect(draw("stock", { kind: "unavailable" })).toContain("다시 시도");
+  });
+  it("머리글은 재고 안내를 보이고 코칭 안내는 보이지 않는다", () => {
+    const html = draw("stock", { kind: "loading" });
+    expect(html).toContain(INVENTORY_HINT);
+    expect(html).not.toContain("하고 싶은 작업 하나부터 시작하세요.");
+  });
+  it("문서 제목은 탭 이름을 담는다", () => {
+    expect(inventoryTitle("close")).toBe("창작자 AX · 재고 하루 마감");
+    expect(inventoryTitle("stock")).toBe("창작자 AX · 재고 현황");
   });
   it("품목·기준 탭", () => {
     expect(draw("items", { kind: "items", model: itemsModel(view([]), NO_SAVES) })).toContain("품목 일괄 등록");

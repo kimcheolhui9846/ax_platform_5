@@ -138,7 +138,7 @@ export function ItemEditForm({ item, suppliers, busy, onSave, onEdited }: BusyPr
       </div>
       <div className="field-row">
         <label htmlFor={`${uid}-edit-unit`}>단위</label>
-        <input disabled={busy !== null} id={`${uid}-edit-unit`} value={f.unit} onChange={(e) => set({ unit: e.target.value })} />
+        <input disabled={busy !== null || item.counted} id={`${uid}-edit-unit`} value={f.unit} onChange={(e) => set({ unit: e.target.value })} />
         {item.counted && <p className="small muted">수량 기록이 있는 품목은 단위를 바꿀 수 없어요.</p>}
       </div>
       <div className="field-row">
@@ -265,10 +265,11 @@ export function PolicyForm({
       {field("price", "단가(원)", "price")}
       <div className="row">
         <SaveButton busy={busy} disabled={request === null} />
-        <button type="button" className="btn" disabled={working} onClick={() => onSuggest(item.itemId)}>
+        <button type="button" className="btn" disabled={working || p === null} onClick={() => onSuggest(item.itemId)}>
           {suggesting ? "추천 받는 중…" : "AI 추천 받기"}
         </button>
       </div>
+      {p === null && <p className="small muted">보충 기준을 저장하면 AI 추천을 받을 수 있어요.</p>}
       {item.suggestion !== null && (
         <div className="notice stack8">
           <p>

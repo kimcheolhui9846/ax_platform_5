@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { InventoryApp } from "../inventory/InventoryApp";
+import { inventoryTitle } from "../inventory/view";
 import { Toast } from "../components/Toast";
 import { exportDocument } from "../lib/download";
 import { draftToRestore, inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
@@ -90,7 +91,7 @@ export default function App() {
     }
   }, [pendingAssets, inFlightAssets]);
 
-  const title = pageTitle(model);
+  const title = state.route.name === "inventory" ? inventoryTitle(state.route.tab) : pageTitle(model); // 제목은 여기서만 정한다
   useEffect(() => {
     document.title = title;
   }, [title]);

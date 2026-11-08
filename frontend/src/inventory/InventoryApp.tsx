@@ -9,7 +9,7 @@ import { loadRequest, makeInventoryHandlers } from "./handlers";
 import { createInventoryRunner } from "./requests";
 import { inventoryScreen } from "./screen";
 import { initialInventoryState, inventoryReducer } from "./state";
-import { INVENTORY_TAB_LABELS, InventoryView } from "./view";
+import { InventoryView } from "./view";
 
 type Props = {
   tab: InventoryTab;
@@ -18,7 +18,7 @@ type Props = {
   confirmLeave: () => boolean;
 };
 
-/** 재고 화면(코칭과 상태를 섞지 않는다). 상태는 reducer 하나, 여기서는 불러오기·알림·제목 같은 바깥과의 연결만 한다. */
+/** 재고 화면(코칭과 상태를 섞지 않는다). 상태는 reducer 하나, 여기서는 불러오기·알림 같은 바깥과의 연결만 한다(문서 제목은 App이 정한다). */
 export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
   const [state, dispatch] = useReducer(inventoryReducer, undefined, () => initialInventoryState(localDateText(new Date())));
   const run = useMemo(() => createInventoryRunner(dispatch), []); // 한 번만 만든다(요청 번호가 다시 시작하지 않게)
@@ -36,10 +36,6 @@ export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
     const timer = window.setTimeout(() => dispatch({ type: "toastClosed" }), TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [state.toast]);
-
-  useEffect(() => {
-    document.title = `재고 ${INVENTORY_TAB_LABELS[tab]} · 창작자 AX`;
-  }, [tab]);
 
   const on = makeInventoryHandlers({ state, tab, run, dispatch, navigate: onTab, confirmLeave });
   return (

@@ -43,6 +43,14 @@ type ViewProps = {
 
 export const INVENTORY_TAB_LABELS: Record<InventoryTab, string> = { stock: "현황", close: "하루 마감", items: "품목·기준" };
 
+/** 재고 화면 머리글 안내. */
+export const INVENTORY_HINT = "하루 마감에 수량을 세면 부족한 재고를 알려 드려요.";
+
+/** 문서 제목(코칭 화면의 pageTitle과 같은 모양). */
+export function inventoryTitle(tab: InventoryTab): string {
+  return `창작자 AX · 재고 ${INVENTORY_TAB_LABELS[tab]}`;
+}
+
 function TabBar({ tab, onTab }: { tab: InventoryTab; onTab: (tab: InventoryTab) => void }) {
   return (
     <nav className="inv-tabs" aria-label="재고 메뉴">
@@ -98,7 +106,7 @@ export function InventoryView({ tab, model, busy, on, rail, mainId }: ViewProps)
   return (
     <AppShell
       rail={rail}
-      header={{ project: "재고", phase: null, onPickTask: () => rail.onNavigate("home"), pickDisabled: rail.guideDisabled }}
+      header={{ project: "재고", phase: null, hint: INVENTORY_HINT, onPickTask: () => rail.onNavigate("home"), pickDisabled: rail.guideDisabled }}
       mainId={mainId}
     >
       <TabBar tab={tab} onTab={on.onTab} />
