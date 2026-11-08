@@ -6,9 +6,10 @@ import { criteriaRows } from "../lib/criteria";
 import type { EditableFlowItem } from "../lib/flowView";
 import { documentContent } from "../lib/document";
 import { EditMain } from "../screens/EditScreen";
+import { SavedMain } from "../screens/SavedScreen";
 import { FailedMain, FailedSide, GeneratingMain, GeneratingSide } from "../screens/GenerationScreens";
 import { EvidenceMain, EvidenceSide } from "../screens/EvidenceScreen";
-import { makeContext, makeFlowItem, makeQuestion, makeResult, makeSession, makeTask } from "../testing/factories";
+import { makeContext, makeFlowItem, makeQuestion, makeResult, makeSession, makeTask, makeVersionView } from "../testing/factories";
 import { Composer } from "./Composer";
 import { ContextBox } from "./ContextBox";
 import { CarryFailedNotice } from "./CarryFailedNotice";
@@ -273,6 +274,16 @@ describe("SupplementForm", () => {
     const saving = renderToString(<SupplementForm titleId="t" items={items} busy={true} onSave={noop} onCancel={noop} />);
     expect(saving.match(/<input type="checkbox"[^>]*disabled=""/g)).toHaveLength(2);
     expect(html).not.toMatch(/<input type="checkbox"[^>]*disabled=""/);
+  });
+
+  it("예시 넣기·미확인으로 버튼과 비공개 체크는 항목마다 한 줄 묶음(field-tools)에 같이 있다", () => {
+    const tools = html.match(/<div class="field-tools">.*?<\/label><\/div>/g) ?? [];
+    expect(tools).toHaveLength(2);
+    for (const tool of tools) {
+      expect(tool).toContain("예시 넣기");
+      expect(tool).toContain("미확인으로");
+      expect(tool).toContain('class="privacy-toggle"');
+    }
   });
 
   it("항목마다 AI에 보내지 않기 체크 칸이 있고, 비공개 항목은 체크돼 있다", () => {
@@ -559,5 +570,24 @@ describe("작업 이름·삭제 대화상자", () => {
     expect(on).not.toContain("disabled");
     const off = renderToString(<WorkItemActions summary={summary} busy={true} onRename={noop} onDelete={noop} />);
     expect(off.match(/disabled/g)).toHaveLength(2);
+  });
+});
+
+describe("SavedMain", () => {
+  const html = (next: { title: string; onStart: () => void } | null) =>
+    renderToString(<SavedMain task={makeTask()} version={makeVersionView()} next={next} onDocuments={noop} onOpen={noop} onDownload={noop} />);
+
+  it("버튼 넷(이어가기 포함)도 한 줄 묶음 하나에 내려받기 메뉴가 같이 있다", () => {
+    const out = html({ title: "마케팅", onStart: noop });
+    expect(out.match(/class="saved-actions"/g)).toHaveLength(1);
+    const group = out.match(/<div class="saved-actions">.*?<\/div><\/div>/)?.[0] ?? "";
+    expect(group).toContain("이 결과로 마케팅 시작");
+    expect(group).toContain("결과물 목록 보기");
+    expect(group).toContain("저장한 결과 다시 보기");
+    expect(group).toContain('class="download-menu stack8"');
+  });
+
+  it("내려받기 버튼은 다른 버튼처럼 칸 폭을 채운다(full)", () => {
+    expect(html(null)).toMatch(/class="btn full"[^>]*>문서 내려받기/);
   });
 });

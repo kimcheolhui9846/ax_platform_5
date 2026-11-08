@@ -160,7 +160,7 @@ export const FRAMES: Frame[] = [
   ),
   dialogFrame(
     "supplement-form",
-    "미확인 정보 입력",
+    "미확인 정보 입력 · 비공개 체크 있음",
     result,
     { kind: "result", task: PRODUCT, session: SESSION_SUPPLEMENT, result: RESULT, images: {} },
     (titleId) => <SupplementForm titleId={titleId} items={SUPPLEMENT_PRIVATE} busy={false} onSave={() => {}} onCancel={() => {}} />,
@@ -185,7 +185,7 @@ export const FRAMES: Frame[] = [
   ),
   frame(
     "saved",
-    "저장 완료",
+    "저장 완료 · 버튼 4개(이어가기 포함)",
     { name: "saved", sessionId: SESSION_ID, version: SAVED_VERSION.version.version },
     { kind: "saved", task: PRODUCT, session: SESSION_DONE, version: SAVED_VERSION, images: {}, next: nextTask(TASKS, PRODUCT.task_type) },
   ),
