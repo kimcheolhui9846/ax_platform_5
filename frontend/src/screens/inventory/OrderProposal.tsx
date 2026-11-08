@@ -14,7 +14,7 @@ export function OrderProposal({ groups, busy, onOpen }: Props) {
         <div key={g.supplierId} className="card stack">
           <div className="row inv-wrap">
             <h3 className="grow">{g.supplierName}</h3>
-            <button type="button" className="btn primary" disabled={busy !== null} onClick={() => onOpen(g.supplierId)}>
+            <button type="button" className="btn primary" aria-label={`${g.supplierName} 주문 확인`} disabled={busy !== null} onClick={() => onOpen(g.supplierId)}>
               주문 확인
             </button>
           </div>

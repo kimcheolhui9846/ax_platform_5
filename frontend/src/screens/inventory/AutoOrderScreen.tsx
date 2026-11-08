@@ -83,7 +83,7 @@ export function AutoOrderScreen({ model, items, saved, busy, on, initialSelected
       header: "설정",
       cell: (r) => (
         <span className="stack">
-          <button type="button" className="btn compact" disabled={busy !== null || !r.orderable} onClick={() => setSelectedId(r.itemId)}>
+          <button type="button" className="btn compact" aria-label={`${r.name} 선택`} disabled={busy !== null || !r.orderable} onClick={() => setSelectedId(r.itemId)}>
             선택
           </button>
           {!r.orderable && <span className="small muted">{r.reason}</span>}

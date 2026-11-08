@@ -44,6 +44,7 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
     if (next === tab) return;
     leave(() => {
       if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
+      if (next === "orders" && state.orderResult !== null) dispatch({ type: "orderResultClosed" }); // 안내가 가리키는 탭에 왔다
       navigate(next);
     });
   };

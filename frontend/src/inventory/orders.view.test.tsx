@@ -48,6 +48,7 @@ describe("OrderProposal", () => {
     expect(html).toContain("한빛상사");
     expect(html).toContain("원단");
     expect(html).toContain("주문 확인");
+    expect(html).toMatch(/<button[^>]*aria-label="한빛상사 주문 확인"/); // 거래처마다 구분되는 이름
     expect(html).not.toMatch(/<button[^>]*disabled/);
   });
   it("요청 중이면 막는다", () => {
@@ -140,6 +141,7 @@ describe("OrdersScreen", () => {
     expect(html).toContain("한빛상사");
     expect(html).toContain("입고 저장");
     expect(html).toContain("이미 마감에서 셌어요");
+    expect(html).toMatch(/<input type="checkbox"[^>]*aria-label="원단 이미 마감에서 셌어요"/); // 줄마다 구분되는 이름
     expect(html).toMatch(/aria-label="원단 입고 수량\(m\)"[^>]*value="18"/);
     expect(html).not.toMatch(/aria-label="실 입고 수량/);
     expect(html).not.toContain("다시 확인");
@@ -164,6 +166,7 @@ describe("AutoOrderScreen", () => {
   });
   it("표에 최근 결과, 주문 불가면 선택이 막히고 사유", () => {
     const html = draw(view({ items: [item("a", "원단"), item("n", "끈", { policy: null })] }));
+    expect(html).toMatch(/<button[^>]*aria-label="원단 선택"/); // 품목마다 구분되는 이름
     expect(html).toContain("아직 없음");
     expect(html).toContain("거래처와 보충 기준이 필요해요");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>선택/);

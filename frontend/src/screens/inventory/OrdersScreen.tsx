@@ -39,7 +39,7 @@ function ReceiptForm({ card, busy, onReceive, onEdited }: { card: OrderCard; bus
             <span className="inv-line-name">{line?.name}</span>
             <input inputMode="decimal" aria-label={`${line?.name} 입고 수량(${line?.unit})`} disabled={busy !== null} value={f.quantity} onChange={(e) => set(f.itemId, { quantity: e.target.value })} />
             <label className="row">
-              <input type="checkbox" disabled={busy !== null} checked={f.alreadyCounted} onChange={(e) => set(f.itemId, { alreadyCounted: e.target.checked })} />
+              <input type="checkbox" aria-label={`${line?.name} 이미 마감에서 셌어요`} disabled={busy !== null} checked={f.alreadyCounted} onChange={(e) => set(f.itemId, { alreadyCounted: e.target.checked })} />
               이미 마감에서 셌어요
             </label>
           </div>

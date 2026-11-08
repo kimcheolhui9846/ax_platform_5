@@ -300,4 +300,12 @@ describe("주문·입고·보류·자동 주문", () => {
     expect(reset.actions).toContainEqual({ type: "closeReset" });
     expect(reset.tabs).toEqual(["orders"]);
   });
+  it("주문·입고 탭으로 가면 주문 결과 안내를 닫는다(그 탭이 안내가 가리키는 곳이다)", () => {
+    const t = setup({ orderResult: { status: "unknown", holdReason: "unknown" } });
+    t.on.onOpenOrders();
+    expect(t.actions).toContainEqual({ type: "orderResultClosed" });
+    const other = setup({ orderResult: { status: "accepted", holdReason: null } });
+    other.on.onTab("stock");
+    expect(other.actions).not.toContainEqual({ type: "orderResultClosed" });
+  });
 });
