@@ -1,5 +1,5 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { CloseView, EvidenceItem, InventoryView, InventoryItem as Item, ItemView, ReorderPolicy, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { AutoOrderSetting, CloseView, EvidenceItem, Order, InventoryView, InventoryItem as Item, ItemView, ReorderPolicy, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
 import type { EditableFlowItem } from "../lib/flowView";
 import { initialInventoryState } from "../inventory/state";
 import type { InventoryState } from "../inventory/state";
@@ -500,3 +500,83 @@ export const CLOSE_RESULT: CloseView = {
   ],
 };
 export const CLOSE_DONE: InventoryState["close"] = { ...initialInventoryState("2026-11-08").close, result: CLOSE_RESULT };
+
+// ---- 재고 화면 2: 주문·보류·자동 주문 샘플 ----
+
+const ORDER_AT = "2026-11-08T01:00:00Z";
+const order = (patch: Partial<Order> & Pick<Order, "order_id" | "lines" | "total">): Order => ({
+  request_id: `manual:${patch.order_id}`,
+  supplier_id: "sup-1",
+  origin: "manual",
+  status: "accepted",
+  reject_reason: null,
+  current_prices: {},
+  supplier_ref: null,
+  created_at: ORDER_AT,
+  updated_at: ORDER_AT,
+  ...patch,
+});
+
+const AUTO_ON: AutoOrderSetting = { enabled: true, consented_at: "2026-11-01T00:00:00Z", per_order_limit: "200000", monthly_limit: "600000" };
+const AUTO_OFF: AutoOrderSetting = { enabled: false, consented_at: null, per_order_limit: "100000", monthly_limit: "300000" };
+
+/** 주문 샘플 재고: 부족 품목 셋(거래처 둘), 자동 주문 켜짐·꺼짐·주문 불가, 주문 4건(접수·일부 입고·불명·거절), 보류 3건. */
+export const INVENTORY_ORDERS: InventoryView = {
+  ...INVENTORY,
+  items: [
+    itemView(item("it-1", "국산 밀가루", { option: "강력분 20kg" }), { on_hand: "4", status: "short", suggested_quantity: "40", auto_order: AUTO_ON }),
+    itemView(item("it-2", "설탕"), { on_hand: "6", status: "short", suggested_quantity: "30", auto_order: AUTO_OFF }),
+    itemView(item("it-3", "포장 박스", { kind: "packaging", unit: "개", supplier_id: "sup-2" }), {
+      on_hand: "3",
+      status: "short",
+      suggested_quantity: "100",
+      policy: { ...POLICY, min_stock: "20", target_stock: "120", purchase_unit: "50", unit_price: "300" },
+    }),
+    itemView(item("it-4", "유기농 버터", { option: "무염" }), { on_hand: "26", status: "in_transit", in_transit: "20" }),
+    itemView(item("it-7", "리본 끈", { kind: "packaging", unit: "롤", supplier_id: null }), { on_hand: "9", policy: null }),
+  ],
+  orders: [
+    order({ order_id: "ord-1", lines: [{ item_id: "it-4", quantity: "20", unit_price: "9000", received: "0" }], total: "180000", supplier_ref: "HB-1042" }),
+    order({
+      order_id: "ord-2",
+      supplier_id: "sup-2",
+      lines: [{ item_id: "it-3", quantity: "100", unit_price: "300", received: "40" }],
+      total: "30000",
+      status: "partially_received",
+      created_at: "2026-11-06T01:00:00Z",
+      updated_at: "2026-11-07T01:00:00Z",
+    }),
+    order({ order_id: "ord-3", lines: [{ item_id: "it-2", quantity: "30", unit_price: "1800", received: "0" }], total: "54000", status: "unknown", created_at: "2026-11-08T02:00:00Z" }),
+    order({
+      order_id: "ord-4",
+      origin: "auto",
+      lines: [{ item_id: "it-1", quantity: "40", unit_price: "4500", received: "0" }],
+      total: "180000",
+      status: "rejected",
+      reject_reason: "price_changed",
+      current_prices: { "it-1": "4800" },
+      created_at: "2026-11-07T09:00:00Z",
+    }),
+  ],
+  holds: [
+    { hold_id: "h-1", item_id: "it-1", order_id: "ord-4", reason: "price_changed", current_unit_price: "4800", created_at: "2026-11-07T09:00:00Z", resolved: false },
+    { hold_id: "h-2", item_id: "it-3", order_id: null, reason: "limit_exceeded", current_unit_price: null, created_at: "2026-11-08T09:00:00Z", resolved: false },
+    { hold_id: "h-3", item_id: "it-2", order_id: "ord-3", reason: "unknown", current_unit_price: null, created_at: "2026-11-08T02:00:00Z", resolved: false },
+  ],
+};
+
+export const INVENTORY_ORDERS_EMPTY: InventoryView = { ...INVENTORY_ORDERS, orders: [], holds: [] };
+
+const ORDERS_STATE: InventoryState = { ...initialInventoryState("2026-11-08"), view: INVENTORY_ORDERS };
+export const INVENTORY_ORDERS_STATE = ORDERS_STATE;
+export const INVENTORY_ORDERS_EMPTY_STATE: InventoryState = { ...ORDERS_STATE, view: INVENTORY_ORDERS_EMPTY };
+/** 주문 확인 카드(제안량으로 시작), 보류의 새 단가로 연 초안, 결과 안내. */
+export const ORDER_CONFIRM: InventoryState = {
+  ...ORDERS_STATE,
+  order: { requestId: "manual:preview-1", supplierId: "sup-1", lines: [{ itemId: "it-1", quantity: "40", unitPrice: "4500" }, { itemId: "it-2", quantity: "30", unitPrice: "1800" }], repriced: false },
+};
+export const ORDER_REPRICED: InventoryState = {
+  ...ORDERS_STATE,
+  order: { requestId: "manual:preview-2", supplierId: "sup-1", lines: [{ itemId: "it-1", quantity: "40", unitPrice: "4800" }], repriced: true },
+};
+export const ORDER_RESULT: InventoryState = { ...ORDERS_STATE, orderResult: { status: "accepted", holdReason: null } };

@@ -2,7 +2,10 @@ import type { JSX } from "react";
 
 import type { ScreenModel } from "../app/screenModel";
 import { AppView, railProps } from "../app/view";
+import type { OrderPanel } from "../inventory/orderModel";
+import { inventoryScreen, orderPanel } from "../inventory/screen";
 import { closeModel, itemsModel, stockModel } from "../inventory/screenModel";
+import type { InventoryState } from "../inventory/state";
 import { INVENTORY_TAB_LABELS, InventoryView } from "../inventory/view";
 import type { InventoryScreenModel } from "../inventory/view";
 import { DownloadMenu } from "../components/DownloadMenu";
@@ -18,6 +21,11 @@ import {
   CLOSE_INPUT,
   INVENTORY,
   INVENTORY_EMPTY,
+  INVENTORY_ORDERS_EMPTY_STATE,
+  INVENTORY_ORDERS_STATE,
+  ORDER_CONFIRM,
+  ORDER_REPRICED,
+  ORDER_RESULT,
   SESSION_QUESTION_PRIVATE,
   SESSION_READY_PRIVATE,
   SUPPLEMENT_PRIVATE,
@@ -93,13 +101,19 @@ const result: Route = { name: "result", sessionId: SESSION_ID };
 const ALL = { query: "", kind: "all" } as const;
 
 /** 재고 화면 한 상태. 앱과 같은 InventoryView에 샘플 모델을 직접 넣어 그린다(네트워크 없음). */
-function inventoryFrame(id: string, title: string, tab: InventoryTab, model: InventoryScreenModel): Frame {
+function inventoryFrame(id: string, title: string, tab: InventoryTab, model: InventoryScreenModel, panel: OrderPanel = { confirm: null, result: null }): Frame {
   const route: Route = { name: "inventory", tab };
   return {
     id,
     title: `재고 · ${INVENTORY_TAB_LABELS[tab]} · ${title}`,
-    render: (mainId) => <InventoryView tab={tab} model={model} panel={{ confirm: null, result: null }} busy={null} on={NOOP_INVENTORY_HANDLERS} rail={railProps(route, false, NOOP_HANDLERS)} mainId={mainId} />,
+    render: (mainId) => <InventoryView tab={tab} model={model} panel={panel} busy={null} on={NOOP_INVENTORY_HANDLERS} rail={railProps(route, false, NOOP_HANDLERS)} mainId={mainId} />,
   };
+}
+
+/** 상태에서 앱과 같은 순수 함수(inventoryScreen·orderPanel)로 만든 재고 프레임. */
+function inventoryStateFrame(id: string, title: string, tab: InventoryTab, state: InventoryState, initialSelected?: string): Frame {
+  const model = inventoryScreen(state, tab);
+  return inventoryFrame(id, title, tab, model.kind === "auto" ? { ...model, initialSelected } : model, orderPanel(state));
 }
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
@@ -241,4 +255,12 @@ export const FRAMES: Frame[] = [
   inventoryFrame("inventory-close-check", "이상 수량 확인", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_CHECKED, ALL), filter: ALL }),
   inventoryFrame("inventory-close-result", "저장 결과·자동 주문", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_DONE, ALL), filter: ALL }),
   inventoryFrame("inventory-items", "등록·기준·설정", "items", { kind: "items", model: itemsModel(INVENTORY, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0, receipt: 0, auto: 0 }) }),
+  inventoryStateFrame("inventory-stock-proposal", "제안 묶음", "stock", INVENTORY_ORDERS_STATE),
+  inventoryStateFrame("inventory-order-confirm", "주문 확인 카드", "stock", ORDER_CONFIRM),
+  inventoryStateFrame("inventory-order-repriced", "새 단가 주문 초안", "orders", ORDER_REPRICED),
+  inventoryStateFrame("inventory-order-result", "주문 결과 안내", "stock", ORDER_RESULT),
+  inventoryStateFrame("inventory-orders", "보류·주문·입고", "orders", INVENTORY_ORDERS_STATE),
+  inventoryStateFrame("inventory-orders-empty", "주문·보류 없음", "orders", INVENTORY_ORDERS_EMPTY_STATE),
+  inventoryStateFrame("inventory-auto", "자동 주문 목록", "auto", INVENTORY_ORDERS_STATE),
+  inventoryStateFrame("inventory-auto-edit", "자동 주문 편집 카드", "auto", INVENTORY_ORDERS_STATE, "it-2"),
 ];

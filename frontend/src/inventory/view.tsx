@@ -27,7 +27,7 @@ export type InventoryScreenModel =
   | { kind: "stock"; model: StockModel; hasItems: boolean; filter: Filter }
   | { kind: "close"; model: CloseModel; filter: Filter }
   | { kind: "orders"; orders: OrderCard[]; holds: HoldRow[]; saved: number }
-  | { kind: "auto"; model: AutoModel; items: ItemView[]; saved: number }
+  | { kind: "auto"; model: AutoModel; items: ItemView[]; saved: number; initialSelected?: string }
   | { kind: "items"; model: ItemsModel };
 
 /** 재고 화면이 부르는 모든 콜백(Task 7이 구현한다). 인자는 id·글·작은 값만. */
@@ -129,7 +129,7 @@ function TabScreen({ tab, model, busy, on }: Pick<ViewProps, "tab" | "model" | "
     );
   }
   if (model.kind === "orders") return <OrdersScreen orders={model.orders} holds={model.holds} saved={model.saved} busy={busy} on={on} />;
-  if (model.kind === "auto") return <AutoOrderScreen model={model.model} items={model.items} saved={model.saved} busy={busy} on={on} />;
+  if (model.kind === "auto") return <AutoOrderScreen model={model.model} items={model.items} saved={model.saved} busy={busy} on={on} initialSelected={model.initialSelected} />;
   return <ItemsScreen model={model.model} busy={busy} on={on} />;
 }
 
