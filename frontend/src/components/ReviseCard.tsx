@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { ReviseBody } from "../api/types";
 import { reviseNote } from "../lib/flowView";
+import { ANSWER_MAX } from "../lib/question";
 import type { EditableFlowItem } from "../lib/flowView";
 import { Composer } from "./Composer";
 import { OptionList } from "./OptionList";
@@ -32,7 +33,7 @@ export function ReviseCard({ item, defaultPrivate, busy, onRevise, onCancel }: P
         value={text}
         placeholder="고친 답을 적어 주세요"
         rows={2}
-        maxLength={1200}
+        maxLength={ANSWER_MAX}
         submitLabel="고친 답 보내기"
         busy={busy}
         onChange={setText}

@@ -1,5 +1,8 @@
 import type { Question } from "../api/types";
 
+/** 직접 답변 글자 수 상한. 백엔드 ANSWER_MAX(app/schemas/coaching.py)와 같은 값이다. */
+export const ANSWER_MAX = 1200;
+
 type Level = Pick<Question, "level" | "is_ai_proposal">;
 
 /** 질문 카드 위 작은 제목. 첫 기본 질문은 핵심 질문, 사다리 질문은 다른 예시·AI 후보로 구분한다.

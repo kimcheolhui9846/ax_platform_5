@@ -446,3 +446,74 @@ def test_nul_in_request_text_is_stripped():
     client = api_client(create_app())
     view = create_session(client, raw_input="a\u0000b")
     assert view["raw_input"] == "ab"
+
+
+# --- 답변 길이 상한(화면 QuestionCard의 maxLength와 같은 값) ---
+def _free_text_question(client):
+    sid = create_session(client)["session_id"]
+    view = client.get(f"{BASE}/sessions/{sid}").json()
+    return sid, view["next_question"]["question_id"]
+
+
+def test_answer_over_length_limit_is_422_without_ai_call_and_session_unchanged():
+    provider = MockProvider()
+    client = api_client(create_app(provider=provider, debug=True))
+    sid, qid = _free_text_question(client)
+    before = client.get(f"{BASE}/sessions/{sid}").json()
+    calls = len(provider.calls)
+
+    response = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": qid, "answer_type": "free_text", "value": "가" * 1201},
+    )
+
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], str)
+    assert len(provider.calls) == calls
+    assert client.get(f"{BASE}/sessions/{sid}").json() == before
+
+
+def test_answer_at_length_limit_passes():
+    client = api_client(create_app(provider=MockProvider(), debug=True))
+    sid, qid = _free_text_question(client)
+    response = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": qid, "answer_type": "free_text", "value": "가" * 1200},
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_revise_over_length_limit_is_422_without_ai_call():
+    provider = MockProvider()
+    client = api_client(create_app(provider=provider, debug=True))
+    sid, qid = _free_text_question(client)
+    assert client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": qid, "answer_type": "free_text", "value": "첫 답"},
+    ).status_code == 200
+    before = client.get(f"{BASE}/sessions/{sid}").json()
+    calls = len(provider.calls)
+
+    response = client.patch(
+        f"{BASE}/sessions/{sid}/answers/{qid}",
+        json={"answer_type": "free_text", "value": "가" * 1201},
+    )
+
+    assert response.status_code == 422
+    assert len(provider.calls) == calls
+    assert client.get(f"{BASE}/sessions/{sid}").json() == before
+    ok = client.patch(
+        f"{BASE}/sessions/{sid}/answers/{qid}",
+        json={"answer_type": "free_text", "value": "나" * 1200},
+    )
+    assert ok.status_code == 200, ok.text
+
+
+def test_answer_option_ids_over_limit_is_422():
+    client = api_client(create_app(provider=MockProvider(), debug=True))
+    sid, qid = _free_text_question(client)
+    response = client.post(
+        f"{BASE}/sessions/{sid}/answers",
+        json={"question_id": qid, "answer_type": "option", "option_ids": [f"o{i}" for i in range(21)]},
+    )
+    assert response.status_code == 422

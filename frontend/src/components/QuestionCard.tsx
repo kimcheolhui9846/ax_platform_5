@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { AnswerBody, Question } from "../api/types";
-import { exampleActions, questionHint } from "../lib/question";
+import { ANSWER_MAX, exampleActions, questionHint } from "../lib/question";
 import type { ExampleAction } from "../lib/question";
 import { Composer } from "./Composer";
 import { OptionList } from "./OptionList";
@@ -51,7 +51,7 @@ export function QuestionCard({ question, kicker, request, defaultPrivate, busy, 
         value={text}
         placeholder="내 생각을 적어 주세요"
         rows={2}
-        maxLength={1200}
+        maxLength={ANSWER_MAX}
         submitLabel="전송 ↑"
         busy={busy}
         onChange={setText}
