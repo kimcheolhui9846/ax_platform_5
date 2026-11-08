@@ -16,8 +16,10 @@ export type InventoryState = {
     confirmed: string[]; // 이상 수량을 맞다고 확인한 품목
     adjustments: Record<string, AdjustmentInput>;
     result: CloseView | null; // 저장 결과(자동 주문 요약)
+    date: string; // 고른 마감 날짜 YYYY-MM-DD
   };
   dirty: boolean; // 저장하지 않은 입력이 있다(탭 옮길 때 확인)
+  savedCount: number; // 저장이 성공한 횟수(양식을 새 값으로 다시 시작하는 key)
 };
 
 export type InventoryAction =
@@ -30,22 +32,25 @@ export type InventoryAction =
   | { type: "countChanged"; itemId: string; text: string }
   | { type: "anomalyConfirmed"; itemId: string; confirmed: boolean }
   | { type: "adjustmentChanged"; itemId: string; delta: string; reason: string }
+  | { type: "closeDateChanged"; date: string }
   | { type: "closeReset" }
   | { type: "edited" }
   | { type: "saved" }
   | { type: "toastClosed" };
 
-export const EMPTY_CLOSE: InventoryState["close"] = { counts: {}, check: null, confirmed: [], adjustments: {}, result: null };
+export const EMPTY_CLOSE: InventoryState["close"] = { counts: {}, check: null, confirmed: [], adjustments: {}, result: null, date: "" };
 
-export function initialInventoryState(): InventoryState {
+/** today는 마감 날짜 기본값(호출하는 쪽이 정한다. reducer는 시계를 보지 않는다). */
+export function initialInventoryState(today = ""): InventoryState {
   return {
     view: null,
     loadFailed: false,
     inflight: null,
     toast: null,
     filter: { query: "", kind: "all" },
-    close: EMPTY_CLOSE,
+    close: { ...EMPTY_CLOSE, date: today },
     dirty: false,
+    savedCount: 0,
   };
 }
 
@@ -62,7 +67,13 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
     }
     case "loaded":
       if (!isCurrent(state, action.seq)) return state;
-      return { ...state, inflight: null, view: action.view, loadFailed: false };
+      return {
+        ...state,
+        inflight: null,
+        view: action.view,
+        loadFailed: false,
+        savedCount: state.inflight?.kind === "save" ? state.savedCount + 1 : state.savedCount,
+      };
     case "checked":
       if (!isCurrent(state, action.seq)) return state;
       return { ...state, inflight: null, close: { ...state.close, check: action.check, confirmed: [] } };
@@ -74,7 +85,8 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         view: action.result.inventory,
         loadFailed: false,
         dirty: false,
-        close: { ...EMPTY_CLOSE, result: action.result },
+        savedCount: state.savedCount + 1,
+        close: { ...EMPTY_CLOSE, date: state.close.date, result: action.result },
       };
     case "filterChanged":
       return { ...state, filter: { ...state.filter, ...action.filter } };
@@ -96,7 +108,9 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         close: { ...state.close, adjustments: { ...state.close.adjustments, [action.itemId]: { delta: action.delta, reason: action.reason } } },
       };
     case "closeReset":
-      return { ...state, dirty: false, close: EMPTY_CLOSE };
+      return { ...state, dirty: false, close: { ...EMPTY_CLOSE, date: state.close.date } };
+    case "closeDateChanged":
+      return { ...state, dirty: true, close: { ...state.close, date: action.date, check: null, confirmed: [], result: null } };
     case "edited":
       return { ...state, dirty: true };
     case "saved":

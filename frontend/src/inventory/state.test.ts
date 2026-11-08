@@ -129,3 +129,28 @@ describe("inventoryReducer 그 밖", () => {
     expect(inventoryReducer(toasted, { type: "toastClosed" }).toast).toBeNull();
   });
 });
+
+describe("inventoryReducer 저장 횟수·마감 날짜", () => {
+  it("저장이 성공한 응답에서만 savedCount가 는다", () => {
+    const base = initialInventoryState("2026-11-08");
+    const saved = run([{ type: "requested", seq: 1, kind: "save" }, { type: "loaded", seq: 1, view: view("a") }], base);
+    expect(saved.savedCount).toBe(1);
+    const failed = run([{ type: "requested", seq: 1, kind: "save" }, { type: "failed", seq: 1, message: "x" }], base);
+    expect(failed.savedCount).toBe(0);
+    const suggested = run([{ type: "requested", seq: 1, kind: "suggest" }, { type: "loaded", seq: 1, view: view("a") }], base);
+    expect(suggested.savedCount).toBe(0);
+    const closed = run([{ type: "requested", seq: 1, kind: "close" }, { type: "closed", seq: 1, result: result("n") }], base);
+    expect(closed.savedCount).toBe(1);
+  });
+  it("마감 날짜는 초기값에서 시작하고 바꾸면 검사·결과를 비우되 저장 뒤에도 남는다", () => {
+    const s = run([
+      { type: "closeDateChanged", date: "2026-11-01" },
+      { type: "requested", seq: 1, kind: "close" },
+      { type: "closed", seq: 1, result: result("n") },
+    ], initialInventoryState("2026-11-08"));
+    expect(initialInventoryState("2026-11-08").close.date).toBe("2026-11-08");
+    expect(s.close.date).toBe("2026-11-01");
+    expect(run([{ type: "closeReset" }], s).close.date).toBe("2026-11-01");
+    expect(run([{ type: "closeDateChanged", date: "2026-11-02" }], s).close.result).toBeNull();
+  });
+});

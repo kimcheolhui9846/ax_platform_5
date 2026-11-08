@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CloseCheckView, InventoryView, ItemView } from "../api/types";
 import { railProps } from "../app/view";
-import { HOME } from "../lib/routes";
 import { closeModel, itemsModel, stockModel } from "./screenModel";
 import { EMPTY_CLOSE } from "./state";
 import { InventoryView as InventoryScreen } from "./view";
@@ -11,6 +10,7 @@ import type { InventoryHandlers, InventoryScreenModel } from "./view";
 import { CloseScreen } from "../screens/inventory/CloseScreen";
 import { ItemsScreen } from "../screens/inventory/ItemsScreen";
 import { StockScreen } from "../screens/inventory/StockScreen";
+import { ItemEditForm, PolicyForm } from "../screens/inventory/ItemForms";
 
 const noop = () => {};
 const ON = new Proxy({}, { get: () => noop }) as InventoryHandlers;
@@ -48,10 +48,9 @@ describe("CloseScreen", () => {
   const draw = (counts: Record<string, string>, check: CloseCheckView | null, busy: "check" | "close" | null = null, extra = {}) =>
     renderToString(
       <CloseScreen
-        model={closeModel(v, { ...EMPTY_CLOSE, counts, check, ...extra }, FILTER)}
+        model={closeModel(v, { ...EMPTY_CLOSE, date: "2026-11-08", counts, check, ...extra }, FILTER)}
         filter={FILTER}
         busy={busy}
-        today="2026-11-08"
         on={ON}
       />,
     );
@@ -73,28 +72,48 @@ describe("CloseScreen", () => {
     expect(html).toContain("조정에는 사유가 꼭 필요해요");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>맞아요/);
   });
-  it("마감 결과 패널", () => {
+  it("마감 결과 패널은 서버가 저장한 날짜를 보인다", () => {
     const html = draw({}, null, null, {
-      result: { close_date: "2026-11-08", auto_orders: [], inventory: v },
+      result: { close: { close_date: "2026-11-06" }, auto_orders: [], inventory: v },
     });
+    expect(html).toContain("저장한 날짜: 2026-11-06");
     expect(html).toContain("자동 주문 없음");
     expect(html).toContain("재고 현황 보기");
   });
 });
 
-describe("ItemsScreen", () => {
-  it("추천은 '확인 전'으로 보이고 요청 중엔 '추천 받는 중…'", () => {
-    const v = view([
-      item("a", "원단", {
-        suggestion: { min_stock: "5", target_stock: "20", purchase_unit: "5", reason: "최근 사용량 기준" },
-      } as Partial<ItemView>),
-    ]);
-    const model = itemsModel(v);
-    const html = renderToString(<ItemsScreen model={model} busy="suggest" on={ON} />);
-    expect(html).toContain("품목 일괄 등록");
-    expect(html).toContain("설정");
-    // 선택 전에는 편집 양식이 없다
-    expect(html).not.toContain("AI 추천 받기");
+describe("ItemsScreen·품목 양식", () => {
+  const suggested = item("a", "원단", {
+    last_counted_at: "2026-11-01T00:00:00Z",
+    suggestion: { min_stock: "5", target_stock: "20", purchase_unit: "5", reason: "최근 사용량 기준" },
+  } as Partial<ItemView>);
+  const row = itemsModel(view([suggested]), 0).rows[0];
+  const policy = (busy: "suggest" | "save" | null) =>
+    renderToString(<PolicyForm item={row} busy={busy} onSave={noop} onSuggest={noop} onApply={noop} onEdited={noop} />);
+  it("추천은 '확인 전'과 이유, 적용 버튼으로 보인다", () => {
+    const html = policy(null);
+    expect(html).toContain("확인 전");
+    expect(html).toContain("최근 사용량 기준");
+    expect(html).toContain("추천 적용");
+    expect(html).toContain("AI 추천 받기");
+  });
+  it("추천을 받는 중엔 '추천 받는 중…'이고 입력과 버튼이 모두 막힌다", () => {
+    const html = policy("suggest");
+    expect(html).toContain("추천 받는 중…");
+    expect(html).not.toMatch(/<(input|button)(?![^>]*disabled)[^>]*>/);
+  });
+  it("저장 중엔 '저장 중…'", () => {
+    expect(policy("save")).toContain("저장 중…");
+  });
+  it("단위 잠금 안내는 수량 기록이 있는 품목에만", () => {
+    const edit = (r: typeof row) => renderToString(<ItemEditForm item={r} suppliers={[]} busy={null} onSave={noop} onEdited={noop} />);
+    expect(edit(row)).toContain("단위를 바꿀 수 없어요");
+    expect(edit({ ...row, counted: false })).not.toContain("단위를 바꿀 수 없어요");
+  });
+  it("품목 탭은 요청 중이면 입력과 버튼을 막는다", () => {
+    const html = renderToString(<ItemsScreen model={itemsModel(view([suggested]), 0)} busy="save" on={ON} />);
+    expect(html).toContain("저장 중…");
+    expect(html).not.toMatch(/<(input|button|select)(?![^>]*disabled)[^>]*>/);
   });
 });
 
@@ -111,7 +130,6 @@ describe("InventoryView", () => {
     expect(draw("stock", { kind: "unavailable" })).toContain("다시 시도");
   });
   it("품목·기준 탭", () => {
-    expect(draw("items", { kind: "items", model: itemsModel(view([])) })).toContain("품목 일괄 등록");
+    expect(draw("items", { kind: "items", model: itemsModel(view([]), 0) })).toContain("품목 일괄 등록");
   });
-  void HOME;
 });

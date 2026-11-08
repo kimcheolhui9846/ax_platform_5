@@ -82,8 +82,9 @@ export type AnomalyRow = {
   confirmed: boolean;
   adjustment: { delta: string; reason: string };
 };
-export type CloseResultModel = { summary: string; rows: { itemId: string; name: string; text: string }[] };
+export type CloseResultModel = { savedDate: string; summary: string; rows: { itemId: string; name: string; text: string }[] };
 export type CloseModel = {
+  date: string;
   rows: CloseRow[];
   anomalies: AnomalyRow[];
   canCheck: boolean;
@@ -154,6 +155,7 @@ export function closeModel(view: InventoryView, close: CloseState, filter: Filte
     anomalies.every((a) => a.confirmed) &&
     !adjustments.includes("invalid");
   return {
+    date: close.date,
     rows,
     anomalies,
     canCheck: hasCounts,
@@ -162,6 +164,7 @@ export function closeModel(view: InventoryView, close: CloseState, filter: Filte
       close.result === null
         ? null
         : {
+            savedDate: close.result.close.close_date,
             summary: autoOrderSummary(close.result.auto_orders),
             rows: close.result.auto_orders.map((o) => ({
               itemId: o.item_id,
@@ -181,6 +184,8 @@ export type ItemRow = {
   kindLabel: string;
   unit: string;
   procurementLabel: string;
+  /** 수량 기록이 있다(단위를 못 바꾼다). */
+  counted: boolean;
   supplierName: string;
   /** 편집 양식의 시작값(서버가 준 그대로). */
   kind: ItemKind;
@@ -190,9 +195,10 @@ export type ItemRow = {
   policyText: string;
   suggestion: { label: string; reason: string; text: string } | null;
 };
-export type ItemsModel = { rows: ItemRow[]; suppliers: Supplier[]; settings: InventorySettings };
+export type ItemsModel = { savedCount: number; rows: ItemRow[]; suppliers: Supplier[]; settings: InventorySettings };
 
-export function itemsModel(view: InventoryView): ItemsModel {
+/** savedCount: 저장이 성공한 횟수(양식 key). */
+export function itemsModel(view: InventoryView, savedCount: number): ItemsModel {
   const rows = view.items
     .filter((v) => !v.item.archived)
     .map((v): ItemRow => {
@@ -205,6 +211,7 @@ export function itemsModel(view: InventoryView): ItemsModel {
         kindLabel: KIND_LABELS[item.kind],
         unit: item.unit,
         procurementLabel: PROCUREMENT_LABELS[item.procurement],
+        counted: v.last_counted_at !== null,
         kind: item.kind,
         procurement: item.procurement,
         supplierId: item.supplier_id ?? "",
@@ -233,5 +240,5 @@ export function itemsModel(view: InventoryView): ItemsModel {
               },
       };
     });
-  return { rows, suppliers: view.suppliers, settings: view.settings };
+  return { savedCount, rows, suppliers: view.suppliers, settings: view.settings };
 }

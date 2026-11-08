@@ -19,8 +19,10 @@ export function emptyBulkRow(): BulkRow {
 
 const QUANTITY = /^\d+(\.\d+)?$/;
 
+/** 사용자가 아무것도 바꾸지 않은 줄(기본값 그대로). 하나라도 바꿨으면 빈 줄이 아니라서 검사에서 걸린다. */
 function rowIsBlank(row: BulkRow): boolean {
-  return row.name.trim() === "" && row.option.trim() === "" && row.unit.trim() === "" && row.quantity.trim() === "";
+  const blank = emptyBulkRow();
+  return (Object.keys(blank) as (keyof BulkRow)[]).every((key) => row[key].trim() === blank[key]);
 }
 
 function rowIsValid(row: BulkRow): boolean {

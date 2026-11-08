@@ -21,7 +21,7 @@ export type InventoryScreenModel =
   | { kind: "loading" }
   | { kind: "unavailable" }
   | { kind: "stock"; model: StockModel; hasItems: boolean; filter: Filter }
-  | { kind: "close"; model: CloseModel; filter: Filter; today: string }
+  | { kind: "close"; model: CloseModel; filter: Filter }
   | { kind: "items"; model: ItemsModel };
 
 /** 재고 화면이 부르는 모든 콜백(Task 7이 구현한다). 인자는 id·글·작은 값만. */
@@ -85,7 +85,6 @@ function TabScreen({ tab, model, busy, on }: Pick<ViewProps, "tab" | "model" | "
       <CloseScreen
         model={model.model}
         filter={model.filter}
-        today={model.today}
         busy={busy}
         on={{ ...on, onOpenStock: () => on.onTab("stock") }}
       />

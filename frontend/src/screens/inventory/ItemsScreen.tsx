@@ -24,11 +24,9 @@ type Props = { model: ItemsModel; busy: InventoryCall | null; on: ItemsHandlers 
 export function ItemsScreen({ model, busy, on }: Props) {
   const [selectedId, setSelectedId] = useState("");
   const selected = model.rows.find((r) => r.itemId === selectedId) ?? null;
-  const saving = busy === "save";
-  const suggesting = busy === "suggest";
   return (
     <div className="stack">
-      <BulkItemsForm suppliers={model.suppliers} saving={saving} onCreate={on.onCreateItems} onEdited={on.onEdited} />
+      <BulkItemsForm key={`bulk:${model.savedCount}`} suppliers={model.suppliers} busy={busy} onCreate={on.onCreateItems} onEdited={on.onEdited} />
       <section className="card stack" aria-label="품목 선택">
         <h2>품목 편집·보충 기준</h2>
         {model.rows.length === 0 ? (
@@ -36,7 +34,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
         ) : (
           <div className="field-row">
             <label htmlFor="items-pick">품목 선택</label>
-            <select id="items-pick" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+            <select id="items-pick" disabled={busy !== null} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
               <option value="">선택해 주세요</option>
               {model.rows.map((r) => (
                 <option key={r.itemId} value={r.itemId}>
@@ -54,15 +52,14 @@ export function ItemsScreen({ model, busy, on }: Props) {
             key={`edit:${selected.itemId}:${selected.name}:${selected.option}:${selected.kind}:${selected.unit}:${selected.procurement}:${selected.supplierId}`}
             item={selected}
             suppliers={model.suppliers}
-            saving={saving}
+            busy={busy}
             onSave={on.onUpdateItem}
             onEdited={on.onEdited}
           />
           <PolicyForm
             key={`policy:${selected.itemId}:${selected.policyText}`}
             item={selected}
-            saving={saving}
-            suggesting={suggesting}
+            busy={busy}
             onSave={on.onSavePolicy}
             onSuggest={on.onSuggest}
             onApply={on.onApplySuggestion}
@@ -70,11 +67,18 @@ export function ItemsScreen({ model, busy, on }: Props) {
           />
         </>
       )}
-      <SuppliersSection suppliers={model.suppliers} saving={saving} onCreate={on.onCreateSupplier} onUpdate={on.onUpdateSupplier} />
+      <SuppliersSection
+        key={`suppliers:${model.savedCount}`}
+        suppliers={model.suppliers}
+        busy={busy}
+        onCreate={on.onCreateSupplier}
+        onUpdate={on.onUpdateSupplier}
+        onEdited={on.onEdited}
+      />
       <SettingsForm
         key={`settings:${model.settings.address}:${model.settings.anomaly_drop_ratio}:${model.settings.stale_days}`}
         settings={model.settings}
-        saving={saving}
+        busy={busy}
         onSave={on.onSaveSettings}
         onEdited={on.onEdited}
       />

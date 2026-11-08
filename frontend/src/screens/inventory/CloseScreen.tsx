@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import type { ItemKind } from "../../api/types";
 import type { AnomalyRow, CloseModel } from "../../inventory/screenModel";
 import type { InventoryCall } from "../../inventory/state";
@@ -13,6 +11,7 @@ export type CloseHandlers = {
   onConfirm: (itemId: string, confirmed: boolean) => void;
   onAdjust: (itemId: string, delta: string, reason: string) => void;
   onSave: (date: string) => void;
+  onDate: (date: string) => void;
   onReset: () => void;
   onOpenStock: () => void;
 };
@@ -21,7 +20,6 @@ type Props = {
   model: CloseModel;
   filter: { query: string; kind: ItemKind | "all" };
   busy: InventoryCall | null;
-  today: string; // 마감 날짜 기본값 YYYY-MM-DD
   on: CloseHandlers;
 };
 
@@ -48,7 +46,7 @@ function AnomalyItem({ row, working, on }: { row: AnomalyRow; working: boolean; 
         </label>
         <input
           id={`adj-delta-${row.itemId}`}
-          inputMode="decimal"
+          inputMode="text"
           value={row.adjustment.delta}
           disabled={working}
           onChange={(event) => on.onAdjust(row.itemId, event.target.value, row.adjustment.reason)}
@@ -73,14 +71,13 @@ function AnomalyItem({ row, working, on }: { row: AnomalyRow; working: boolean; 
 }
 
 /** S05 하루 마감: 실사 입력 → 검사(이상 수량) → 마감 저장 → 결과. 요청 중엔 입력·버튼을 모두 막는다. */
-export function CloseScreen({ model, filter, busy, today, on }: Props) {
-  const [date, setDate] = useState(today);
+export function CloseScreen({ model, filter, busy, on }: Props) {
   const working = busy !== null;
   if (model.result !== null) {
     return (
       <div className="card stack">
         <h2>마감을 저장했어요</h2>
-        <p>저장한 날짜: {date}</p>
+        <p>{`저장한 날짜: ${model.result.savedDate}`}</p>
         <p>{model.result.summary}</p>
         {model.result.rows.length > 0 && (
           <ul>
@@ -106,7 +103,7 @@ export function CloseScreen({ model, filter, busy, today, on }: Props) {
     <div className="stack">
       <div className="row">
         <label htmlFor="close-date">마감 날짜</label>
-        <input id="close-date" type="date" value={date} disabled={working} onChange={(event) => setDate(event.target.value)} />
+        <input id="close-date" type="date" value={model.date} disabled={working} onChange={(event) => on.onDate(event.target.value)} />
       </div>
       <p className="muted">비워 두면 미입력으로 남아요(0이 아니에요)</p>
       <ItemFilter idPrefix="close" query={filter.query} kind={filter.kind} disabled={working} onChange={on.onFilter} />
@@ -148,7 +145,7 @@ export function CloseScreen({ model, filter, busy, today, on }: Props) {
         <button type="button" className="btn" disabled={!model.canCheck || working} onClick={on.onCheck}>
           {busy === "check" ? "검사 중…" : "검사"}
         </button>
-        <button type="button" className="btn primary" disabled={!model.canSave || working} onClick={() => on.onSave(date)}>
+        <button type="button" className="btn primary" disabled={!model.canSave || working} onClick={() => on.onSave(model.date)}>
           {busy === "close" ? "저장 중…" : "마감 저장"}
         </button>
       </div>

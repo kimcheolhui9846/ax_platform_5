@@ -180,7 +180,7 @@ describe("itemsModel", () => {
       [item("a", "가", { policy, suggestion }, { supplier_id: "s1" }), item("b", "나"), item("c", "숨김", {}, { archived: true })],
       { suppliers: [sup] },
     );
-    const m = itemsModel(v);
+    const m = itemsModel(v, 0);
     expect(m.rows.map((r) => r.itemId)).toEqual(["a", "b"]);
     expect(m.rows[0]).toMatchObject({ kindLabel: "재료", procurementLabel: "구매", supplierName: "거래처", unit: "m" });
     expect(m.rows[0].policyText).toBe("최소 5 m · 목표 20 m · 구매 단위 10 m · 납기 3일 · 단가 1,500원");
@@ -190,5 +190,20 @@ describe("itemsModel", () => {
     expect(m.rows[1].supplierName).toBe("");
     expect(m.suppliers).toEqual([sup]);
     expect(m.settings).toBe(v.settings);
+  });
+});
+
+describe("closeModel 날짜·itemsModel 저장 횟수", () => {
+  const v = view([item("a", "가")]);
+  it("마감 날짜는 상태 값이고 결과 패널은 서버가 저장한 날짜를 쓴다", () => {
+    const m = closeModel(v, { ...EMPTY_CLOSE, date: "2026-11-07" }, NO_FILTER);
+    expect(m.date).toBe("2026-11-07");
+    const result = { close: { close_date: "2026-11-06" }, inventory: v, auto_orders: [] } as unknown as CloseView;
+    expect(closeModel(v, { ...EMPTY_CLOSE, date: "2026-11-07", result }, NO_FILTER).result?.savedDate).toBe("2026-11-06");
+  });
+  it("저장 횟수와 수량 기록 여부를 싣는다", () => {
+    const m = itemsModel(view([item("a", "가", { last_counted_at: "2026-11-01T00:00:00Z" }), item("b", "나")]), 3);
+    expect(m.savedCount).toBe(3);
+    expect(m.rows.map((r) => r.counted)).toEqual([true, false]);
   });
 });
