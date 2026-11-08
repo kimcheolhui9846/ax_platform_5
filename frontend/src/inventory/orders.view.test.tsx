@@ -171,8 +171,12 @@ describe("AutoOrderScreen", () => {
   it("편집 카드: 처음 값, 꺼짐이면 동의 칸 없음", () => {
     const html = draw(view());
     expect(html).toContain("자동 주문 켜기");
-    expect(html).toMatch(/aria-label="1회 한도\(원\)"[^>]*value="100000"/);
-    expect(html).toMatch(/aria-label="월 한도\(원\)"[^>]*value="300000"/);
+    const field = (label: string) => {
+      const id = html.match(new RegExp(`<label for="([^"]+)">${label.replace(/[()]/g, "\\$&")}</label>`))?.[1];
+      return id === undefined ? "" : (html.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))?.[0] ?? "");
+    };
+    expect(field("1회 한도(원)")).toContain('value="100000"'); // 보이는 이름표가 입력칸과 이어진다
+    expect(field("월 한도(원)")).toContain('value="300000"');
     expect(html).not.toContain("하루 마감 직후 이 한도 안에서");
   });
   it("켜진 설정이면 동의 칸이 보이고, 동의 기록이 없으면 저장이 막힌다", () => {

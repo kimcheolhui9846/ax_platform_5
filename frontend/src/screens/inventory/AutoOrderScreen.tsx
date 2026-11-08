@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 
 import type { AutoOrderRequest, ItemView } from "../../api/types";
@@ -28,6 +28,7 @@ const CONSENT_TEXT = "부족할 때 하루 마감 직후 이 한도 안에서 �
 
 /** 편집 카드: 켜기·동의·한도. 판단은 forms.ts의 autoOrderRequest. */
 function AutoEditForm({ item, busy, onSave, onEdited }: { item: ItemView; busy: InventoryCall | null; onSave: AutoHandlers["onSaveAutoOrder"]; onEdited: () => void }) {
+  const uid = useId();
   const [f, setF] = useState<AutoFields>(() => autoOrderStart(item.auto_order));
   const request = autoOrderRequest(f);
   const set = (patch: Partial<AutoFields>) => {
@@ -51,9 +52,13 @@ function AutoEditForm({ item, busy, onSave, onEdited }: { item: ItemView; busy: 
           {CONSENT_TEXT}
         </label>
       )}
-      <div className="row inv-wrap">
-        <input inputMode="decimal" disabled={busy !== null} aria-label="1회 한도(원)" value={f.perOrder} onChange={(e) => set({ perOrder: e.target.value })} />
-        <input inputMode="decimal" disabled={busy !== null} aria-label="월 한도(원)" value={f.monthly} onChange={(e) => set({ monthly: e.target.value })} />
+      <div className="field-row">
+        <label htmlFor={`${uid}-per-order`}>1회 한도(원)</label>
+        <input id={`${uid}-per-order`} inputMode="decimal" disabled={busy !== null} value={f.perOrder} onChange={(e) => set({ perOrder: e.target.value })} />
+      </div>
+      <div className="field-row">
+        <label htmlFor={`${uid}-monthly`}>월 한도(원)</label>
+        <input id={`${uid}-monthly`} inputMode="decimal" disabled={busy !== null} value={f.monthly} onChange={(e) => set({ monthly: e.target.value })} />
       </div>
       <div className="row">
         <button type="submit" className="btn primary" disabled={busy !== null || request === null}>
