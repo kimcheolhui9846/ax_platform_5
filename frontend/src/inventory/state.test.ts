@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CloseCheckView, CloseView, InventoryView } from "../api/types";
+import type { CloseCheckView, CloseView, InventoryView, Order } from "../api/types";
 import { hasUnsaved, initialInventoryState, inventoryReducer } from "./state";
-import type { InventoryAction, InventoryState } from "./state";
+import type { InventoryAction, InventoryState, OrderDraft } from "./state";
 
 const view = (tag: string) => ({ tag }) as unknown as InventoryView;
 const check = { anomalies: [] } as CloseCheckView;
@@ -132,19 +132,29 @@ describe("inventoryReducer 그 밖", () => {
 describe("inventoryReducer 저장 횟수·마감 날짜", () => {
   it("저장이 성공한 응답에서만 그 양식의 횟수가 는다", () => {
     const base = initialInventoryState("2026-11-08");
-    const save = (form: "bulk" | "settings") => [
+    const save = (form: "bulk" | "settings" | "receipt" | "auto") => [
       { type: "requested", seq: 1, kind: "save", form } as const,
       { type: "loaded", seq: 1, view: view("a") } as const,
     ];
     const settings = run(save("settings"), base);
-    expect(settings.saved).toEqual({ bulk: 0, item: 0, supplier: 0, policy: 0, settings: 1 });
-    expect(run(save("bulk"), settings).saved).toEqual({ bulk: 1, item: 0, supplier: 0, policy: 0, settings: 1 });
+    expect(settings.saved).toEqual({ bulk: 0, item: 0, supplier: 0, policy: 0, settings: 1, receipt: 0, auto: 0 });
+    expect(run(save("bulk"), settings).saved).toEqual({ bulk: 1, item: 0, supplier: 0, policy: 0, settings: 1, receipt: 0, auto: 0 });
     const failed = run([{ type: "requested", seq: 1, kind: "save", form: "bulk" }, { type: "failed", seq: 1, message: "x" }], base);
     expect(failed.saved).toEqual(base.saved);
     const suggested = run([{ type: "requested", seq: 1, kind: "suggest", form: "policy" }, { type: "loaded", seq: 1, view: view("a") }], base);
     expect(suggested.saved).toEqual(base.saved);
     const closed = run([{ type: "requested", seq: 1, kind: "close" }, { type: "closed", seq: 1, result: result("n") }], base);
     expect(closed.saved).toEqual(base.saved);
+  });
+  it("입고·자동 주문 저장도 양식별 횟수를 센다", () => {
+    const save = (form: "receipt" | "auto") => [
+      { type: "requested", seq: 1, kind: "save", form } as const,
+      { type: "loaded", seq: 1, view: view("a") } as const,
+    ];
+    const receipt = run(save("receipt"));
+    expect(receipt.saved.receipt).toBe(1);
+    expect(receipt.saved.auto).toBe(0);
+    expect(run(save("auto"), receipt).saved).toMatchObject({ receipt: 1, auto: 1 });
   });
   it("마감 날짜는 초기값에서 시작하고 바꾸면 검사·결과를 비우되 저장 뒤에도 남는다", () => {
     const s = run([
@@ -252,5 +262,88 @@ describe("inventoryReducer 저장하지 않은 입력", () => {
     ]);
     expect(s.view).toEqual(view("a"));
     expect(s.saved.bulk).toBe(1);
+  });
+});
+
+describe("inventoryReducer 주문 초안", () => {
+  const draft: OrderDraft = {
+    requestId: "manual:1",
+    supplierId: "sup_1",
+    lines: [
+      { itemId: "a", quantity: "3", unitPrice: "100" },
+      { itemId: "b", quantity: "5", unitPrice: "200" },
+    ],
+    repriced: false,
+  };
+  const order = (status: string) => ({ order_id: "ord_1", status }) as unknown as Order;
+  const viewWithHolds = (holds: unknown[]) => ({ holds }) as unknown as InventoryView;
+  const opened = () => run([{ type: "orderOpened", draft }]);
+
+  it("초안을 열면 이전 안내를 지운다", () => {
+    const s = run([{ type: "orderOpened", draft }], { ...initialInventoryState(), orderResult: { status: "accepted", holdReason: null } });
+    expect(s.order).toEqual(draft);
+    expect(s.orderResult).toBeNull();
+    expect(initialInventoryState().order).toBeNull();
+    expect(initialInventoryState().orderResult).toBeNull();
+  });
+  it("수량은 그 줄만 바꾼다", () => {
+    const s = run([{ type: "orderQuantityChanged", itemId: "b", quantity: "9" }], opened());
+    expect(s.order?.lines).toEqual([
+      { itemId: "a", quantity: "3", unitPrice: "100" },
+      { itemId: "b", quantity: "9", unitPrice: "200" },
+    ]);
+  });
+  it("줄을 빼고 마지막 줄이면 초안을 닫는다", () => {
+    const one = run([{ type: "orderLineRemoved", itemId: "a" }], opened());
+    expect(one.order?.lines.map((l) => l.itemId)).toEqual(["b"]);
+    expect(run([{ type: "orderLineRemoved", itemId: "b" }], one).order).toBeNull();
+  });
+  it("초안이 없을 때 수량·줄 빼기는 무시한다", () => {
+    const s = initialInventoryState();
+    expect(run([{ type: "orderQuantityChanged", itemId: "a", quantity: "1" }], s)).toEqual(s);
+    expect(run([{ type: "orderLineRemoved", itemId: "a" }], s)).toEqual(s);
+  });
+  it("ordered는 현재 요청이면 재고를 바꾸고 초안을 닫고 보류 사유를 안내에 싣는다", () => {
+    const hold = { order_id: "ord_1", reason: "out_of_stock" };
+    const s = run(
+      [
+        { type: "requested", seq: 1, kind: "order" },
+        { type: "ordered", seq: 1, order: order("rejected"), view: viewWithHolds([{ order_id: "x", reason: "price_changed" }, hold]) },
+      ],
+      opened(),
+    );
+    expect(s.order).toBeNull();
+    expect(s.inflight).toBeNull();
+    expect(s.orderResult).toEqual({ status: "rejected", holdReason: "out_of_stock" });
+    expect(s.view).toEqual(viewWithHolds([{ order_id: "x", reason: "price_changed" }, hold]));
+    const accepted = run([{ type: "requested", seq: 1, kind: "order" }, { type: "ordered", seq: 1, order: order("accepted"), view: viewWithHolds([]) }], opened());
+    expect(accepted.orderResult).toEqual({ status: "accepted", holdReason: null });
+  });
+  it("늦은 ordered는 버린다", () => {
+    const s = run([{ type: "requested", seq: 2, kind: "order" }, { type: "ordered", seq: 1, order: order("accepted"), view: viewWithHolds([]) }], opened());
+    expect(s.order).toEqual(draft);
+    expect(s.view).toBeNull();
+    expect(s.inflight?.seq).toBe(2);
+  });
+  it("취소해도 기다리던 ordered는 받는다", () => {
+    const s = run(
+      [
+        { type: "requested", seq: 1, kind: "order" },
+        { type: "orderCancelled" },
+        { type: "ordered", seq: 1, order: order("unknown"), view: viewWithHolds([]) },
+      ],
+      opened(),
+    );
+    expect(s.order).toBeNull();
+    expect(s.orderResult).toEqual({ status: "unknown", holdReason: null });
+    expect(s.view).not.toBeNull();
+  });
+  it("안내를 닫는다", () => {
+    const s = run([{ type: "orderResultClosed" }], { ...initialInventoryState(), orderResult: { status: "accepted", holdReason: null } });
+    expect(s.orderResult).toBeNull();
+  });
+  it("discarded·closeReset은 초안을 건드리지 않는다", () => {
+    expect(run([{ type: "discarded" }], opened()).order).toEqual(draft);
+    expect(run([{ type: "closeReset" }], opened()).order).toEqual(draft);
   });
 });

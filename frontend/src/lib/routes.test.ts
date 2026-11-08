@@ -140,6 +140,8 @@ describe("재고 주소", () => {
     expect(parseRoute("#/inventory")).toEqual({ name: "inventory", tab: "stock" });
     expect(parseRoute("#/inventory/close")).toEqual({ name: "inventory", tab: "close" });
     expect(parseRoute("#/inventory/items")).toEqual({ name: "inventory", tab: "items" });
+    expect(parseRoute("#/inventory/orders")).toEqual({ name: "inventory", tab: "orders" });
+    expect(parseRoute("#/inventory/auto")).toEqual({ name: "inventory", tab: "auto" });
     expect(parseRoute("#/inventory/zzz")).toEqual(HOME);
     for (const tab of INVENTORY_TABS) {
       const route: Route = { name: "inventory", tab };
@@ -147,6 +149,9 @@ describe("재고 주소", () => {
     }
     expect(toHash({ name: "inventory", tab: "stock" })).toBe("#/inventory");
     expect(toHash({ name: "inventory", tab: "close" })).toBe("#/inventory/close");
+    expect(toHash({ name: "inventory", tab: "orders" })).toBe("#/inventory/orders");
+    expect(toHash({ name: "inventory", tab: "auto" })).toBe("#/inventory/auto");
+    expect([...INVENTORY_TABS]).toEqual(["stock", "close", "orders", "auto", "items"]);
   });
 
   it("묶음은 inventory이고 목록 화면이 아니다", () => {

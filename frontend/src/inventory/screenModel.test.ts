@@ -180,7 +180,7 @@ describe("itemsModel", () => {
       [item("a", "가", { policy, suggestion }, { supplier_id: "s1" }), item("b", "나"), item("c", "숨김", {}, { archived: true })],
       { suppliers: [sup] },
     );
-    const m = itemsModel(v, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 });
+    const m = itemsModel(v, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0, receipt: 0, auto: 0 });
     expect(m.rows.map((r) => r.itemId)).toEqual(["a", "b"]);
     expect(m.rows[0]).toMatchObject({ kindLabel: "재료", procurementLabel: "구매", supplierName: "거래처", unit: "m" });
     expect(m.rows[0].policyText).toBe("최소 5 m · 목표 20 m · 구매 단위 10 m · 납기 3일 · 단가 1,500원");
@@ -202,8 +202,8 @@ describe("closeModel 날짜·itemsModel 저장 횟수", () => {
     expect(closeModel(v, { ...EMPTY_CLOSE, date: "2026-11-07", result }, NO_FILTER).result?.savedDate).toBe("2026-11-06");
   });
   it("양식별 저장 횟수와 수량 기록 여부를 싣는다", () => {
-    const m = itemsModel(view([item("a", "가", { last_counted_at: "2026-11-01T00:00:00Z" }), item("b", "나")]), { bulk: 1, item: 2, supplier: 3, policy: 4, settings: 5 });
-    expect(m.saved).toEqual({ bulk: 1, item: 2, supplier: 3, policy: 4, settings: 5 });
+    const m = itemsModel(view([item("a", "가", { last_counted_at: "2026-11-01T00:00:00Z" }), item("b", "나")]), { bulk: 1, item: 2, supplier: 3, policy: 4, settings: 5, receipt: 0, auto: 0 });
+    expect(m.saved).toEqual({ bulk: 1, item: 2, supplier: 3, policy: 4, settings: 5, receipt: 0, auto: 0 });
     expect(m.rows.map((r) => r.counted)).toEqual([true, false]);
   });
 });

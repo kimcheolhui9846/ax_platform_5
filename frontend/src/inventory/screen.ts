@@ -12,6 +12,9 @@ export function inventoryScreen(state: InventoryState, tab: InventoryTab): Inven
       return { kind: "stock", model: stockModel(view, filter), hasItems: view.items.some((v) => !v.item.archived), filter };
     case "close":
       return { kind: "close", model: closeModel(view, state.close, filter), filter };
+    case "orders":
+    case "auto":
+      return { kind: "loading" }; // 준비 중(Task 2·4가 바꾼다)
     case "items":
       return { kind: "items", model: itemsModel(view, state.saved) };
   }

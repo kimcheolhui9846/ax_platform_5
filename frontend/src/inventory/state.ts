@@ -1,10 +1,14 @@
-import type { CloseCheckView, CloseView, InventoryView, ItemKind } from "../api/types";
+import type { CloseCheckView, CloseView, HoldReason, InventoryView, ItemKind, Order, OrderStatus } from "../api/types";
 
-export type InventoryCall = "load" | "save" | "check" | "close" | "suggest";
+export type InventoryCall = "load" | "save" | "check" | "close" | "suggest" | "order" | "refresh" | "resolve";
 
 /** 저장 요청을 낸 양식(성공한 양식만 새 값으로 다시 시작한다). */
-export type InventoryForm = "bulk" | "item" | "supplier" | "policy" | "settings";
-export const INVENTORY_FORMS: readonly InventoryForm[] = ["bulk", "item", "supplier", "policy", "settings"];
+export type InventoryForm = "bulk" | "item" | "supplier" | "policy" | "settings" | "receipt" | "auto";
+export const INVENTORY_FORMS: readonly InventoryForm[] = ["bulk", "item", "supplier", "policy", "settings", "receipt", "auto"];
+
+export type OrderDraftLine = { itemId: string; quantity: string; unitPrice: string }; // unitPrice: 기준 단가 또는 보류의 새 단가
+export type OrderDraft = { requestId: string; supplierId: string; lines: OrderDraftLine[]; repriced: boolean }; // repriced: 보류의 새 단가로 연 초안
+export type OrderResultNotice = { status: OrderStatus; holdReason: HoldReason | null };
 
 export type AdjustmentInput = { delta: string; reason: string };
 
@@ -25,6 +29,8 @@ export type InventoryState = {
   dirty: boolean; // 마감 탭에 저장하지 않은 입력(수량·조정·날짜)이 있다
   edited: InventoryForm[]; // 저장하지 않은 입력이 있는 양식(그 양식 저장이 성공해야 빠진다)
   saved: Record<InventoryForm, number>; // 양식마다 저장이 성공한 횟수(그 양식의 key)
+  order: OrderDraft | null; // 열어 둔 주문 초안(탭을 옮겨도 남는다)
+  orderResult: OrderResultNotice | null; // 마지막 주문 응답 안내
 };
 
 export type InventoryAction =
@@ -33,6 +39,12 @@ export type InventoryAction =
   | { type: "loaded"; seq: number; view: InventoryView }
   | { type: "checked"; seq: number; check: CloseCheckView }
   | { type: "closed"; seq: number; result: CloseView }
+  | { type: "orderOpened"; draft: OrderDraft }
+  | { type: "orderQuantityChanged"; itemId: string; quantity: string }
+  | { type: "orderLineRemoved"; itemId: string }
+  | { type: "orderCancelled" }
+  | { type: "ordered"; seq: number; order: Order; view: InventoryView }
+  | { type: "orderResultClosed" }
   | { type: "filterChanged"; filter: Partial<InventoryState["filter"]> }
   | { type: "countChanged"; itemId: string; text: string }
   | { type: "anomalyConfirmed"; itemId: string; confirmed: boolean }
@@ -56,7 +68,9 @@ export function initialInventoryState(today = ""): InventoryState {
     close: { ...EMPTY_CLOSE, date: today },
     dirty: false,
     edited: [],
-    saved: { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 },
+    saved: { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0, receipt: 0, auto: 0 },
+    order: null,
+    orderResult: null,
   };
 }
 
@@ -98,6 +112,35 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         dirty: false,
         close: { ...EMPTY_CLOSE, date: state.close.date, result: action.result },
       };
+    case "orderOpened":
+      return { ...state, order: action.draft, orderResult: null };
+    case "orderQuantityChanged":
+      if (state.order === null) return state;
+      return {
+        ...state,
+        order: { ...state.order, lines: state.order.lines.map((l) => (l.itemId === action.itemId ? { ...l, quantity: action.quantity } : l)) },
+      };
+    case "orderLineRemoved": {
+      if (state.order === null) return state;
+      const lines = state.order.lines.filter((l) => l.itemId !== action.itemId);
+      return { ...state, order: lines.length === 0 ? null : { ...state.order, lines } };
+    }
+    case "orderCancelled":
+      return { ...state, order: null }; // 기다리는 order 응답은 그래도 받는다(서버가 이미 주문했을 수 있다)
+    case "ordered": {
+      if (!isCurrent(state, action.seq)) return state;
+      const hold = action.view.holds.find((h) => h.order_id === action.order.order_id);
+      return {
+        ...state,
+        inflight: null,
+        view: action.view,
+        loadFailed: false,
+        order: null,
+        orderResult: { status: action.order.status, holdReason: hold?.reason ?? null },
+      };
+    }
+    case "orderResultClosed":
+      return { ...state, orderResult: null };
     case "filterChanged":
       return { ...state, filter: { ...state.filter, ...action.filter } };
     case "countChanged": {

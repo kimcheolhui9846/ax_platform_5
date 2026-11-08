@@ -43,7 +43,13 @@ type ViewProps = {
   mainId?: string;
 };
 
-export const INVENTORY_TAB_LABELS: Record<InventoryTab, string> = { stock: "현황", close: "하루 마감", items: "품목·기준" };
+export const INVENTORY_TAB_LABELS: Record<InventoryTab, string> = {
+  stock: "현황",
+  close: "하루 마감",
+  orders: "주문·입고",
+  auto: "자동 주문",
+  items: "품목·기준",
+};
 
 /** 재고 화면 머리글 안내. */
 export const INVENTORY_HINT = "하루 마감에 수량을 세면 부족한 재고를 알려 드려요.";
@@ -77,6 +83,7 @@ function TabScreen({ tab, model, busy, on }: Pick<ViewProps, "tab" | "model" | "
       </div>
     );
   }
+  if (tab === "orders" || tab === "auto") return <p className="muted">준비 중이에요.</p>; // Task 2·4가 바꾼다
   if (model.kind !== tab) return <p className="muted">불러오는 중이에요…</p>;
   if (model.kind === "stock") {
     return (

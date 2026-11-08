@@ -240,5 +240,5 @@ export const FRAMES: Frame[] = [
   inventoryFrame("inventory-close", "수량 입력", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_INPUT, ALL), filter: ALL }),
   inventoryFrame("inventory-close-check", "이상 수량 확인", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_CHECKED, ALL), filter: ALL }),
   inventoryFrame("inventory-close-result", "저장 결과·자동 주문", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_DONE, ALL), filter: ALL }),
-  inventoryFrame("inventory-items", "등록·기준·설정", "items", { kind: "items", model: itemsModel(INVENTORY, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 }) }),
+  inventoryFrame("inventory-items", "등록·기준·설정", "items", { kind: "items", model: itemsModel(INVENTORY, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0, receipt: 0, auto: 0 }) }),
 ];
