@@ -7,7 +7,7 @@ import type { InventoryTab } from "../lib/routes";
 import { TOAST_MS } from "../lib/toast";
 import { loadRequest, makeInventoryHandlers } from "./handlers";
 import { createInventoryRunner } from "./requests";
-import { inventoryScreen } from "./screen";
+import { inventoryScreen, orderPanel } from "./screen";
 import { initialInventoryState, inventoryReducer } from "./state";
 import { InventoryView } from "./view";
 
@@ -46,7 +46,7 @@ export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
   const on = makeInventoryHandlers({ state, tab, run, dispatch, navigate: onTab, newRequestId: () => "manual:" + crypto.randomUUID(), confirmLeave });
   return (
     <>
-      <InventoryView tab={tab} model={inventoryScreen(state, tab)} busy={state.inflight?.kind ?? null} on={on} rail={guardedRail(rail, on.onLeave)} />
+      <InventoryView tab={tab} model={inventoryScreen(state, tab)} panel={orderPanel(state)} busy={state.inflight?.kind ?? null} on={on} rail={guardedRail(rail, on.onLeave)} />
       <Toast message={state.toast} />
     </>
   );

@@ -32,14 +32,14 @@ function view(items: ItemView[]): InventoryView {
 describe("StockScreen", () => {
   it("미입력은 0이 아니라 '미입력'으로 보인다", () => {
     const v = view([item("a", "원단", { on_hand: null, status: "uncounted" })]);
-    const html = renderToString(<StockScreen model={stockModel(v, FILTER)} hasItems filter={FILTER} onFilter={noop} onStartClose={noop} onOpenItems={noop} />);
+    const html = renderToString(<StockScreen model={stockModel(v, FILTER)} hasItems filter={FILTER} onFilter={noop} onStartClose={noop} onOpenItems={noop} busy={null} onOpenOrder={noop} />);
     expect(html).toContain("미입력 1개");
     expect(html).toContain("미입력");
     expect(html).toContain(`data-label="보유" class="num">미입력`);
     expect(html).toContain("하루 마감 하기");
   });
   it("품목이 없으면 품목·기준으로 가는 빈 화면", () => {
-    const html = renderToString(<StockScreen model={stockModel(view([]), FILTER)} hasItems={false} filter={FILTER} onFilter={noop} onStartClose={noop} onOpenItems={noop} />);
+    const html = renderToString(<StockScreen model={stockModel(view([]), FILTER)} hasItems={false} filter={FILTER} onFilter={noop} onStartClose={noop} onOpenItems={noop} busy={null} onOpenOrder={noop} />);
     expect(html).toContain("등록한 품목이 없어요");
     expect(html).toContain("품목·기준으로 가기");
   });
@@ -144,7 +144,7 @@ describe("ItemsScreen·품목 양식", () => {
 describe("InventoryView", () => {
   const rail = railProps({ name: "inventory", tab: "stock" }, false, { navigate: vi.fn(), guide: vi.fn() });
   const draw = (tab: "stock" | "close" | "items", model: InventoryScreenModel) =>
-    renderToString(<InventoryScreen tab={tab} model={model} busy={null} on={ON} rail={rail} />);
+    renderToString(<InventoryScreen tab={tab} model={model} panel={{ confirm: null, result: null }} busy={null} on={ON} rail={rail} />);
   it("탭 줄에 현재 탭 aria-current", () => {
     const html = draw("close", { kind: "loading" });
     expect(html).toMatch(/aria-current="page"[^>]*>하루 마감/);

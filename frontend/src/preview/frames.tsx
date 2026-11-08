@@ -98,7 +98,7 @@ function inventoryFrame(id: string, title: string, tab: InventoryTab, model: Inv
   return {
     id,
     title: `재고 · ${INVENTORY_TAB_LABELS[tab]} · ${title}`,
-    render: (mainId) => <InventoryView tab={tab} model={model} busy={null} on={NOOP_INVENTORY_HANDLERS} rail={railProps(route, false, NOOP_HANDLERS)} mainId={mainId} />,
+    render: (mainId) => <InventoryView tab={tab} model={model} panel={{ confirm: null, result: null }} busy={null} on={NOOP_INVENTORY_HANDLERS} rail={railProps(route, false, NOOP_HANDLERS)} mainId={mainId} />,
   };
 }
 

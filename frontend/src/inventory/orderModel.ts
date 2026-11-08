@@ -136,6 +136,8 @@ export function orderResultText(notice: OrderResultNotice): string {
   }
 }
 
+export type OrderPanel = { confirm: OrderConfirmModel | null; result: string | null };
+
 // ---- 주문·입고 탭 ----
 
 export type OrderCard = {
