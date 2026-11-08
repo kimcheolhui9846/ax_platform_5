@@ -83,7 +83,11 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
       };
     case "checked":
       if (!isCurrent(state, action.seq)) return state;
-      return { ...state, inflight: null, close: { ...state.close, check: action.check, confirmed: [] } };
+      return {
+        ...state,
+        inflight: null,
+        close: { ...state.close, check: action.check, confirmed: [], adjustments: flaggedOnly(state.close.adjustments, action.check) },
+      };
     case "closed":
       if (!isCurrent(state, action.seq)) return state;
       return {
@@ -141,10 +145,18 @@ function savedForm(state: InventoryState): InventoryForm | null {
   return state.inflight?.kind === "save" ? state.inflight.form : null;
 }
 
-/** 마감 입력을 비운다(날짜는 둔다). 기다리던 검사·마감 응답은 비운 입력의 것이라 더 받지 않는다. */
+/** 조정은 지금 이상 수량인 품목에만 둔다(화면에 없는 조정을 보내거나 그것 때문에 저장이 막히지 않게). */
+function flaggedOnly(adjustments: Record<string, AdjustmentInput>, check: CloseCheckView): Record<string, AdjustmentInput> {
+  const flagged = new Set(check.anomalies.map((a) => a.item_id));
+  return Object.fromEntries(Object.entries(adjustments).filter(([itemId]) => flagged.has(itemId)));
+}
+
+/**
+ * 마감 입력을 비운다(날짜는 둔다). 기다리던 검사 응답은 비운 입력의 것이라 더 받지 않는다.
+ * 마감 저장 응답은 받는다: 서버는 이미 기록했으니 버리면 화면이 옛 수량을 보이고 다시 마감하면 조정이 두 번 들어간다.
+ */
 function withoutCloseInput(state: InventoryState): InventoryState {
-  const kind = state.inflight?.kind;
-  const inflight = kind === "check" || kind === "close" ? null : state.inflight;
+  const inflight = state.inflight?.kind === "check" ? null : state.inflight;
   return { ...state, inflight, dirty: false, close: { ...EMPTY_CLOSE, date: state.close.date } };
 }
 

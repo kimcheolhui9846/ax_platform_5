@@ -39,8 +39,9 @@ function withoutTrailingZeros(value: string): string {
   return /^-?\d+\.\d+$/.test(value.trim()) ? value.trim().replace(/\.?0+$/, "") : value;
 }
 
+/** 금액 글. 소수가 모두 0("4500.00")이면 뺀다(원 단위는 보통 소수가 없다). */
 export function moneyText(amount: string): string {
-  return `${grouped(amount)}원`;
+  return `${grouped(amount.trim().replace(/\.0+$/, ""))}원`;
 }
 
 export const MOCK_OUTCOME_LABELS: Record<MockOutcome, string> = {

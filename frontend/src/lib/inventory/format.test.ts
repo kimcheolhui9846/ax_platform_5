@@ -20,6 +20,7 @@ describe("moneyText", () => {
   it("원 단위와 쉼표", () => {
     expect(moneyText("12000")).toBe("12,000원");
     expect(moneyText("1200.50")).toBe("1,200.50원");
+    expect(moneyText("4500.00")).toBe("4,500원"); // 소수가 모두 0이면 뺀다
   });
 });
 

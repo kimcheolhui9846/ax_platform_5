@@ -209,7 +209,29 @@ describe("inventoryReducer 저장하지 않은 입력", () => {
     expect(s.close.date).toBe("2026-11-01");
   });
 
-  it("마감 입력을 비우거나 버린 뒤 늦게 온 검사·마감 응답은 받지 않는다", () => {
+  it("새 검사 결과가 오면 이상 수량으로 남은 품목의 조정만 남긴다", () => {
+    const flagged = { anomalies: [{ item_id: "a", kind: "drop", previous: "10", counted: "1" }] } as unknown as CloseCheckView;
+    const s = run([
+      { type: "adjustmentChanged", itemId: "a", delta: "-1", reason: "파손" },
+      { type: "adjustmentChanged", itemId: "b", delta: "2", reason: "" },
+      { type: "requested", seq: 1, kind: "check" },
+      { type: "checked", seq: 1, check: flagged },
+    ]);
+    expect(s.close.adjustments).toEqual({ a: { delta: "-1", reason: "파손" } });
+  });
+
+  it("마감 저장을 기다리는 중에 입력을 버려도 저장 응답은 받는다(서버는 이미 기록했다)", () => {
+    const s = run([
+      { type: "countChanged", itemId: "a", text: "3" },
+      { type: "requested", seq: 1, kind: "close" },
+      { type: "discarded" },
+      { type: "closed", seq: 1, result: result("new") },
+    ]);
+    expect(s.view).toEqual(view("new"));
+    expect(s.inflight).toBeNull();
+  });
+
+  it("마감 입력을 비우거나 버린 뒤 늦게 온 검사 응답은 받지 않는다", () => {
     for (const drop of [{ type: "closeReset" }, { type: "discarded" }] as const) {
       const checked = run([
         { type: "countChanged", itemId: "a", text: "3" },
@@ -219,13 +241,6 @@ describe("inventoryReducer 저장하지 않은 입력", () => {
       ]);
       expect(checked.close.check).toBeNull();
       expect(checked.inflight).toBeNull();
-      const closed = run([
-        { type: "countChanged", itemId: "a", text: "3" },
-        { type: "requested", seq: 1, kind: "close" },
-        drop,
-        { type: "closed", seq: 1, result: result("late") },
-      ]);
-      expect(closed.close.result).toBeNull();
     }
   });
 
