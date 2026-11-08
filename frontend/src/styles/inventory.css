@@ -57,3 +57,21 @@
 .inv-count > label { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 .inv-count > input { flex: 0 1 auto; min-width: 0; }
 .inv-count-list { list-style: none; margin: 0; padding: 0; }
+
+/* 품목 일괄 등록 줄: 넓으면 한 줄, 좁으면 두 칸씩(이름과 줄 빼기는 한 줄 전체) */
+.inv-bulk-row {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.5fr 1fr auto;
+  gap: var(--space-2); align-items: center;
+}
+.inv-bulk-row > * { min-width: 0; width: 100%; }
+/* 거래처 줄: 좁으면 줄을 바꾼다 */
+.inv-wrap { flex-wrap: wrap; }
+
+@container app (max-width: 719px) {
+  .inv-bulk-row {
+    grid-template-columns: 1fr 1fr; padding-bottom: var(--space-3);
+    border-bottom: var(--line-width) solid var(--color-line-soft);
+  }
+  .inv-bulk-row > :first-child, .inv-bulk-row > button { grid-column: 1 / -1; }
+  .inv-wrap > input, .inv-wrap > select { flex: 1 1 100%; }
+}

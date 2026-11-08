@@ -61,7 +61,7 @@ export function BulkItemsForm({ suppliers, busy, onCreate, onEdited }: BusyProps
       <h2>품목 일괄 등록</h2>
       <p className="muted">한 줄에 품목 하나. 이름·단위는 꼭 필요하고, 현재 수량을 비우면 미입력이에요. 최대 {MAX_BULK_ROWS}줄.</p>
       {rows.map((row, i) => (
-        <div key={i} className="row">
+        <div key={i} className="inv-bulk-row">
           <input disabled={busy !== null} aria-label={`${i + 1}번 이름`} placeholder="이름" value={row.name} onChange={(e) => set(i, { name: e.target.value })} />
           <input disabled={busy !== null} aria-label={`${i + 1}번 옵션`} placeholder="옵션" value={row.option} onChange={(e) => set(i, { option: e.target.value })} />
           <select disabled={busy !== null} aria-label={`${i + 1}번 종류`} value={row.kind} onChange={(e) => set(i, { kind: e.target.value as ItemKind })}>
@@ -172,7 +172,7 @@ function SupplierRow({ supplier, busy, onSave, onEdited }: BusyProps & { supplie
     if (changed && name.trim() !== "" && busy === null) onSave(supplier.supplier_id, { name: name.trim(), mock_outcome: outcome });
   };
   return (
-    <form className="row" onSubmit={submit}>
+    <form className="row inv-wrap" onSubmit={submit}>
       <input disabled={busy !== null} aria-label={`${supplier.name} 이름`} value={name} onChange={(e) => { setName(e.target.value); onEdited(); }} />
       <select disabled={busy !== null} aria-label={`${supplier.name} 모의 거래처 응답`} value={outcome} onChange={(e) => { setOutcome(e.target.value as MockOutcome); onEdited(); }}>
         <Options labels={MOCK_OUTCOME_LABELS} />
@@ -208,7 +208,7 @@ export function SuppliersSection({
       {suppliers.map((s) => (
         <SupplierRow key={`${s.supplier_id}:${s.name}:${s.mock_outcome}`} supplier={s} busy={busy} onSave={onUpdate} onEdited={onEdited} />
       ))}
-      <form className="row" onSubmit={submit}>
+      <form className="row inv-wrap" onSubmit={submit}>
         <input disabled={busy !== null} aria-label="새 거래처 이름" placeholder="새 거래처 이름" value={name} onChange={(e) => { setName(e.target.value); onEdited(); }} />
         <select disabled={busy !== null} aria-label="새 거래처 모의 거래처 응답" value={outcome} onChange={(e) => { setOutcome(e.target.value as MockOutcome); onEdited(); }}>
           <Options labels={MOCK_OUTCOME_LABELS} />
