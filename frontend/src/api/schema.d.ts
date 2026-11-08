@@ -409,10 +409,213 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Inventory */
+        get: operations["get_inventory_api_v1_inventory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Items
+         * @description S01 일괄 등록. 전부 되거나 전부 안 된다.
+         */
+        post: operations["add_items_api_v1_inventory_items_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Item */
+        post: operations["add_item_api_v1_inventory_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Item */
+        patch: operations["update_item_api_v1_inventory_items__item_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/inventory/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Supplier */
+        post: operations["add_supplier_api_v1_inventory_suppliers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/suppliers/{supplier_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Supplier */
+        patch: operations["update_supplier_api_v1_inventory_suppliers__supplier_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/inventory/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Settings */
+        put: operations["set_settings_api_v1_inventory_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Policy */
+        put: operations["set_policy_api_v1_inventory_items__item_id__policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/closes/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Close
+         * @description 저장하지 않고 이상 수량만 돌려준다(S05-check).
+         */
+        post: operations["check_close_api_v1_inventory_closes_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/closes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Close */
+        post: operations["record_close_api_v1_inventory_closes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Adjustment
+         * @description S05-check 조정: 마지막 실사에 더하거나 뺀다. 사유 필수, 0은 받지 않는다.
+         */
+        Adjustment: {
+            /** Item Id */
+            item_id: string;
+            /** Delta */
+            delta: number | string;
+            /** Reason */
+            reason: string;
+        };
+        /** Anomaly */
+        Anomaly: {
+            /** Item Id */
+            item_id: string;
+            /** Previous */
+            previous: string;
+            /** Counted */
+            counted: string;
+            kind: components["schemas"]["AnomalyKind"];
+        };
+        /**
+         * AnomalyKind
+         * @enum {string}
+         */
+        AnomalyKind: "increase" | "drop";
         /** AnswerRequest */
         AnswerRequest: {
             /** Question Id */
@@ -430,11 +633,71 @@ export interface components {
          * @enum {string}
          */
         AnswerType: "option" | "free_text" | "easier" | "skip";
+        /** BulkItemsRequest */
+        BulkItemsRequest: {
+            /** Items */
+            items: components["schemas"]["ItemDraft"][];
+        };
         /**
          * CardType
          * @enum {string}
          */
         CardType: "diagnosis" | "suggestion" | "action";
+        /** Close */
+        Close: {
+            /** Close Id */
+            close_id: string;
+            /**
+             * Close Date
+             * Format: date
+             */
+            close_date: string;
+            /** Counts */
+            counts: {
+                [key: string]: string;
+            };
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** CloseCheckRequest */
+        CloseCheckRequest: {
+            /** Counts */
+            counts?: {
+                [key: string]: number | string;
+            };
+        };
+        /** CloseCheckView */
+        CloseCheckView: {
+            /** Anomalies */
+            anomalies: components["schemas"]["Anomaly"][];
+        };
+        /**
+         * CloseRequest
+         * @description S05 하루 마감. counts에 없는 품목은 미입력. confirmed는 이상 수량을 확인한 품목 id.
+         */
+        CloseRequest: {
+            /**
+             * Close Date
+             * Format: date
+             */
+            close_date: string;
+            /** Counts */
+            counts?: {
+                [key: string]: number | string;
+            };
+            /** Adjustments */
+            adjustments?: components["schemas"]["Adjustment"][];
+            /** Confirmed */
+            confirmed?: string[];
+        };
+        /** CloseView */
+        CloseView: {
+            close: components["schemas"]["Close"];
+            inventory: components["schemas"]["InventoryView"];
+        };
         /**
          * CoachingMode
          * @enum {string}
@@ -592,6 +855,130 @@ export interface components {
          * @enum {string}
          */
         InfoSource: "user_free_text" | "user_selected_ai_option" | "previous_task" | "ai_assumption" | "default" | "user_supplement";
+        /** InventorySettings */
+        InventorySettings: {
+            /**
+             * Address
+             * @default
+             */
+            address: string;
+            /**
+             * Anomaly Drop Ratio
+             * @default 0.5
+             */
+            anomaly_drop_ratio: string;
+            /**
+             * Stale Days
+             * @default 7
+             */
+            stale_days: number;
+        };
+        /**
+         * InventorySettingsRequest
+         * @description 요청 본문용 이름. 응답에도 같은 모델이 실려 이름이 같으면 OpenAPI가 -Input/-Output으로 갈라진다.
+         */
+        InventorySettingsRequest: {
+            /**
+             * Address
+             * @default
+             */
+            address: string;
+            /**
+             * Anomaly Drop Ratio
+             * @default 0.5
+             */
+            anomaly_drop_ratio: number | string;
+            /**
+             * Stale Days
+             * @default 7
+             */
+            stale_days: number;
+        };
+        /** InventoryView */
+        InventoryView: {
+            /** Items */
+            items: components["schemas"]["ItemView"][];
+            /** Suppliers */
+            suppliers: components["schemas"]["Supplier"][];
+            settings: components["schemas"]["InventorySettings"];
+            last_close: components["schemas"]["Close"] | null;
+        };
+        /** Item */
+        Item: {
+            /** Item Id */
+            item_id: string;
+            /** Name */
+            name: string;
+            /** Option */
+            option: string | null;
+            kind: components["schemas"]["ItemKind"];
+            /** Unit */
+            unit: string;
+            procurement: components["schemas"]["Procurement"];
+            /** Supplier Id */
+            supplier_id: string | null;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+        };
+        /**
+         * ItemDraft
+         * @description 품목 하나 등록(S01 일괄 등록의 한 줄, S02 개별 등록). quantity를 적으면 그 수량으로 실사를 남긴다.
+         */
+        ItemDraft: {
+            /** Name */
+            name: string;
+            /** Option */
+            option?: string | null;
+            kind: components["schemas"]["ItemKind"];
+            /** Unit */
+            unit: string;
+            /** @default purchase */
+            procurement: components["schemas"]["Procurement"];
+            /** Supplier Id */
+            supplier_id?: string | null;
+            /** Quantity */
+            quantity?: number | string | null;
+        };
+        /**
+         * ItemKind
+         * @enum {string}
+         */
+        ItemKind: "finished" | "material" | "packaging";
+        /**
+         * ItemPatch
+         * @description 보낸 필드만 바꾼다. name·kind·unit·procurement·archived는 null이면 그대로, option·supplier_id는 null이면 비운다.
+         */
+        ItemPatch: {
+            /** Name */
+            name?: string | null;
+            /** Option */
+            option?: string | null;
+            kind?: components["schemas"]["ItemKind"] | null;
+            /** Unit */
+            unit?: string | null;
+            procurement?: components["schemas"]["Procurement"] | null;
+            /** Supplier Id */
+            supplier_id?: string | null;
+            /** Archived */
+            archived?: boolean | null;
+        };
+        /** ItemView */
+        ItemView: {
+            item: components["schemas"]["Item"];
+            /** On Hand */
+            on_hand: string | null;
+            /** In Transit */
+            in_transit: string;
+            status: components["schemas"]["StockStatus"];
+            /** Suggested Quantity */
+            suggested_quantity: string | null;
+            policy: components["schemas"]["ReorderPolicy"] | null;
+            /** Last Counted At */
+            last_counted_at: string | null;
+        };
         /** LabeledAssumption */
         LabeledAssumption: {
             /** Field */
@@ -628,12 +1015,23 @@ export interface components {
              */
             generated_at: string;
         };
+        /**
+         * MockOutcome
+         * @description 모의 거래처가 낼 결과(PR #41의 SupplierProvider Mock이 쓴다).
+         * @enum {string}
+         */
+        MockOutcome: "accept" | "price_changed" | "out_of_stock" | "unknown_then_accept";
         /** ModeInfo */
         ModeInfo: {
             mode: components["schemas"]["CoachingMode"];
             /** Question Cap */
             question_cap: number;
         };
+        /**
+         * Procurement
+         * @enum {string}
+         */
+        Procurement: "purchase" | "make";
         /** Progress */
         Progress: {
             /** Asked */
@@ -685,6 +1083,35 @@ export interface components {
         RenameSessionRequest: {
             /** Name */
             name: string;
+        };
+        /** ReorderPolicy */
+        ReorderPolicy: {
+            /** Min Stock */
+            min_stock: string;
+            /** Target Stock */
+            target_stock: string;
+            /** Purchase Unit */
+            purchase_unit: string;
+            /** Lead Days */
+            lead_days: number;
+            /** Unit Price */
+            unit_price: string;
+        };
+        /**
+         * ReorderPolicyRequest
+         * @description 요청 본문용 이름(위와 같은 까닭).
+         */
+        ReorderPolicyRequest: {
+            /** Min Stock */
+            min_stock: number | string;
+            /** Target Stock */
+            target_stock: number | string;
+            /** Purchase Unit */
+            purchase_unit: number | string;
+            /** Lead Days */
+            lead_days: number;
+            /** Unit Price */
+            unit_price: number | string;
         };
         /**
          * RequestErrorBody
@@ -843,6 +1270,11 @@ export interface components {
             /** Error */
             error: string | null;
         };
+        /**
+         * StockStatus
+         * @enum {string}
+         */
+        StockStatus: "uncounted" | "short" | "in_transit" | "ok";
         /** SummaryItem */
         SummaryItem: {
             /** Field */
@@ -887,6 +1319,37 @@ export interface components {
             private?: {
                 [key: string]: boolean;
             };
+        };
+        /** Supplier */
+        Supplier: {
+            /** Supplier Id */
+            supplier_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @default mock
+             * @constant
+             */
+            kind: "mock";
+            /** @default accept */
+            mock_outcome: components["schemas"]["MockOutcome"];
+        };
+        /** SupplierDraft */
+        SupplierDraft: {
+            /** Name */
+            name: string;
+            /** @default accept */
+            mock_outcome: components["schemas"]["MockOutcome"];
+        };
+        /**
+         * SupplierPatch
+         * @description 보낸 필드만 바꾼다. null이면 그대로.
+         */
+        SupplierPatch: {
+            /** Name */
+            name?: string | null;
+            mock_outcome?: components["schemas"]["MockOutcome"] | null;
         };
         /** TaskForm */
         TaskForm: {
@@ -1091,7 +1554,7 @@ export interface operations {
                     "application/json": components["schemas"]["TaskForm"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1134,7 +1597,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionContext"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1143,7 +1606,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1187,7 +1650,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1196,7 +1659,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1252,7 +1715,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionSummary"][];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1292,7 +1755,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1301,7 +1764,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1339,7 +1802,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1348,7 +1811,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1392,7 +1855,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionSummary"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1401,7 +1864,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1442,7 +1905,7 @@ export interface operations {
                     "application/json": components["schemas"]["VersionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1451,7 +1914,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1492,7 +1955,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionSummary"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1501,7 +1964,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1541,7 +2004,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1550,7 +2013,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1612,7 +2075,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1621,7 +2084,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1684,7 +2147,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1693,7 +2156,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1751,7 +2214,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1760,7 +2223,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1818,7 +2281,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1827,7 +2290,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1889,7 +2352,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1898,7 +2361,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1938,7 +2401,7 @@ export interface operations {
                     "application/json": components["schemas"]["SessionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1947,7 +2410,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1987,7 +2450,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1996,7 +2459,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2037,7 +2500,7 @@ export interface operations {
                     "application/json": components["schemas"]["VersionView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2046,7 +2509,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2091,7 +2554,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2100,7 +2563,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2140,7 +2603,7 @@ export interface operations {
                     "application/json": components["schemas"]["EvidenceItem"][];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2149,7 +2612,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2190,7 +2653,7 @@ export interface operations {
                     "application/json": components["schemas"]["ResultView"];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2199,7 +2662,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2239,7 +2702,7 @@ export interface operations {
                     "application/json": components["schemas"]["TraceEntry"][];
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2248,7 +2711,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2291,7 +2754,7 @@ export interface operations {
                     "image/webp": string;
                 };
             };
-            /** @description 과제·세션·결과·파일이 없음 */
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2300,7 +2763,456 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변이 규칙에 맞지 않음 */
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    get_inventory_api_v1_inventory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_items_api_v1_inventory_items_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkItemsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_item_api_v1_inventory_items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_item_api_v1_inventory_items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_supplier_api_v1_inventory_suppliers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_supplier_api_v1_inventory_suppliers__supplier_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupplierPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_settings_api_v1_inventory_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventorySettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_policy_api_v1_inventory_items__item_id__policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryView"];
+                };
+            };
+            /** @description 찾는 대상(과제·세션·결과·파일·품목·거래처)이 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    check_close_api_v1_inventory_closes_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseCheckView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestErrorBody"];
+                };
+            };
+            /** @description 예상하지 못한 서버 오류 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    record_close_api_v1_inventory_closes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseView"];
+                };
+            };
+            /** @description 요청 형식(사용자 식별 헤더 포함)이나 답변·재고 규칙에 맞지 않음 */
             422: {
                 headers: {
                     [name: string]: unknown;
