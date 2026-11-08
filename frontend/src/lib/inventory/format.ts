@@ -45,3 +45,9 @@ export const MOCK_OUTCOME_LABELS: Record<MockOutcome, string> = {
   out_of_stock: "품절",
   unknown_then_accept: "접수 불명 뒤 접수",
 };
+
+/** 기계의 로컬 날짜를 YYYY-MM-DD로(마감 날짜 기본값). */
+export function localDateText(date: Date): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}

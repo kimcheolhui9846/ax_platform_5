@@ -1,10 +1,11 @@
+import { useId } from "react";
+
 import type { ItemKind } from "../../api/types";
 import { KIND_LABELS } from "../../lib/inventory/format";
 
 export type FilterChange = { query?: string; kind?: ItemKind | "all" };
 
 type Props = {
-  idPrefix: string;
   query: string;
   kind: ItemKind | "all";
   disabled?: boolean;
@@ -12,25 +13,26 @@ type Props = {
 };
 
 /** 현황·마감이 같이 쓰는 검색 칸과 분류 선택. */
-export function ItemFilter({ idPrefix, query, kind, disabled = false, onChange }: Props) {
+export function ItemFilter({ query, kind, disabled = false, onChange }: Props) {
+  const uid = useId();
   return (
     <div className="row">
-      <label htmlFor={`${idPrefix}-query`} className="small">
+      <label htmlFor={`${uid}-query`} className="small">
         품목 검색
       </label>
       <input
-        id={`${idPrefix}-query`}
+        id={`${uid}-query`}
         type="search"
         value={query}
         disabled={disabled}
         placeholder="이름·옵션"
         onChange={(event) => onChange({ query: event.target.value })}
       />
-      <label htmlFor={`${idPrefix}-kind`} className="small">
+      <label htmlFor={`${uid}-kind`} className="small">
         분류
       </label>
       <select
-        id={`${idPrefix}-kind`}
+        id={`${uid}-kind`}
         value={kind}
         disabled={disabled}
         onChange={(event) => onChange({ kind: event.target.value as ItemKind | "all" })}

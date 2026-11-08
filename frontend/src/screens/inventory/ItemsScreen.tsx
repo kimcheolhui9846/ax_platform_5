@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import type { InventorySettingsRequest, ItemDraft, ItemPatch, MockOutcome, ReorderPolicyRequest } from "../../api/types";
 import type { ItemsModel } from "../../inventory/screenModel";
@@ -22,6 +22,7 @@ type Props = { model: ItemsModel; busy: InventoryCall | null; on: ItemsHandlers 
 
 /** 품목·기준 탭: 일괄 등록, 품목 편집, 거래처, 보충 기준, 설정. 저장이 성공해 새 값이 오면 양식은 그 값으로 다시 시작한다(key). */
 export function ItemsScreen({ model, busy, on }: Props) {
+  const uid = useId();
   const [selectedId, setSelectedId] = useState("");
   const selected = model.rows.find((r) => r.itemId === selectedId) ?? null;
   return (
@@ -33,8 +34,8 @@ export function ItemsScreen({ model, busy, on }: Props) {
           <p className="muted">등록한 품목이 없어요.</p>
         ) : (
           <div className="field-row">
-            <label htmlFor="items-pick">품목 선택</label>
-            <select id="items-pick" disabled={busy !== null} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+            <label htmlFor={`${uid}-pick`}>품목 선택</label>
+            <select id={`${uid}-pick`} disabled={busy !== null} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
               <option value="">선택해 주세요</option>
               {model.rows.map((r) => (
                 <option key={r.itemId} value={r.itemId}>

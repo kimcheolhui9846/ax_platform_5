@@ -77,6 +77,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         view: action.view,
         loadFailed: false,
         saved: savedAfter(state),
+        dirty: state.inflight?.kind === "save" ? hasCloseInput(state) : state.dirty, // 저장이 끝난 양식 입력은 남지 않는다
       };
     case "checked":
       if (!isCurrent(state, action.seq)) return state;
@@ -131,4 +132,9 @@ function savedAfter(state: InventoryState): InventoryState["saved"] {
 
 function isCurrent(state: InventoryState, seq: number): boolean {
   return state.inflight !== null && state.inflight.seq === seq;
+}
+
+/** 마감 탭에 아직 저장하지 않은 입력(센 수량·조정)이 있는가. */
+function hasCloseInput(state: InventoryState): boolean {
+  return Object.keys(state.close.counts).length > 0 || Object.keys(state.close.adjustments).length > 0;
 }

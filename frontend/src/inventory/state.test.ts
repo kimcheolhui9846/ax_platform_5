@@ -159,3 +159,28 @@ describe("inventoryReducer 저장 횟수·마감 날짜", () => {
     expect(run([{ type: "closeDateChanged", date: "2026-11-02" }], s).close.result).toBeNull();
   });
 });
+
+describe("inventoryReducer 저장과 dirty", () => {
+  it("양식 저장이 성공하면 입력 중인 양식은 닫힌 것으로 본다(마감 입력이 없을 때)", () => {
+    const s = run([
+      { type: "edited" },
+      { type: "requested", seq: 1, kind: "save", form: "bulk" },
+      { type: "loaded", seq: 1, view: view("a") },
+    ]);
+    expect(s.dirty).toBe(false);
+  });
+
+  it("마감 입력이 남아 있으면 품목 저장이 dirty를 지우지 않는다", () => {
+    const s = run([
+      { type: "countChanged", itemId: "a", text: "3" },
+      { type: "requested", seq: 1, kind: "save", form: "policy" },
+      { type: "loaded", seq: 1, view: view("a") },
+    ]);
+    expect(s.dirty).toBe(true);
+  });
+
+  it("불러오기는 dirty를 건드리지 않는다", () => {
+    const s = run([{ type: "edited" }, { type: "requested", seq: 1, kind: "load" }, { type: "loaded", seq: 1, view: view("a") }]);
+    expect(s.dirty).toBe(true);
+  });
+});

@@ -54,7 +54,7 @@ export function StockScreen({ model, hasItems, filter, onFilter, onStartClose, o
           하루 마감 하기
         </button>
       </div>
-      <ItemFilter idPrefix="stock" query={filter.query} kind={filter.kind} onChange={onFilter} />
+      <ItemFilter query={filter.query} kind={filter.kind} onChange={onFilter} />
       <DataTable caption="재고 현황" columns={COLUMNS} rows={model.rows} rowKey={(r) => r.itemId} empty="조건에 맞는 품목이 없어요." />
     </div>
   );

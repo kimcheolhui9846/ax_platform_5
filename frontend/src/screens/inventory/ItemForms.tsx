@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 
 import type { InventorySettings, InventorySettingsRequest, ItemDraft, ItemKind, ItemPatch, MockOutcome, Procurement, ReorderPolicyRequest, Supplier } from "../../api/types";
@@ -100,6 +100,7 @@ export function BulkItemsForm({ suppliers, busy, onCreate, onEdited }: BusyProps
 // ---- S02 품목 편집 ----
 
 export function ItemEditForm({ item, suppliers, busy, onSave, onEdited }: BusyProps & { item: ItemRow; suppliers: Supplier[]; onSave: (itemId: string, patch: ItemPatch) => void; onEdited: () => void }) {
+  const uid = useId();
   const [f, setF] = useState({ name: item.name, option: item.option, kind: item.kind, unit: item.unit, procurement: item.procurement, supplierId: item.supplierId });
   const set = (patch: Partial<typeof f>) => {
     setF((c) => ({ ...c, ...patch }));
@@ -122,33 +123,33 @@ export function ItemEditForm({ item, suppliers, busy, onSave, onEdited }: BusyPr
     <form className="card stack" onSubmit={submit}>
       <h2>품목 편집: {item.name}</h2>
       <div className="field-row">
-        <label htmlFor="edit-name">이름</label>
-        <input disabled={busy !== null} id="edit-name" value={f.name} onChange={(e) => set({ name: e.target.value })} />
+        <label htmlFor={`${uid}-edit-name`}>이름</label>
+        <input disabled={busy !== null} id={`${uid}-edit-name`} value={f.name} onChange={(e) => set({ name: e.target.value })} />
       </div>
       <div className="field-row">
-        <label htmlFor="edit-option">옵션</label>
-        <input disabled={busy !== null} id="edit-option" value={f.option} onChange={(e) => set({ option: e.target.value })} />
+        <label htmlFor={`${uid}-edit-option`}>옵션</label>
+        <input disabled={busy !== null} id={`${uid}-edit-option`} value={f.option} onChange={(e) => set({ option: e.target.value })} />
       </div>
       <div className="field-row">
-        <label htmlFor="edit-kind">종류</label>
-        <select disabled={busy !== null} id="edit-kind" value={f.kind} onChange={(e) => set({ kind: e.target.value as ItemKind })}>
+        <label htmlFor={`${uid}-edit-kind`}>종류</label>
+        <select disabled={busy !== null} id={`${uid}-edit-kind`} value={f.kind} onChange={(e) => set({ kind: e.target.value as ItemKind })}>
           <Options labels={KIND_LABELS} />
         </select>
       </div>
       <div className="field-row">
-        <label htmlFor="edit-unit">단위</label>
-        <input disabled={busy !== null} id="edit-unit" value={f.unit} onChange={(e) => set({ unit: e.target.value })} />
+        <label htmlFor={`${uid}-edit-unit`}>단위</label>
+        <input disabled={busy !== null} id={`${uid}-edit-unit`} value={f.unit} onChange={(e) => set({ unit: e.target.value })} />
         {item.counted && <p className="small muted">수량 기록이 있는 품목은 단위를 바꿀 수 없어요.</p>}
       </div>
       <div className="field-row">
-        <label htmlFor="edit-procurement">조달</label>
-        <select disabled={busy !== null} id="edit-procurement" value={f.procurement} onChange={(e) => set({ procurement: e.target.value as Procurement })}>
+        <label htmlFor={`${uid}-edit-procurement`}>조달</label>
+        <select disabled={busy !== null} id={`${uid}-edit-procurement`} value={f.procurement} onChange={(e) => set({ procurement: e.target.value as Procurement })}>
           <Options labels={PROCUREMENT_LABELS} />
         </select>
       </div>
       <div className="field-row">
-        <label htmlFor="edit-supplier">거래처</label>
-        <SupplierSelect id="edit-supplier" value={f.supplierId} suppliers={suppliers} disabled={busy !== null} onChange={(supplierId) => set({ supplierId })} />
+        <label htmlFor={`${uid}-edit-supplier`}>거래처</label>
+        <SupplierSelect id={`${uid}-edit-supplier`} value={f.supplierId} suppliers={suppliers} disabled={busy !== null} onChange={(supplierId) => set({ supplierId })} />
       </div>
       <div className="row">
         <SaveButton busy={busy} disabled={!valid} />
@@ -234,6 +235,7 @@ export function PolicyForm({
   onApply: (itemId: string) => void;
   onEdited: () => void;
 }) {
+  const uid = useId();
   const p = item.policy;
   const [f, setF] = useState({ min: p?.min_stock ?? "", target: p?.target_stock ?? "", unit: p?.purchase_unit ?? "", lead: p === null ? "" : String(p.lead_days), price: p?.unit_price ?? "" });
   const set = (patch: Partial<typeof f>) => {
@@ -249,8 +251,8 @@ export function PolicyForm({
   };
   const field = (id: string, label: string, key: keyof typeof f) => (
     <div className="field-row">
-      <label htmlFor={`policy-${id}`}>{label}</label>
-      <input disabled={busy !== null} id={`policy-${id}`} inputMode="decimal" value={f[key]} onChange={(e) => set({ [key]: e.target.value })} />
+      <label htmlFor={`${uid}-policy-${id}`}>{label}</label>
+      <input disabled={busy !== null} id={`${uid}-policy-${id}`} inputMode="decimal" value={f[key]} onChange={(e) => set({ [key]: e.target.value })} />
     </div>
   );
   return (
@@ -285,6 +287,7 @@ export function PolicyForm({
 // ---- 설정 ----
 
 export function SettingsForm({ settings, busy, onSave, onEdited }: BusyProps & { settings: InventorySettings; onSave: (request: InventorySettingsRequest) => void; onEdited: () => void }) {
+  const uid = useId();
   const [f, setF] = useState({ address: settings.address, ratio: settings.anomaly_drop_ratio, staleDays: String(settings.stale_days) });
   const set = (patch: Partial<typeof f>) => {
     setF((c) => ({ ...c, ...patch }));
@@ -299,16 +302,16 @@ export function SettingsForm({ settings, busy, onSave, onEdited }: BusyProps & {
     <form className="card stack" onSubmit={submit}>
       <h2>설정</h2>
       <div className="field-row">
-        <label htmlFor="set-address">배송지</label>
-        <input disabled={busy !== null} id="set-address" value={f.address} onChange={(e) => set({ address: e.target.value })} />
+        <label htmlFor={`${uid}-set-address`}>배송지</label>
+        <input disabled={busy !== null} id={`${uid}-set-address`} value={f.address} onChange={(e) => set({ address: e.target.value })} />
       </div>
       <div className="field-row">
-        <label htmlFor="set-ratio">이상 수량 비율</label>
-        <input disabled={busy !== null} id="set-ratio" inputMode="decimal" value={f.ratio} onChange={(e) => set({ ratio: e.target.value })} />
+        <label htmlFor={`${uid}-set-ratio`}>이상 수량 비율</label>
+        <input disabled={busy !== null} id={`${uid}-set-ratio`} inputMode="decimal" value={f.ratio} onChange={(e) => set({ ratio: e.target.value })} />
       </div>
       <div className="field-row">
-        <label htmlFor="set-stale">오래된 실사 일수</label>
-        <input disabled={busy !== null} id="set-stale" inputMode="numeric" value={f.staleDays} onChange={(e) => set({ staleDays: e.target.value })} />
+        <label htmlFor={`${uid}-set-stale`}>오래된 실사 일수</label>
+        <input disabled={busy !== null} id={`${uid}-set-stale`} inputMode="numeric" value={f.staleDays} onChange={(e) => set({ staleDays: e.target.value })} />
       </div>
       <SaveButton busy={busy} disabled={request === null} />
     </form>

@@ -1,6 +1,8 @@
 // 미리보기 갤러리의 샘플 값. 생성된 API 타입을 쓰므로 계약이 바뀌면 빌드가 깨져 바로 알 수 있다.
-import type { EvidenceItem, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
+import type { CloseView, EvidenceItem, InventoryView, InventoryItem as Item, ItemView, ReorderPolicy, FlowItem, Question, ResultView, SessionContext, SessionSummary, SessionView, SummaryItem, SupplementItem, TaskForm, TaskSummary, VersionView } from "../api/types";
 import type { EditableFlowItem } from "../lib/flowView";
+import { initialInventoryState } from "../inventory/state";
+import type { InventoryState } from "../inventory/state";
 
 export const TASKS: TaskSummary[] = [
   {
@@ -423,3 +425,78 @@ export const RESULT_IMAGE: ResultView = {
     ),
   },
 };
+
+// ---- 재고 ----
+
+const KG = "kg";
+const item = (item_id: string, name: string, patch: Partial<Item> = {}): Item => ({
+  item_id,
+  name,
+  option: null,
+  kind: "material",
+  unit: KG,
+  procurement: "purchase",
+  supplier_id: "sup-1",
+  archived: false,
+  ...patch,
+});
+const POLICY: ReorderPolicy = { min_stock: "10", target_stock: "40", purchase_unit: "10", lead_days: 3, unit_price: "4500" };
+const itemView = (i: Item, patch: Partial<ItemView> = {}): ItemView => ({
+  item: i,
+  on_hand: "25",
+  in_transit: "0",
+  status: "ok",
+  suggested_quantity: null,
+  policy: POLICY,
+  last_counted_at: "2026-11-07T18:00:00Z",
+  suggestion: null,
+  auto_order: null,
+  ...patch,
+});
+
+/** 재고 샘플: 부족·미입력·배송 중·충분·제작품·숨김 품목 하나씩. */
+export const INVENTORY: InventoryView = {
+  items: [
+    itemView(item("it-1", "국산 밀가루", { option: "강력분 20kg" }), { on_hand: "4", status: "short", suggested_quantity: "40" }),
+    itemView(item("it-2", "설탕"), { on_hand: null, status: "uncounted", last_counted_at: null }),
+    itemView(item("it-3", "포장 박스", { kind: "packaging", unit: "개" }), { on_hand: "30", in_transit: "100", status: "in_transit" }),
+    itemView(item("it-4", "유기농 버터", { option: "무염" }), { on_hand: "26" }),
+    itemView(item("it-5", "수제 쿠키 세트", { kind: "finished", unit: "세트", procurement: "make", supplier_id: null }), { on_hand: "12", policy: null }),
+    itemView(item("it-6", "단종 리본", { kind: "packaging", unit: "롤", archived: true }), { on_hand: "0" }),
+  ],
+  suppliers: [
+    { supplier_id: "sup-1", name: "한빛 식자재", kind: "mock", mock_outcome: "accept" },
+    { supplier_id: "sup-2", name: "새벽 포장", kind: "mock", mock_outcome: "price_changed" },
+  ],
+  settings: { address: "서울시 마포구 월드컵로 1", anomaly_drop_ratio: "0.5", stale_days: 7 },
+  last_close: { close_id: "cl-1", close_date: "2026-11-07", counts: { "it-1": "4", "it-4": "26" }, at: "2026-11-07T18:00:00Z" },
+  orders: [],
+  holds: [],
+};
+
+export const INVENTORY_EMPTY: InventoryView = { ...INVENTORY, items: [], suppliers: [], last_close: null };
+
+/** 하루 마감 입력 샘플(센 수량 일부, 이상 수량 2개 중 하나만 확인). */
+export const CLOSE_INPUT: InventoryState["close"] = {
+  ...initialInventoryState("2026-11-08").close,
+  counts: { "it-1": "3", "it-2": "18", "it-4": "90" },
+};
+export const CLOSE_CHECKED: InventoryState["close"] = {
+  ...CLOSE_INPUT,
+  check: {
+    anomalies: [
+      { item_id: "it-1", previous: "4", counted: "3", kind: "drop" },
+      { item_id: "it-4", previous: "26", counted: "90", kind: "increase" },
+    ],
+  },
+  confirmed: ["it-4"],
+};
+export const CLOSE_RESULT: CloseView = {
+  close: { close_id: "cl-2", close_date: "2026-11-08", counts: CLOSE_INPUT.counts, at: "2026-11-08T18:00:00Z" },
+  inventory: INVENTORY,
+  auto_orders: [
+    { item_id: "it-1", order_id: "ord-1", status: "accepted", hold_reason: null },
+    { item_id: "it-2", order_id: null, status: null, hold_reason: "price_changed" },
+  ],
+};
+export const CLOSE_DONE: InventoryState["close"] = { ...initialInventoryState("2026-11-08").close, result: CLOSE_RESULT };

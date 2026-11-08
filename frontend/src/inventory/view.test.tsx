@@ -65,7 +65,7 @@ describe("CloseScreen", () => {
   it("요청 중엔 입력과 버튼이 막히고 눌린 버튼에 진행 글", () => {
     const html = draw({ a: "5" }, null, "check");
     expect(html).toContain("검사 중…");
-    expect(html).toMatch(/<input[^>]*id="count-a"[^>]*disabled=""/);
+    expect(html).toMatch(/<input[^>]*id="[^"]*-count-a"[^>]*disabled=""/);
   });
   it("조정 사유가 없으면 확인이 막힌다", () => {
     const check = { anomalies: [{ item_id: "a", kind: "drop", previous: "10", counted: "1" }] } as unknown as CloseCheckView;

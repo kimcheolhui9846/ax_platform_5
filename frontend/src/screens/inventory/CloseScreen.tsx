@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import type { ItemKind } from "../../api/types";
 import type { AnomalyRow, CloseModel } from "../../inventory/screenModel";
 import type { InventoryCall } from "../../inventory/state";
@@ -24,6 +26,7 @@ type Props = {
 };
 
 function AnomalyItem({ row, working, on }: { row: AnomalyRow; working: boolean; on: CloseHandlers }) {
+  const uid = useId();
   const needsReason = row.adjustment.delta.trim() !== "" && row.adjustment.reason.trim() === "";
   return (
     <li className="card stack8">
@@ -41,21 +44,21 @@ function AnomalyItem({ row, working, on }: { row: AnomalyRow; working: boolean; 
         >
           {row.confirmed ? "확인했어요" : "맞아요"}
         </button>
-        <label htmlFor={`adj-delta-${row.itemId}`} className="small">
+        <label htmlFor={`${uid}-adj-delta-${row.itemId}`} className="small">
           조정 수량(±)
         </label>
         <input
-          id={`adj-delta-${row.itemId}`}
+          id={`${uid}-adj-delta-${row.itemId}`}
           inputMode="text"
           value={row.adjustment.delta}
           disabled={working}
           onChange={(event) => on.onAdjust(row.itemId, event.target.value, row.adjustment.reason)}
         />
-        <label htmlFor={`adj-reason-${row.itemId}`} className="small">
+        <label htmlFor={`${uid}-adj-reason-${row.itemId}`} className="small">
           사유
         </label>
         <input
-          id={`adj-reason-${row.itemId}`}
+          id={`${uid}-adj-reason-${row.itemId}`}
           value={row.adjustment.reason}
           disabled={working}
           onChange={(event) => on.onAdjust(row.itemId, row.adjustment.delta, event.target.value)}
@@ -72,6 +75,7 @@ function AnomalyItem({ row, working, on }: { row: AnomalyRow; working: boolean; 
 
 /** S05 하루 마감: 실사 입력 → 검사(이상 수량) → 마감 저장 → 결과. 요청 중엔 입력·버튼을 모두 막는다. */
 export function CloseScreen({ model, filter, busy, on }: Props) {
+  const uid = useId();
   const working = busy !== null;
   if (model.result !== null) {
     return (
@@ -102,11 +106,11 @@ export function CloseScreen({ model, filter, busy, on }: Props) {
   return (
     <div className="stack">
       <div className="row">
-        <label htmlFor="close-date">마감 날짜</label>
-        <input id="close-date" type="date" value={model.date} disabled={working} onChange={(event) => on.onDate(event.target.value)} />
+        <label htmlFor={`${uid}-date`}>마감 날짜</label>
+        <input id={`${uid}-date`} type="date" value={model.date} disabled={working} onChange={(event) => on.onDate(event.target.value)} />
       </div>
       <p className="muted">비워 두면 미입력으로 남아요(0이 아니에요)</p>
-      <ItemFilter idPrefix="close" query={filter.query} kind={filter.kind} disabled={working} onChange={on.onFilter} />
+      <ItemFilter query={filter.query} kind={filter.kind} disabled={working} onChange={on.onFilter} />
       {model.rows.length === 0 ? (
         <p className="muted">조건에 맞는 품목이 없어요.</p>
       ) : (
@@ -116,11 +120,11 @@ export function CloseScreen({ model, filter, busy, on }: Props) {
               <span className="grow">
                 {`${r.name}${r.option !== "" ? ` (${r.option})` : ""} · 지난 수량 ${r.previous}`}
               </span>
-              <label htmlFor={`count-${r.itemId}`} className="small">
+              <label htmlFor={`${uid}-count-${r.itemId}`} className="small">
                 {`${r.name} 실사 수량(${r.unit})`}
               </label>
               <input
-                id={`count-${r.itemId}`}
+                id={`${uid}-count-${r.itemId}`}
                 inputMode="decimal"
                 value={r.input}
                 placeholder="미입력"

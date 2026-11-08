@@ -55,6 +55,12 @@ describe("미리보기 프레임", () => {
       "documents-empty",
       "guide",
       "unavailable",
+      "inventory-stock",
+      "inventory-stock-empty",
+      "inventory-close",
+      "inventory-close-check",
+      "inventory-close-result",
+      "inventory-items",
     ]);
   });
 
