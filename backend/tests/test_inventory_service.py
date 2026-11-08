@@ -4,6 +4,7 @@ from decimal import Decimal as D
 import pytest
 
 from app.core.messages import (
+    INVENTORY_CONSENT_REQUIRED_MESSAGE,
     INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
     INVENTORY_EMPTY_CLOSE_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
@@ -43,7 +44,7 @@ from app.inventory.models import (
 )
 from app.inventory.rules import AnomalyKind, in_transit, on_hand
 from app.inventory.supplier import MockSupplier
-from app.schemas.inventory import Adjustment, OrderRequest, ReceiptRequest, CloseRequest, ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
+from app.schemas.inventory import AutoOrderRequest, Adjustment, OrderRequest, ReceiptRequest, CloseRequest, ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
 
 
 def draft(name="에코백", **overrides) -> ItemDraft:
@@ -536,3 +537,71 @@ def test_same_item_same_reason_open_hold_is_not_duplicated():
     service.resolve_hold(state, state.holds[0].hold_id)
     service.place_order(state, order_request(item, request_id="req-00000003"), MockSupplier())
     assert len(state.holds) == 2  # 해결한 뒤 다시 생기면 새로 남긴다
+
+
+def auto_ready(outcome=MockOutcome.ACCEPT):
+    state, item = shop(outcome)
+    service.set_auto_order(
+        state, item, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(100000), monthly_limit=D(500000))
+    )
+    return state, item
+
+
+def close_to(state, item, qty="5"):
+    return service.record_close(
+        state, CloseRequest(close_date=date(2026, 11, 8), counts={item: D(qty)}, confirmed=[item])
+    )
+
+
+def test_set_auto_order_requires_consent_supplier_and_policy():
+    state, item = shop()
+    on = AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1))
+    with pytest.raises(InventoryError, match=INVENTORY_CONSENT_REQUIRED_MESSAGE):
+        service.set_auto_order(state, item, on.model_copy(update={"consent": False}))
+    [made] = service.add_items(state, [draft("에코백")])
+    with pytest.raises(InventoryError, match=INVENTORY_NOT_ORDERABLE_MESSAGE):
+        service.set_auto_order(state, made.item_id, on)
+    with pytest.raises(InventoryNotFound):
+        service.set_auto_order(state, "it_none", on)
+
+    setting = service.set_auto_order(state, item, on)
+    assert setting.enabled is True and setting.consented_at is not None
+
+    off = service.set_auto_order(state, item, AutoOrderRequest(enabled=False, per_order_limit=D(2), monthly_limit=D(3)))
+    assert off.enabled is False and off.consented_at == setting.consented_at  # 끄기는 동의 없이, 기록은 남긴다
+    assert state.auto_orders[item].monthly_limit == D(3)
+
+
+def test_run_auto_orders_places_with_close_request_id_and_reports():
+    state, item = auto_ready()
+    close = close_to(state, item)
+
+    outcomes = service.run_auto_orders(state, close, MockSupplier())
+
+    [order] = state.orders
+    assert order.origin is OrderOrigin.AUTO and order.request_id == f"auto:{close.close_id}:{item}"
+    assert order.lines[0].quantity == D(50)  # 목표 50 − 보유 5 = 45 → 10 단위 올림
+    assert [(o.item_id, o.order_id, o.status, o.hold_reason) for o in outcomes] == [(item, order.order_id, OrderStatus.ACCEPTED, None)]
+
+
+def test_run_auto_orders_twice_for_same_close_orders_once():
+    state, item = auto_ready()
+    close = close_to(state, item)
+    service.run_auto_orders(state, close, MockSupplier())
+    service.run_auto_orders(state, close, MockSupplier())
+    assert len(state.orders) == 1
+
+
+def test_run_auto_orders_records_holds_for_plan_and_supplier_failures():
+    state, item = auto_ready(MockOutcome.OUT_OF_STOCK)
+    close = close_to(state, item)
+    [outcome] = service.run_auto_orders(state, close, MockSupplier())
+    assert outcome.status is OrderStatus.REJECTED and outcome.hold_reason is HoldReason.OUT_OF_STOCK
+    assert [h.reason for h in state.holds] == [HoldReason.OUT_OF_STOCK]
+
+    state, item = auto_ready()
+    service.set_auto_order(state, item, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1)))
+    close = close_to(state, item)
+    [outcome] = service.run_auto_orders(state, close, MockSupplier())
+    assert (outcome.order_id, outcome.hold_reason) == (None, HoldReason.LIMIT_EXCEEDED)
+    assert state.orders == [] and [h.reason for h in state.holds] == [HoldReason.LIMIT_EXCEEDED]

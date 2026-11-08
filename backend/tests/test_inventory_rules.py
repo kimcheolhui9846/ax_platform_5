@@ -1,9 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
 import pytest
 
 from app.inventory.models import (
+    AutoOrderSetting,
+    HoldReason,
+    InventorySettings,
+    InventoryState,
+    Item,
+    ItemKind,
+    Procurement,
     AdjustEntry,
     CountEntry,
     Order,
@@ -16,6 +23,11 @@ from app.inventory.models import (
 from app.inventory.rules import (
     Anomaly,
     AnomalyKind,
+    AutoAction,
+    has_unknown_order,
+    is_stale,
+    month_auto_spend,
+    plan_auto_orders,
     StockStatus,
     find_anomalies,
     in_transit,
@@ -154,3 +166,92 @@ def test_find_anomalies_uses_the_adjusted_baseline():
     assert find_anomalies(ledger, {"a": D(3)}, D("0.5")) == [
         Anomaly(item_id="a", previous=D("7.5"), counted=D(3), kind=AnomalyKind.DROP)  # 4.5/7.5 = 0.6 > 0.5
     ]
+
+
+NOW = datetime(2026, 11, 8, 12, tzinfo=timezone.utc)
+
+
+def auto_state(**overrides):
+    """구매 품목 a(보유 5, 최소 10·목표 30·단위 12·단가 1000), 자동 주문 켬(1회 5만·월 10만)."""
+    item = Item(item_id="a", name="원단", kind=ItemKind.MATERIAL, unit="m", procurement=Procurement.PURCHASE, supplier_id="sup")
+    values = {
+        "owner_id": "client-aaaa",
+        "items": [item],
+        "policies": {"a": policy()},
+        "ledger": [count("5", at=NOW - timedelta(days=1))],
+        "auto_orders": {"a": AutoOrderSetting(enabled=True, consented_at=NOW, per_order_limit=D(50000), monthly_limit=D(100000))},
+    }
+    return InventoryState(**(values | overrides))
+
+
+def test_is_stale():
+    assert is_stale(None, NOW, 7) is True
+    assert is_stale(NOW - timedelta(days=7), NOW, 7) is False
+    assert is_stale(NOW - timedelta(days=7, seconds=1), NOW, 7) is True
+
+
+def test_month_auto_spend_counts_only_this_months_auto_orders_that_may_ship():
+    def auto(status, total, created, origin=OrderOrigin.AUTO):
+        o = order(status, ("a", "1", "0"))
+        return o.model_copy(update={"total": D(total), "created_at": created, "origin": origin})
+
+    orders = [
+        auto(OrderStatus.ACCEPTED, "100", NOW),
+        auto(OrderStatus.UNKNOWN, "20", NOW),
+        auto(OrderStatus.RECEIVED, "3", NOW),
+        auto(OrderStatus.REJECTED, "999", NOW),
+        auto(OrderStatus.ACCEPTED, "999", datetime(2026, 10, 31, tzinfo=timezone.utc)),
+        auto(OrderStatus.ACCEPTED, "999", NOW, origin=OrderOrigin.MANUAL),
+    ]
+    assert month_auto_spend(orders, 2026, 11) == D(123)
+    assert has_unknown_order(orders, "a") is True
+    assert has_unknown_order(orders, "b") is False
+
+
+def decision(state):
+    return [(d.item_id, d.action, d.quantity, d.amount, d.reason) for d in plan_auto_orders(state, NOW)]
+
+
+def test_plan_orders_suggested_quantity_within_limits():
+    assert decision(auto_state()) == [("a", AutoAction.ORDER, D(36), D(36000), None)]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"ledger": [count("5", at=NOW - timedelta(days=8))]}, HoldReason.STALE_COUNT),
+        ({"orders": [order(OrderStatus.UNKNOWN, ("a", "1", "0"))]}, HoldReason.UNKNOWN),
+        (
+            {"auto_orders": {"a": AutoOrderSetting(enabled=True, consented_at=NOW, per_order_limit=D(30000), monthly_limit=D(100000))}},
+            HoldReason.LIMIT_EXCEEDED,
+        ),
+        (
+            {"auto_orders": {"a": AutoOrderSetting(enabled=True, consented_at=NOW, per_order_limit=D(50000), monthly_limit=D(35999))}},
+            HoldReason.LIMIT_EXCEEDED,
+        ),
+    ],
+)
+def test_plan_holds(overrides, reason):
+    assert decision(auto_state(**overrides)) == [("a", AutoAction.HOLD, D(36), D(36000), reason)]
+
+
+def test_plan_skips_items_not_short_disabled_unconsented_or_make():
+    assert decision(auto_state(ledger=[count("40", at=NOW)])) == []
+    off = AutoOrderSetting(enabled=False, consented_at=NOW, per_order_limit=D(50000), monthly_limit=D(100000))
+    assert decision(auto_state(auto_orders={"a": off})) == []
+    unconsented = AutoOrderSetting(enabled=True, per_order_limit=D(50000), monthly_limit=D(100000))
+    assert decision(auto_state(auto_orders={"a": unconsented})) == []
+    made = Item(item_id="a", name="에코백", kind=ItemKind.FINISHED, unit="개", procurement=Procurement.MAKE)
+    assert decision(auto_state(items=[made])) == []
+
+
+def test_plan_monthly_limit_counts_earlier_decisions_in_same_run():
+    second = Item(item_id="b", name="실", kind=ItemKind.MATERIAL, unit="m", procurement=Procurement.PURCHASE, supplier_id="sup")
+    setting = AutoOrderSetting(enabled=True, consented_at=NOW, per_order_limit=D(50000), monthly_limit=D(50000))
+    state = auto_state(
+        items=[auto_state().items[0], second],
+        policies={"a": policy(), "b": policy()},
+        ledger=[count("5", at=NOW), count("5", item="b", at=NOW)],
+        auto_orders={"a": setting, "b": setting},
+    )
+    assert [(d.item_id, d.action) for d in plan_auto_orders(state, NOW)] == [("a", AutoAction.ORDER), ("b", AutoAction.HOLD)]

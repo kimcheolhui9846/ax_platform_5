@@ -9,11 +9,13 @@ from app.core.contract import ContractModel
 from app.core.messages import INVENTORY_ZERO_ADJUST_MESSAGE
 from app.inventory.models import (
     Close,
+    HoldReason,
     InventorySettings,
     Item,
     ItemKind,
     MockOutcome,
     Money,
+    OrderStatus,
     PositiveQuantity,
     Procurement,
     Quantity,
@@ -157,3 +159,19 @@ class ReceiptLine(BaseModel):
 
 class ReceiptRequest(BaseModel):
     lines: list[ReceiptLine] = Field(min_length=1, max_length=50)
+
+
+class AutoOrderRequest(BaseModel):
+    """S08 자동 주문 설정. 켤 때는 consent가 true여야 한다. 끄면 이후 실행만 멈춘다(접수된 주문은 그대로)."""
+
+    enabled: bool
+    consent: bool = False
+    per_order_limit: Money
+    monthly_limit: Money
+
+
+class AutoOrderOutcome(ContractModel):
+    item_id: str
+    order_id: str | None  # 주문했으면 그 주문
+    status: OrderStatus | None
+    hold_reason: HoldReason | None  # 계획 단계 보류이거나 거래처 거절·불명으로 생긴 보류

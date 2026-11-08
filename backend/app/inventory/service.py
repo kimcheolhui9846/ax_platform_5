@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from app.core.messages import (
     INVENTORY_ADDRESS_REQUIRED_MESSAGE,
+    INVENTORY_CONSENT_REQUIRED_MESSAGE,
     INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
     INVENTORY_DUPLICATE_LINE_MESSAGE,
     INVENTORY_HOLD_NOT_FOUND_MESSAGE,
@@ -33,6 +34,7 @@ from app.core.results import utcnow
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import (
     AdjustEntry,
+    AutoOrderSetting,
     Close,
     CountEntry,
     Hold,
@@ -50,9 +52,11 @@ from app.inventory.models import (
     ReorderPolicy,
     Supplier,
 )
-from app.inventory.rules import OPEN_STATUSES, Anomaly, find_anomalies, on_hand
+from app.inventory.rules import OPEN_STATUSES, Anomaly, AutoAction, plan_auto_orders, find_anomalies, on_hand
 from app.inventory.supplier import ReplyStatus, SupplierProvider, SupplierReply
 from app.schemas.inventory import (
+    AutoOrderOutcome,
+    AutoOrderRequest,
     CloseRequest,
     ItemDraft,
     ItemPatch,
@@ -361,3 +365,48 @@ def resolve_hold(state: InventoryState, hold_id: str) -> Hold:
     resolved = hold.model_copy(update={"resolved": True})
     state.holds = [resolved if h.hold_id == hold_id else h for h in state.holds]
     return resolved
+
+
+def set_auto_order(state: InventoryState, item_id: str, request: AutoOrderRequest) -> AutoOrderSetting:
+    item = find_item(state, item_id)
+    previous = state.auto_orders.get(item_id)
+    consented_at = previous.consented_at if previous else None
+    if request.enabled:
+        if not request.consent:
+            raise InventoryError(INVENTORY_CONSENT_REQUIRED_MESSAGE)
+        if item.procurement is not Procurement.PURCHASE or item.supplier_id is None:
+            raise InventoryError(INVENTORY_NOT_ORDERABLE_MESSAGE)
+        if item_id not in state.policies:
+            raise InventoryError(INVENTORY_POLICY_REQUIRED_MESSAGE)
+        consented_at = utcnow()
+    setting = AutoOrderSetting(
+        enabled=request.enabled,
+        consented_at=consented_at,
+        per_order_limit=request.per_order_limit,
+        monthly_limit=request.monthly_limit,
+    )
+    state.auto_orders[item_id] = setting
+    return setting
+
+
+def run_auto_orders(state: InventoryState, close: Close, supplier: SupplierProvider) -> list[AutoOrderOutcome]:
+    """하루 마감 직후 부른다. 같은 마감으로 다시 불러도 request_id가 같아 주문이 두 번 나가지 않는다."""
+    outcomes: list[AutoOrderOutcome] = []
+    for decision in plan_auto_orders(state, utcnow()):
+        if decision.action is AutoAction.HOLD:
+            _hold(state, decision.item_id, decision.reason)
+            outcomes.append(AutoOrderOutcome(item_id=decision.item_id, order_id=None, status=None, hold_reason=decision.reason))
+            continue
+        request_id = f"auto:{close.close_id}:{decision.item_id}"
+        order = next((o for o in state.orders if o.request_id == request_id), None)
+        if order is None:
+            item = find_item(state, decision.item_id)
+            line = OrderLine(item_id=item.item_id, quantity=decision.quantity, unit_price=state.policies[item.item_id].unit_price)
+            order = _submit(
+                state, request_id=request_id, supplier_id=item.supplier_id, lines=[line], origin=OrderOrigin.AUTO, supplier=supplier
+            )
+        hold = next((h for h in state.holds if h.order_id == order.order_id and not h.resolved), None)
+        outcomes.append(
+            AutoOrderOutcome(item_id=decision.item_id, order_id=order.order_id, status=order.status, hold_reason=hold.reason if hold else None)
+        )
+    return outcomes
