@@ -5,7 +5,7 @@ from decimal import ROUND_CEILING, Decimal
 from enum import StrEnum
 
 from app.core.contract import ContractModel
-from app.inventory.models import AdjustEntry, CountEntry, LedgerEntry, ReorderPolicy
+from app.inventory.models import AdjustEntry, CountEntry, LedgerEntry, Order, OrderStatus, ReceiptEntry, ReorderPolicy
 
 
 class StockStatus(StrEnum):
@@ -28,16 +28,32 @@ class Anomaly(ContractModel):
 
 
 def on_hand(ledger: Sequence[LedgerEntry], item_id: str) -> Decimal | None:
-    """마지막 실사 + 그 뒤의 조정. 실사가 없으면 None(미입력). 실사 전 조정은 반영하지 않는다."""
+    """마지막 실사 + 그 뒤의 조정·입고. 실사가 없으면 None(미입력). 실사 전 조정·입고는 반영하지 않는다.
+    already_counted 입고는 이미 마감에서 센 물건이라 더하지 않는다(중복 가산 방지)."""
     total: Decimal | None = None
     for entry in ledger:
         if entry.item_id != item_id:
             continue
         if isinstance(entry, CountEntry):
             total = entry.quantity
-        elif isinstance(entry, AdjustEntry) and total is not None:
+        elif total is None:
+            continue
+        elif isinstance(entry, AdjustEntry):
             total += entry.delta
+        elif isinstance(entry, ReceiptEntry) and not entry.already_counted:
+            total += entry.quantity
     return total
+
+
+OPEN_STATUSES = (OrderStatus.ACCEPTED, OrderStatus.PARTIALLY_RECEIVED)
+
+
+def in_transit(orders: Sequence[Order], item_id: str) -> Decimal:
+    """접수됐고 아직 다 받지 않은 주문의 (주문 − 받은) 수량 합. 접수 불명은 넣지 않는다."""
+    return sum(
+        (line.quantity - line.received for o in orders if o.status in OPEN_STATUSES for line in o.lines if line.item_id == item_id),
+        Decimal(0),
+    )
 
 
 def last_counted_at(ledger: Sequence[LedgerEntry], item_id: str) -> datetime | None:

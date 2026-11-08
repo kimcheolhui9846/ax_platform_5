@@ -3,12 +3,22 @@ from decimal import Decimal as D
 
 import pytest
 
-from app.inventory.models import AdjustEntry, CountEntry, ReorderPolicy
+from app.inventory.models import (
+    AdjustEntry,
+    CountEntry,
+    Order,
+    OrderLine,
+    OrderOrigin,
+    OrderStatus,
+    ReceiptEntry,
+    ReorderPolicy,
+)
 from app.inventory.rules import (
     Anomaly,
     AnomalyKind,
     StockStatus,
     find_anomalies,
+    in_transit,
     item_status,
     last_counted_at,
     on_hand,
@@ -44,6 +54,47 @@ def policy(min_stock="10", target="30", unit="12"):
 )
 def test_on_hand(ledger, expected):
     assert on_hand(ledger, "a") == expected
+
+
+def receipt(qty, item="a", counted=False):
+    return ReceiptEntry(item_id=item, quantity=D(qty), order_id="or_x", already_counted=counted)
+
+
+@pytest.mark.parametrize(
+    ("ledger", "expected"),
+    [
+        ([count("10"), receipt("5")], D(15)),
+        ([count("10"), receipt("5", counted=True)], D(10)),  # 이미 마감에서 셌다: 중복 가산 금지
+        ([receipt("5")], None),  # 센 적 없으면 입고만으로 수량을 정하지 않는다
+        ([count("10"), receipt("5"), count("12")], D(12)),
+    ],
+)
+def test_on_hand_with_receipts(ledger, expected):
+    assert on_hand(ledger, "a") == expected
+
+
+def order(status, *lines):
+    return Order(
+        request_id="req-00000001",
+        supplier_id="sup_a",
+        lines=[OrderLine(item_id=i, quantity=D(q), unit_price=D(100), received=D(r)) for i, q, r in lines],
+        total=D(0),
+        origin=OrderOrigin.MANUAL,
+        status=status,
+    )
+
+
+def test_in_transit_counts_open_orders_remaining_quantity():
+    orders = [
+        order(OrderStatus.ACCEPTED, ("a", "10", "0"), ("b", "3", "0")),
+        order(OrderStatus.PARTIALLY_RECEIVED, ("a", "10", "4")),
+        order(OrderStatus.UNKNOWN, ("a", "100", "0")),  # 접수 여부를 모르면 배송 중이 아니다
+        order(OrderStatus.REJECTED, ("a", "100", "0")),
+        order(OrderStatus.RECEIVED, ("a", "5", "5")),
+    ]
+    assert in_transit(orders, "a") == D(16)
+    assert in_transit(orders, "b") == D(3)
+    assert in_transit(orders, "c") == D(0)
 
 
 def test_last_counted_at():
