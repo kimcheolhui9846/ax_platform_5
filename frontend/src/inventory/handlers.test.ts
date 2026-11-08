@@ -59,12 +59,19 @@ describe("탭 이동", () => {
     expect(t.asked()).toBe(0);
   });
 
-  it("입력이 있으면 확인하고, 떠나면 마감 입력을 비운다", () => {
+  it("입력이 있으면 확인하고, 떠나면 저장하지 않은 입력을 버린다", () => {
     const t = setup({ dirty: true });
     t.on.onTab("stock");
     expect(t.asked()).toBe(1);
     expect(t.tabs).toEqual(["stock"]);
-    expect(t.actions).toEqual([{ type: "closeReset" }]);
+    expect(t.actions).toEqual([{ type: "discarded" }]);
+  });
+
+  it("마감 입력이 없어도 저장하지 않은 양식 입력이 있으면 묻는다", () => {
+    const t = setup({ edited: ["settings"] });
+    t.on.onTab("stock");
+    expect(t.asked()).toBe(1);
+    expect(t.actions).toEqual([{ type: "discarded" }]);
   });
 
   it("확인에서 취소하면 머문다", () => {
@@ -150,7 +157,8 @@ describe("입력 action", () => {
     t.on.onAdjust("a", "1", "r");
     t.on.onDate("2026-01-01");
     t.on.onReset();
-    t.on.onEdited();
+    t.on.onEdited("bulk");
     expect(t.actions.map((a) => a.type)).toEqual(["filterChanged", "countChanged", "anomalyConfirmed", "adjustmentChanged", "closeDateChanged", "closeReset", "edited"]);
+    expect(t.actions.at(-1)).toEqual({ type: "edited", form: "bulk" });
   });
 });

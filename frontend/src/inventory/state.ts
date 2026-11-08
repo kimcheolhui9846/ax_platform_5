@@ -22,7 +22,8 @@ export type InventoryState = {
     result: CloseView | null; // 저장 결과(자동 주문 요약)
     date: string; // 고른 마감 날짜 YYYY-MM-DD
   };
-  dirty: boolean; // 저장하지 않은 입력이 있다(탭 옮길 때 확인)
+  dirty: boolean; // 마감 탭에 저장하지 않은 입력(수량·조정·날짜)이 있다
+  edited: InventoryForm[]; // 저장하지 않은 입력이 있는 양식(그 양식 저장이 성공해야 빠진다)
   saved: Record<InventoryForm, number>; // 양식마다 저장이 성공한 횟수(그 양식의 key)
 };
 
@@ -38,8 +39,8 @@ export type InventoryAction =
   | { type: "adjustmentChanged"; itemId: string; delta: string; reason: string }
   | { type: "closeDateChanged"; date: string }
   | { type: "closeReset" }
-  | { type: "edited" }
-  | { type: "saved" }
+  | { type: "edited"; form: InventoryForm }
+  | { type: "discarded" }
   | { type: "toastClosed" };
 
 export const EMPTY_CLOSE: InventoryState["close"] = { counts: {}, check: null, confirmed: [], adjustments: {}, result: null, date: "" };
@@ -54,6 +55,7 @@ export function initialInventoryState(today = ""): InventoryState {
     filter: { query: "", kind: "all" },
     close: { ...EMPTY_CLOSE, date: today },
     dirty: false,
+    edited: [],
     saved: { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 },
   };
 }
@@ -77,7 +79,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         view: action.view,
         loadFailed: false,
         saved: savedAfter(state),
-        dirty: state.inflight?.kind === "save" ? hasCloseInput(state) : state.dirty, // 저장이 끝난 양식 입력은 남지 않는다
+        edited: state.edited.filter((form) => form !== savedForm(state)), // 저장이 끝난 그 양식 입력만 남지 않는다
       };
     case "checked":
       if (!isCurrent(state, action.seq)) return state;
@@ -112,29 +114,40 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         close: { ...state.close, adjustments: { ...state.close.adjustments, [action.itemId]: { delta: action.delta, reason: action.reason } } },
       };
     case "closeReset":
-      return { ...state, dirty: false, close: { ...EMPTY_CLOSE, date: state.close.date } };
+      return withoutCloseInput(state);
+    case "discarded":
+      return { ...withoutCloseInput(state), edited: [] };
     case "closeDateChanged":
       return { ...state, dirty: true, close: { ...state.close, date: action.date, check: null, confirmed: [], result: null } };
     case "edited":
-      return { ...state, dirty: true };
-    case "saved":
-      return { ...state, dirty: false };
+      return state.edited.includes(action.form) ? state : { ...state, edited: [...state.edited, action.form] };
     case "toastClosed":
       return { ...state, toast: null };
   }
 }
 
+/** 탭을 옮길 때 물어야 하는가: 마감 입력이나 저장하지 않은 양식 입력이 있다. */
+export function hasUnsaved(state: InventoryState): boolean {
+  return state.dirty || state.edited.length > 0;
+}
+
 /** 저장 응답이면 그 요청을 낸 양식의 횟수만 하나 올린다. */
 function savedAfter(state: InventoryState): InventoryState["saved"] {
-  const form = state.inflight?.kind === "save" ? state.inflight.form : null;
+  const form = savedForm(state);
   return form === null ? state.saved : { ...state.saved, [form]: state.saved[form] + 1 };
+}
+
+function savedForm(state: InventoryState): InventoryForm | null {
+  return state.inflight?.kind === "save" ? state.inflight.form : null;
+}
+
+/** 마감 입력을 비운다(날짜는 둔다). 기다리던 검사·마감 응답은 비운 입력의 것이라 더 받지 않는다. */
+function withoutCloseInput(state: InventoryState): InventoryState {
+  const kind = state.inflight?.kind;
+  const inflight = kind === "check" || kind === "close" ? null : state.inflight;
+  return { ...state, inflight, dirty: false, close: { ...EMPTY_CLOSE, date: state.close.date } };
 }
 
 function isCurrent(state: InventoryState, seq: number): boolean {
   return state.inflight !== null && state.inflight.seq === seq;
-}
-
-/** 마감 탭에 아직 저장하지 않은 입력(센 수량·조정)이 있는가. */
-function hasCloseInput(state: InventoryState): boolean {
-  return Object.keys(state.close.counts).length > 0 || Object.keys(state.close.adjustments).length > 0;
 }

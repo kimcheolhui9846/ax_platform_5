@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CloseCheckView, CloseView, InventoryView } from "../api/types";
-import { initialInventoryState, inventoryReducer } from "./state";
+import { hasUnsaved, initialInventoryState, inventoryReducer } from "./state";
 import type { InventoryAction, InventoryState } from "./state";
 
 const view = (tag: string) => ({ tag }) as unknown as InventoryView;
@@ -51,7 +51,7 @@ describe("inventoryReducer 실패", () => {
       { type: "failed", seq: 1, message: "실패" },
     ]);
     expect(s.close.counts).toEqual({ a: "5" });
-    expect(s.dirty).toBe(true);
+    expect(hasUnsaved(s)).toBe(true);
     expect(s.inflight).toBeNull();
     expect(s.loadFailed).toBe(false);
   });
@@ -67,7 +67,7 @@ describe("inventoryReducer 마감 입력", () => {
     ]);
     expect(s.close.check).toBeNull();
     expect(s.close.confirmed).toEqual([]);
-    expect(s.dirty).toBe(true);
+    expect(hasUnsaved(s)).toBe(true);
   });
 
   it("빈칸으로 바꾸면 미입력으로 뺀다", () => {
@@ -87,7 +87,7 @@ describe("inventoryReducer 마감 입력", () => {
   it("조정 입력을 둔다", () => {
     const s = run([{ type: "adjustmentChanged", itemId: "a", delta: "-2", reason: "파손" }]);
     expect(s.close.adjustments).toEqual({ a: { delta: "-2", reason: "파손" } });
-    expect(s.dirty).toBe(true);
+    expect(hasUnsaved(s)).toBe(true);
   });
 
   it("마감을 저장하면 입력을 비우고 결과·현황을 갱신한다", () => {
@@ -99,13 +99,13 @@ describe("inventoryReducer 마감 입력", () => {
     expect(s.close.counts).toEqual({});
     expect(s.close.result).toEqual(result("new"));
     expect(s.view).toEqual(view("new"));
-    expect(s.dirty).toBe(false);
+    expect(hasUnsaved(s)).toBe(false);
   });
 
   it("closeReset은 입력과 결과를 비운다", () => {
     const s = run([{ type: "countChanged", itemId: "a", text: "3" }, { type: "closeReset" }]);
     expect(s.close.counts).toEqual({});
-    expect(s.dirty).toBe(false);
+    expect(hasUnsaved(s)).toBe(false);
   });
 });
 
@@ -118,10 +118,9 @@ describe("inventoryReducer 그 밖", () => {
     expect(s.filter).toEqual({ query: "우유", kind: "material" });
   });
 
-  it("edited, saved, toastClosed", () => {
-    const edited = run([{ type: "edited" }]);
-    expect(edited.dirty).toBe(true);
-    expect(inventoryReducer(edited, { type: "saved" }).dirty).toBe(false);
+  it("edited, toastClosed", () => {
+    const edited = run([{ type: "edited", form: "bulk" }]);
+    expect(hasUnsaved(edited)).toBe(true);
     const toasted = run([
       { type: "requested", seq: 1, kind: "save" },
       { type: "failed", seq: 1, message: "m" },
@@ -160,27 +159,83 @@ describe("inventoryReducer 저장 횟수·마감 날짜", () => {
   });
 });
 
-describe("inventoryReducer 저장과 dirty", () => {
-  it("양식 저장이 성공하면 입력 중인 양식은 닫힌 것으로 본다(마감 입력이 없을 때)", () => {
+describe("inventoryReducer 저장하지 않은 입력", () => {
+  it("양식 저장이 성공하면 그 양식의 입력만 저장된 것으로 본다", () => {
     const s = run([
-      { type: "edited" },
-      { type: "requested", seq: 1, kind: "save", form: "bulk" },
+      { type: "edited", form: "bulk" },
+      { type: "edited", form: "settings" },
+      { type: "requested", seq: 1, kind: "save", form: "settings" },
       { type: "loaded", seq: 1, view: view("a") },
     ]);
-    expect(s.dirty).toBe(false);
+    expect(s.edited).toEqual(["bulk"]);
+    expect(hasUnsaved(s)).toBe(true);
+    const bulk = run([{ type: "requested", seq: 2, kind: "save", form: "bulk" }, { type: "loaded", seq: 2, view: view("b") }], s);
+    expect(hasUnsaved(bulk)).toBe(false);
   });
 
-  it("마감 입력이 남아 있으면 품목 저장이 dirty를 지우지 않는다", () => {
+  it("마감 입력이 남아 있으면 품목 저장 뒤에도 저장하지 않은 입력이 있다", () => {
     const s = run([
       { type: "countChanged", itemId: "a", text: "3" },
       { type: "requested", seq: 1, kind: "save", form: "policy" },
       { type: "loaded", seq: 1, view: view("a") },
     ]);
-    expect(s.dirty).toBe(true);
+    expect(hasUnsaved(s)).toBe(true);
   });
 
-  it("불러오기는 dirty를 건드리지 않는다", () => {
-    const s = run([{ type: "edited" }, { type: "requested", seq: 1, kind: "load" }, { type: "loaded", seq: 1, view: view("a") }]);
-    expect(s.dirty).toBe(true);
+  it("마감 날짜만 바꿔도 저장하지 않은 입력이다", () => {
+    expect(hasUnsaved(run([{ type: "closeDateChanged", date: "2026-11-01" }]))).toBe(true);
+  });
+
+  it("불러오기·실패한 저장은 입력을 지우지 않는다", () => {
+    const loaded = run([{ type: "edited", form: "item" }, { type: "requested", seq: 1, kind: "load" }, { type: "loaded", seq: 1, view: view("a") }]);
+    expect(loaded.edited).toEqual(["item"]);
+    const failed = run([{ type: "edited", form: "item" }, { type: "requested", seq: 1, kind: "save", form: "item" }, { type: "failed", seq: 1, message: "x" }]);
+    expect(failed.edited).toEqual(["item"]);
+  });
+
+  it("같은 양식을 여러 번 고쳐도 한 번만 남는다", () => {
+    expect(run([{ type: "edited", form: "item" }, { type: "edited", form: "item" }]).edited).toEqual(["item"]);
+  });
+
+  it("버리기(discarded)는 마감 입력과 양식 입력을 모두 비우고 날짜는 둔다", () => {
+    const s = run([
+      { type: "closeDateChanged", date: "2026-11-01" },
+      { type: "countChanged", itemId: "a", text: "3" },
+      { type: "edited", form: "bulk" },
+      { type: "discarded" },
+    ]);
+    expect(hasUnsaved(s)).toBe(false);
+    expect(s.close.counts).toEqual({});
+    expect(s.close.date).toBe("2026-11-01");
+  });
+
+  it("마감 입력을 비우거나 버린 뒤 늦게 온 검사·마감 응답은 받지 않는다", () => {
+    for (const drop of [{ type: "closeReset" }, { type: "discarded" }] as const) {
+      const checked = run([
+        { type: "countChanged", itemId: "a", text: "3" },
+        { type: "requested", seq: 1, kind: "check" },
+        drop,
+        { type: "checked", seq: 1, check },
+      ]);
+      expect(checked.close.check).toBeNull();
+      expect(checked.inflight).toBeNull();
+      const closed = run([
+        { type: "countChanged", itemId: "a", text: "3" },
+        { type: "requested", seq: 1, kind: "close" },
+        drop,
+        { type: "closed", seq: 1, result: result("late") },
+      ]);
+      expect(closed.close.result).toBeNull();
+    }
+  });
+
+  it("마감 입력을 버려도 기다리는 양식 저장은 그대로 받는다", () => {
+    const s = run([
+      { type: "requested", seq: 1, kind: "save", form: "bulk" },
+      { type: "discarded" },
+      { type: "loaded", seq: 1, view: view("a") },
+    ]);
+    expect(s.view).toEqual(view("a"));
+    expect(s.saved.bulk).toBe(1);
   });
 });

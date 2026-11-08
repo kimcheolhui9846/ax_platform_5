@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 
 import type { InventorySettingsRequest, ItemDraft, ItemPatch, MockOutcome, ReorderPolicyRequest } from "../../api/types";
 import type { ItemsModel } from "../../inventory/screenModel";
-import type { InventoryCall } from "../../inventory/state";
+import type { InventoryCall, InventoryForm } from "../../inventory/state";
 import { BulkItemsForm, ItemEditForm, PolicyForm, SettingsForm, SuppliersSection } from "./ItemForms";
 
 export type ItemsHandlers = {
@@ -14,8 +14,8 @@ export type ItemsHandlers = {
   onSuggest: (itemId: string) => void;
   onApplySuggestion: (itemId: string) => void;
   onSaveSettings: (request: InventorySettingsRequest) => void;
-  /** 저장하지 않은 입력이 생겼다(탭을 옮길 때 확인하려고). */
-  onEdited: () => void;
+  /** 그 양식에 저장하지 않은 입력이 생겼다(탭을 옮길 때 확인하려고). */
+  onEdited: (form: InventoryForm) => void;
 };
 
 type Props = { model: ItemsModel; busy: InventoryCall | null; on: ItemsHandlers };
@@ -27,7 +27,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
   const selected = model.rows.find((r) => r.itemId === selectedId) ?? null;
   return (
     <div className="stack">
-      <BulkItemsForm key={`bulk:${model.saved.bulk}`} suppliers={model.suppliers} busy={busy} onCreate={on.onCreateItems} onEdited={on.onEdited} />
+      <BulkItemsForm key={`bulk:${model.saved.bulk}`} suppliers={model.suppliers} busy={busy} onCreate={on.onCreateItems} onEdited={() => on.onEdited("bulk")} />
       <section className="card stack" aria-label="품목 선택">
         <h2>품목 편집·보충 기준</h2>
         {model.rows.length === 0 ? (
@@ -55,7 +55,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
             suppliers={model.suppliers}
             busy={busy}
             onSave={on.onUpdateItem}
-            onEdited={on.onEdited}
+            onEdited={() => on.onEdited("item")}
           />
           <PolicyForm
             key={`policy:${model.saved.policy}:${selected.itemId}:${selected.policyText}`}
@@ -64,7 +64,7 @@ export function ItemsScreen({ model, busy, on }: Props) {
             onSave={on.onSavePolicy}
             onSuggest={on.onSuggest}
             onApply={on.onApplySuggestion}
-            onEdited={on.onEdited}
+            onEdited={() => on.onEdited("policy")}
           />
         </>
       )}
@@ -74,14 +74,14 @@ export function ItemsScreen({ model, busy, on }: Props) {
         busy={busy}
         onCreate={on.onCreateSupplier}
         onUpdate={on.onUpdateSupplier}
-        onEdited={on.onEdited}
+        onEdited={() => on.onEdited("supplier")}
       />
       <SettingsForm
         key={`settings:${model.saved.settings}:${model.settings.address}:${model.settings.anomaly_drop_ratio}:${model.settings.stale_days}`}
         settings={model.settings}
         busy={busy}
         onSave={on.onSaveSettings}
-        onEdited={on.onEdited}
+        onEdited={() => on.onEdited("settings")}
       />
     </div>
   );

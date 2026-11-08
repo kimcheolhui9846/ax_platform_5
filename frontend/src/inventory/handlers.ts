@@ -3,6 +3,7 @@ import type { ApiResult } from "../api/inventory";
 import type { InventoryView } from "../api/types";
 import type { InventoryTab } from "../lib/routes";
 import type { InventoryRequest, InventoryRunner } from "./requests";
+import { hasUnsaved } from "./state";
 import type { InventoryAction, InventoryForm, InventoryState } from "./state";
 import type { InventoryHandlers } from "./view";
 
@@ -33,9 +34,9 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
   return {
     onTab: (next) => {
       if (next === tab) return;
-      if (state.dirty) {
+      if (hasUnsaved(state)) {
         if (!confirmLeave()) return;
-        dispatch({ type: "closeReset" }); // 떠나기로 했으면 마감 입력도 버린다
+        dispatch({ type: "discarded" }); // 떠나기로 했으면 마감 입력·양식 입력을 버린다
       }
       navigate(next);
     },
@@ -47,7 +48,7 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
     onDate: (date) => dispatch({ type: "closeDateChanged", date }),
     onReset: () => dispatch({ type: "closeReset" }),
     onOpenStock: () => navigate("stock"),
-    onEdited: () => dispatch({ type: "edited" }),
+    onEdited: (form) => dispatch({ type: "edited", form }),
     onCheck: () =>
       void run({
         kind: "check",
