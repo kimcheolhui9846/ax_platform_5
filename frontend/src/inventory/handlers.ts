@@ -40,14 +40,15 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
     }
     go();
   };
+  const onTab = (next: InventoryTab) => {
+    if (next === tab) return;
+    leave(() => {
+      if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
+      navigate(next);
+    });
+  };
   return {
-    onTab: (next) => {
-      if (next === tab) return;
-      leave(() => {
-        if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
-        navigate(next);
-      });
-    },
+    onTab,
     onLeave: leave,
     onRetry: () => void run(loadRequest()),
     onFilter: (filter) => dispatch({ type: "filterChanged", filter }),
@@ -120,7 +121,7 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
       if (draft !== null) dispatch({ type: "orderOpened", draft });
     },
     onSaveAutoOrder: (itemId, request: AutoOrderRequest) => void run(saveRequest("auto", () => setAutoOrder(itemId, request))),
-    onOpenOrders: () => navigate("orders"),
+    onOpenOrders: () => onTab("orders"),
     onSuggest: (itemId) =>
       void run({
         kind: "suggest",

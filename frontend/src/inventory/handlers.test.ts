@@ -289,4 +289,15 @@ describe("주문·입고·보류·자동 주문", () => {
     expect(t.actions[0]).toMatchObject({ type: "orderOpened", draft: { repriced: true } });
     expect(t.tabs).toEqual(["orders"]);
   });
+  it("주문 탭 열기도 탭 이동과 같다: 저장하지 않은 입력을 묻고, 마감 결과를 지운다", () => {
+    const kept = setup({ edited: ["receipt"] }, false);
+    kept.on.onOpenOrders();
+    expect(kept.asked()).toBe(1);
+    expect(kept.tabs).toEqual([]);
+    const result = { ...initialInventoryState("2026-11-08").close, result: {} as never };
+    const reset = setup({ close: result });
+    reset.on.onOpenOrders();
+    expect(reset.actions).toContainEqual({ type: "closeReset" });
+    expect(reset.tabs).toEqual(["orders"]);
+  });
 });
