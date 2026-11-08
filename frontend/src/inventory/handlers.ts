@@ -31,15 +31,18 @@ function saveRequest(form: InventoryForm, request: () => Promise<ApiResult<Inven
 export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, confirmLeave }: Deps): InventoryHandlers {
   const { counts, adjustments, confirmed } = state.close;
   const entered = Object.fromEntries(Object.entries(counts).filter(([, text]) => text.trim() !== ""));
+  const leave = (go: () => void) => {
+    if (hasUnsaved(state)) {
+      if (!confirmLeave()) return;
+      dispatch({ type: "discarded" }); // 떠나기로 했으면 마감 입력·양식 입력을 버린다
+    }
+    go();
+  };
   return {
     onTab: (next) => {
-      if (next === tab) return;
-      if (hasUnsaved(state)) {
-        if (!confirmLeave()) return;
-        dispatch({ type: "discarded" }); // 떠나기로 했으면 마감 입력·양식 입력을 버린다
-      }
-      navigate(next);
+      if (next !== tab) leave(() => navigate(next));
     },
+    onLeave: leave,
     onRetry: () => void run(loadRequest()),
     onFilter: (filter) => dispatch({ type: "filterChanged", filter }),
     onCount: (itemId, text) => dispatch({ type: "countChanged", itemId, text }),

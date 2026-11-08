@@ -28,6 +28,8 @@ export type InventoryScreenModel =
 export type InventoryHandlers = CloseHandlers &
   ItemsHandlers & {
     onTab: (tab: InventoryTab) => void;
+    /** 재고 화면 밖으로 가기 전(왼쪽 메뉴): 저장하지 않은 입력이 있으면 묻고, 떠나기로 하면 go를 부른다. */
+    onLeave: (go: () => void) => void;
     onRetry: () => void;
   };
 

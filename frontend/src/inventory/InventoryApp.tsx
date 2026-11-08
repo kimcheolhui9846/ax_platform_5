@@ -18,6 +18,12 @@ type Props = {
   confirmLeave: () => boolean;
 };
 
+/** 왼쪽 메뉴로 옮길 때도 저장하지 않은 입력을 묻는다. */
+function guardedRail(rail: RailProps, leave: (go: () => void) => void): RailProps {
+  const guide = rail.onGuide;
+  return { ...rail, onNavigate: (key) => leave(() => rail.onNavigate(key)), onGuide: guide && (() => leave(guide)) };
+}
+
 /** 재고 화면(코칭과 상태를 섞지 않는다). 상태는 reducer 하나, 여기서는 불러오기·알림 같은 바깥과의 연결만 한다(문서 제목은 App이 정한다). */
 export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
   const [state, dispatch] = useReducer(inventoryReducer, undefined, () => initialInventoryState(localDateText(new Date())));
@@ -40,7 +46,7 @@ export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
   const on = makeInventoryHandlers({ state, tab, run, dispatch, navigate: onTab, confirmLeave });
   return (
     <>
-      <InventoryView tab={tab} model={inventoryScreen(state, tab)} busy={state.inflight?.kind ?? null} on={on} rail={rail} />
+      <InventoryView tab={tab} model={inventoryScreen(state, tab)} busy={state.inflight?.kind ?? null} on={on} rail={guardedRail(rail, on.onLeave)} />
       <Toast message={state.toast} />
     </>
   );

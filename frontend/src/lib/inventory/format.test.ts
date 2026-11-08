@@ -6,10 +6,12 @@ describe("quantityText", () => {
     expect(quantityText(null, "m")).toBe("미입력");
     expect(quantityText("0", "m")).toBe("0 m");
   });
-  it("천 단위 쉼표, 소수는 그대로", () => {
+  it("천 단위 쉼표, 소수 끝의 0은 뺀다(서버가 붙인 자리 맞춤)", () => {
     expect(quantityText("1234.5", "m")).toBe("1,234.5 m");
     expect(quantityText("1234567", "개")).toBe("1,234,567 개");
-    expect(quantityText("10.50", "kg")).toBe("10.50 kg");
+    expect(quantityText("10.50", "kg")).toBe("10.5 kg");
+    expect(quantityText("30.00", "L")).toBe("30 L");
+    expect(quantityText("100", "L")).toBe("100 L");
     expect(quantityText("-1500", "개")).toBe("-1,500 개");
   });
 });

@@ -112,7 +112,7 @@ export default function App() {
           tab={route.tab}
           rail={railProps(route, isBusy(state), on)}
           onTab={(tab) => dispatch({ type: "navigated", route: { name: "inventory", tab } })}
-          confirmLeave={() => window.confirm("저장하지 않은 입력이 있어요. 이 탭을 떠날까요?")}
+          confirmLeave={() => window.confirm("저장하지 않은 입력이 있어요. 떠나면 입력이 사라져요. 이동할까요?")}
         />
       ) : (
         <>

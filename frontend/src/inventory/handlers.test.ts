@@ -74,6 +74,21 @@ describe("탭 이동", () => {
     expect(t.actions).toEqual([{ type: "discarded" }]);
   });
 
+  it("왼쪽 메뉴로 떠날 때도 같은 확인을 거친다", () => {
+    const go = vi.fn();
+    const kept = setup({ edited: ["settings"] }, false);
+    kept.on.onLeave(go);
+    expect(go).not.toHaveBeenCalled();
+    const left = setup({ edited: ["settings"] });
+    left.on.onLeave(go);
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(left.actions).toEqual([{ type: "discarded" }]);
+    const clean = setup();
+    clean.on.onLeave(go);
+    expect(clean.asked()).toBe(0);
+    expect(go).toHaveBeenCalledTimes(2);
+  });
+
   it("확인에서 취소하면 머문다", () => {
     const t = setup({ dirty: true }, false);
     t.on.onTab("stock");

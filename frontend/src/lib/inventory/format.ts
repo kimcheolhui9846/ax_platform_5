@@ -30,9 +30,13 @@ function grouped(value: string): string {
   return `${sign}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${fraction}`;
 }
 
-/** 수량 글. 미입력(null)은 0이 아니다. */
+/** 수량 글. 미입력(null)은 0이 아니다. 소수 끝의 0(서버의 자리 맞춤 "30.00")은 뺀다. */
 export function quantityText(quantity: string | null, unit: string): string {
-  return quantity === null ? "미입력" : `${grouped(quantity)} ${unit}`;
+  return quantity === null ? "미입력" : `${grouped(withoutTrailingZeros(quantity))} ${unit}`;
+}
+
+function withoutTrailingZeros(value: string): string {
+  return /^-?\d+\.\d+$/.test(value.trim()) ? value.trim().replace(/\.?0+$/, "") : value;
 }
 
 export function moneyText(amount: string): string {

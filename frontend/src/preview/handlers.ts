@@ -67,4 +67,5 @@ export const NOOP_INVENTORY_HANDLERS: InventoryHandlers = {
   onApplySuggestion: noop,
   onSaveSettings: noop,
   onEdited: noop,
+  onLeave: noop,
 };
