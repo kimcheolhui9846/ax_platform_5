@@ -3,7 +3,7 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-11-08
-- main: `7f51326` (PR #43까지 머지). 재고 화면 1이 PR #44(머지 대기), 이 PR(#45 재고 화면 2)은 그 위에 쌓았다
+- main: `5e24439` (PR #44까지 머지). 이 PR(#45 재고 화면 2)이 머지되면 재고 화면 묶음이 끝난다
 - 테스트: 백엔드 1142 passed, 프론트 716 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
