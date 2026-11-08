@@ -13,6 +13,8 @@ from app.inventory.models import (
     Item,
     ItemKind,
     MockOutcome,
+    Money,
+    PositiveQuantity,
     Procurement,
     Quantity,
     ReorderPolicy,
@@ -129,3 +131,29 @@ class CloseCheckView(ContractModel):
 class CloseView(ContractModel):
     close: Close
     inventory: InventoryView
+
+
+RequestId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9:_-]{8,64}$")]
+
+
+class OrderLineRequest(BaseModel):
+    item_id: str
+    quantity: PositiveQuantity
+    unit_price: Money | None = None  # 없으면 보충 기준의 단가. 가격 변동 보류를 직접 검토할 때 새 단가를 넣는다
+
+
+class OrderRequest(BaseModel):
+    """S07 주문 확인. 같은 request_id로 다시 보내면 새로 주문하지 않고 기존 주문을 돌려준다."""
+
+    request_id: RequestId
+    lines: list[OrderLineRequest] = Field(min_length=1, max_length=50)
+
+
+class ReceiptLine(BaseModel):
+    item_id: str
+    quantity: PositiveQuantity
+    already_counted: bool = False  # 이미 마감에서 센 물건이면 보유에 더하지 않는다
+
+
+class ReceiptRequest(BaseModel):
+    lines: list[ReceiptLine] = Field(min_length=1, max_length=50)
