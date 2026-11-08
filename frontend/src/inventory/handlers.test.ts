@@ -12,9 +12,15 @@ vi.mock("../api/inventory", () => ({
   recordClose: vi.fn(),
   suggestPolicy: vi.fn(),
   applySuggestion: vi.fn(),
+  placeOrder: vi.fn(),
+  refreshOrder: vi.fn(),
+  receive: vi.fn(),
+  resolveHold: vi.fn(),
+  setAutoOrder: vi.fn(),
 }));
 
-import { addItems, applySuggestion, checkClose, getInventory, recordClose, setPolicy, suggestPolicy } from "../api/inventory";
+import { addItems, applySuggestion, checkClose, getInventory, placeOrder, receive, recordClose, refreshOrder, resolveHold, setAutoOrder, setPolicy, suggestPolicy } from "../api/inventory";
+import { INVENTORY } from "../preview/fixtures";
 import { makeInventoryHandlers } from "./handlers";
 import type { InventoryRequest } from "./requests";
 import { initialInventoryState } from "./state";
@@ -27,6 +33,7 @@ function setup(patch: Partial<InventoryState> = {}, confirm = true) {
   const actions: InventoryAction[] = [];
   const tabs: string[] = [];
   let asked = 0;
+  let ids = 0;
   const state = { ...initialInventoryState("2026-11-08"), ...patch };
   const on = makeInventoryHandlers({
     state,
@@ -36,6 +43,7 @@ function setup(patch: Partial<InventoryState> = {}, confirm = true) {
     },
     dispatch: (a) => actions.push(a),
     navigate: (tab) => tabs.push(tab),
+    newRequestId: () => `manual:${++ids}`,
     confirmLeave: () => {
       asked += 1;
       return confirm;
@@ -184,5 +192,101 @@ describe("입력 action", () => {
     t.on.onEdited("bulk");
     expect(t.actions.map((a) => a.type)).toEqual(["filterChanged", "countChanged", "anomalyConfirmed", "adjustmentChanged", "closeDateChanged", "closeReset", "edited"]);
     expect(t.actions.at(-1)).toEqual({ type: "edited", form: "bulk" });
+  });
+});
+
+describe("주문·입고·보류·자동 주문", () => {
+  const draft = { requestId: "manual:x", supplierId: "sup-1", lines: [{ itemId: "it-1", quantity: "40", unitPrice: "4500" }], repriced: false };
+  const withView = { view: INVENTORY };
+
+  it("주문 확인을 열면 제안 묶음으로 초안을 만든다", () => {
+    const t = setup(withView);
+    t.on.onOpenOrder("sup-1");
+    expect(t.actions).toHaveLength(1);
+    expect(t.actions[0]).toMatchObject({ type: "orderOpened", draft: { requestId: "manual:1", supplierId: "sup-1", repriced: false } });
+  });
+  it("없는 묶음이면 아무것도 하지 않는다", () => {
+    const t = setup(withView);
+    t.on.onOpenOrder("nope");
+    expect(t.actions).toEqual([]);
+  });
+  it("초안 편집은 액션으로", () => {
+    const t = setup(withView);
+    t.on.onOrderQuantity("it-1", "5");
+    t.on.onOrderRemoveLine("it-1");
+    t.on.onOrderCancel();
+    t.on.onOrderResultClose();
+    expect(t.actions).toEqual([
+      { type: "orderQuantityChanged", itemId: "it-1", quantity: "5" },
+      { type: "orderLineRemoved", itemId: "it-1" },
+      { type: "orderCancelled" },
+      { type: "orderResultClosed" },
+    ]);
+  });
+  it("주문하기는 초안의 request_id로 보내고, 기준 단가는 싣지 않는다", async () => {
+    const t = setup({ ...withView, order: draft });
+    t.on.onPlaceOrder();
+    expect(t.calls[0].kind).toBe("order");
+    vi.mocked(placeOrder).mockResolvedValue({ ok: true, data: {} as never } as never);
+    await t.calls[0].request();
+    expect(placeOrder).toHaveBeenCalledWith({ request_id: "manual:x", lines: [{ item_id: "it-1", quantity: "40" }] });
+  });
+  it("같은 초안을 두 번 보내면 같은 request_id", async () => {
+    const t = setup({ ...withView, order: draft });
+    t.on.onPlaceOrder();
+    t.on.onPlaceOrder();
+    await t.calls[0].request();
+    await t.calls[1].request();
+    const ids = vi.mocked(placeOrder).mock.calls.map((c) => c[0].request_id);
+    expect(ids).toEqual(["manual:x", "manual:x"]);
+  });
+  it("새 단가로 연 초안은 unit_price를 싣는다", async () => {
+    const t = setup({ ...withView, order: { ...draft, repriced: true, lines: [{ itemId: "it-1", quantity: "40", unitPrice: "5000" }] } });
+    t.on.onPlaceOrder();
+    await t.calls[0].request();
+    expect(placeOrder).toHaveBeenCalledWith({ request_id: "manual:x", lines: [{ item_id: "it-1", quantity: "40", unit_price: "5000" }] });
+  });
+  it("주문 응답은 ordered 액션이 된다", () => {
+    const t = setup({ ...withView, order: draft });
+    t.on.onPlaceOrder();
+    const r = { order: { order_id: "o" }, inventory: INVENTORY } as never;
+    expect((t.calls[0] as unknown as InventoryRequest<typeof r>).done(r, 7)).toMatchObject({ type: "ordered", seq: 7, view: INVENTORY });
+  });
+  it("초안이 없거나 보낼 수 없으면 요청하지 않는다", () => {
+    const none = setup(withView);
+    none.on.onPlaceOrder();
+    const bad = setup({ ...withView, order: { ...draft, lines: [{ itemId: "it-1", quantity: "0", unitPrice: "4500" }] } });
+    bad.on.onPlaceOrder();
+    expect(none.calls).toEqual([]);
+    expect(bad.calls).toEqual([]);
+  });
+  it("다시 확인·입고·보류 해결·자동 주문 저장 요청", async () => {
+    const t = setup(withView);
+    t.on.onRefreshOrder("o-1");
+    t.on.onReceive("o-1", [{ item_id: "it-1", quantity: "3", already_counted: true }]);
+    t.on.onResolveHold("h-1");
+    const auto = { enabled: true, consent: true, per_order_limit: "10", monthly_limit: "20" };
+    t.on.onSaveAutoOrder("it-1", auto);
+    expect(t.calls.map((c) => [c.kind, "form" in c ? c.form : undefined])).toEqual([
+      ["refresh", undefined],
+      ["save", "receipt"],
+      ["resolve", undefined],
+      ["save", "auto"],
+    ]);
+    for (const c of t.calls) await c.request();
+    expect(refreshOrder).toHaveBeenCalledWith("o-1");
+    expect(receive).toHaveBeenCalledWith("o-1", { lines: [{ item_id: "it-1", quantity: "3", already_counted: true }] });
+    expect(resolveHold).toHaveBeenCalledWith("h-1");
+    expect(setAutoOrder).toHaveBeenCalledWith("it-1", auto);
+  });
+  it("보류의 새 단가로 다시 주문 / 주문 탭 열기", () => {
+    const view = { ...INVENTORY, holds: [{ hold_id: "h-1", item_id: "it-1", order_id: null, reason: "price_changed" as const, current_unit_price: "5000", created_at: "x", resolved: false }] };
+    const t = setup({ view });
+    t.on.onReviewHold("h-1");
+    t.on.onReviewHold("nope");
+    t.on.onOpenOrders();
+    expect(t.actions).toHaveLength(1);
+    expect(t.actions[0]).toMatchObject({ type: "orderOpened", draft: { repriced: true } });
+    expect(t.tabs).toEqual(["orders"]);
   });
 });

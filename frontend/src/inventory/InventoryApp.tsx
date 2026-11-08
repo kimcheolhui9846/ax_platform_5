@@ -43,7 +43,7 @@ export function InventoryApp({ tab, rail, onTab, confirmLeave }: Props) {
     return () => window.clearTimeout(timer);
   }, [state.toast]);
 
-  const on = makeInventoryHandlers({ state, tab, run, dispatch, navigate: onTab, confirmLeave });
+  const on = makeInventoryHandlers({ state, tab, run, dispatch, navigate: onTab, newRequestId: () => "manual:" + crypto.randomUUID(), confirmLeave });
   return (
     <>
       <InventoryView tab={tab} model={inventoryScreen(state, tab)} busy={state.inflight?.kind ?? null} on={on} rail={guardedRail(rail, on.onLeave)} />

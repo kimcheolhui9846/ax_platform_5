@@ -1,7 +1,8 @@
-import { addItems, addSupplier, applySuggestion, checkClose, getInventory, recordClose, setPolicy, setSettings, suggestPolicy, updateItem, updateSupplier } from "../api/inventory";
+import { addItems, addSupplier, applySuggestion, checkClose, getInventory, placeOrder, receive, recordClose, refreshOrder, resolveHold, setAutoOrder, setPolicy, setSettings, suggestPolicy, updateItem, updateSupplier } from "../api/inventory";
 import type { ApiResult } from "../api/inventory";
-import type { InventoryView } from "../api/types";
+import type { AutoOrderRequest, InventoryView } from "../api/types";
 import type { InventoryTab } from "../lib/routes";
+import { draftFromHold, draftFromProposal, orderConfirmModel, orderProposals } from "./orderModel";
 import type { InventoryRequest, InventoryRunner } from "./requests";
 import { hasUnsaved } from "./state";
 import type { InventoryAction, InventoryForm, InventoryState } from "./state";
@@ -13,6 +14,7 @@ type Deps = {
   run: InventoryRunner;
   dispatch: (action: InventoryAction) => void;
   navigate: (tab: InventoryTab) => void;
+  newRequestId: () => string; // 주문 초안의 request_id(멱등 키)를 만든다
   confirmLeave: () => boolean; // 저장하지 않은 입력을 두고 떠나도 되는지 묻는다(App이 window.confirm을 넘긴다)
 };
 
@@ -28,7 +30,7 @@ function saveRequest(form: InventoryForm, request: () => Promise<ApiResult<Inven
 }
 
 /** 버튼을 요청 또는 상태 변경으로 바꾼다(코칭 app/handlers.ts와 같은 모양). 저장 요청은 어느 양식인지 함께 알린다. */
-export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, confirmLeave }: Deps): InventoryHandlers {
+export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, newRequestId, confirmLeave }: Deps): InventoryHandlers {
   const { counts, adjustments, confirmed } = state.close;
   const entered = Object.fromEntries(Object.entries(counts).filter(([, text]) => text.trim() !== ""));
   const leave = (go: () => void) => {
@@ -83,6 +85,42 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
     onSavePolicy: (itemId, request) => void run(saveRequest("policy", () => setPolicy(itemId, request))),
     onApplySuggestion: (itemId) => void run(saveRequest("policy", () => applySuggestion(itemId))),
     onSaveSettings: (request) => void run(saveRequest("settings", () => setSettings(request))),
+    onOpenOrder: (supplierId) => {
+      const group = state.view === null ? undefined : orderProposals(state.view).find((g) => g.supplierId === supplierId);
+      if (group !== undefined) dispatch({ type: "orderOpened", draft: draftFromProposal(group, newRequestId()) });
+    },
+    onOrderQuantity: (itemId, quantity) => dispatch({ type: "orderQuantityChanged", itemId, quantity }),
+    onOrderRemoveLine: (itemId) => dispatch({ type: "orderLineRemoved", itemId }),
+    onOrderCancel: () => dispatch({ type: "orderCancelled" }),
+    onOrderResultClose: () => dispatch({ type: "orderResultClosed" }),
+    onPlaceOrder: () => {
+      const { view, order } = state;
+      if (view === null || order === null || !orderConfirmModel(view, order).canSubmit) return;
+      void run({
+        kind: "order",
+        request: () =>
+          placeOrder({
+            request_id: order.requestId,
+            lines: order.lines.map((l) => ({
+              item_id: l.itemId,
+              quantity: l.quantity.trim(),
+              ...(order.repriced ? { unit_price: l.unitPrice } : {}),
+            })),
+          }),
+        done: (r, seq) => ({ type: "ordered", seq, order: r.order, view: r.inventory }),
+      });
+    },
+    onRefreshOrder: (orderId) =>
+      void run({ kind: "refresh", request: () => refreshOrder(orderId), done: (r, seq) => loaded(seq, r.inventory) }),
+    onReceive: (orderId, lines) =>
+      void run({ kind: "save", form: "receipt", request: () => receive(orderId, { lines }), done: (r, seq) => loaded(seq, r.inventory) }),
+    onResolveHold: (holdId) => void run({ kind: "resolve", request: () => resolveHold(holdId), done: (view, seq) => loaded(seq, view) }),
+    onReviewHold: (holdId) => {
+      const draft = state.view === null ? null : draftFromHold(state.view, holdId, newRequestId());
+      if (draft !== null) dispatch({ type: "orderOpened", draft });
+    },
+    onSaveAutoOrder: (itemId, request: AutoOrderRequest) => void run(saveRequest("auto", () => setAutoOrder(itemId, request))),
+    onOpenOrders: () => navigate("orders"),
     onSuggest: (itemId) =>
       void run({
         kind: "suggest",

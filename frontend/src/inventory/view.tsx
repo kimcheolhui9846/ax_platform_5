@@ -1,4 +1,4 @@
-import type { ItemKind, ItemView } from "../api/types";
+import type { AutoOrderRequest, ItemKind, ItemView } from "../api/types";
 import { AppShell } from "../layout/AppShell";
 import type { RailProps } from "../layout/Rail";
 import { INVENTORY_TABS } from "../lib/routes";
@@ -34,6 +34,18 @@ export type InventoryHandlers = CloseHandlers &
     /** 재고 화면 밖으로 가기 전(왼쪽 메뉴): 저장하지 않은 입력이 있으면 묻고, 떠나기로 하면 go를 부른다. */
     onLeave: (go: () => void) => void;
     onRetry: () => void;
+    onOpenOrder: (supplierId: string) => void;
+    onOrderQuantity: (itemId: string, quantity: string) => void;
+    onOrderRemoveLine: (itemId: string) => void;
+    onOrderCancel: () => void;
+    onOrderResultClose: () => void;
+    onPlaceOrder: () => void;
+    onRefreshOrder: (orderId: string) => void;
+    onReceive: (orderId: string, lines: { item_id: string; quantity: string; already_counted: boolean }[]) => void;
+    onResolveHold: (holdId: string) => void;
+    onReviewHold: (holdId: string) => void;
+    onSaveAutoOrder: (itemId: string, request: AutoOrderRequest) => void;
+    onOpenOrders: () => void;
   };
 
 type ViewProps = {
