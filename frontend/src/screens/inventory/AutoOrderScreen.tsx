@@ -4,6 +4,8 @@ import type { FormEvent } from "react";
 import type { AutoOrderRequest, ItemView } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
 import type { DataColumn } from "../../components/DataTable";
+import { autoFormKey, autoOrderRequest, autoOrderStart } from "../../inventory/forms";
+import type { AutoFields } from "../../inventory/forms";
 import type { AutoModel, AutoRow } from "../../inventory/orderModel";
 import type { InventoryCall } from "../../inventory/state";
 
@@ -22,77 +24,39 @@ type Props = {
   initialSelected?: string;
 };
 
-const MONEY = /^\d+(\.\d{1,2})?$/;
-const DEFAULT_PER_ORDER = "100000";
-const DEFAULT_MONTHLY = "300000";
 const CONSENT_TEXT = "부족할 때 하루 마감 직후 이 한도 안에서 자동으로 주문하는 데 동의해요";
 
-/** 편집 카드: 켜기·동의·한도. 켜기 + 동의 안 함이거나 한도가 금액 글이 아니면 저장을 막는다. */
+/** 편집 카드: 켜기·동의·한도. 판단은 forms.ts의 autoOrderRequest. */
 function AutoEditForm({ item, busy, onSave, onEdited }: { item: ItemView; busy: InventoryCall | null; onSave: AutoHandlers["onSaveAutoOrder"]; onEdited: () => void }) {
-  const setting = item.auto_order;
-  const [enabled, setEnabled] = useState(setting?.enabled ?? false);
-  const [consent, setConsent] = useState(setting?.consented_at != null);
-  const [perOrder, setPerOrder] = useState(setting?.per_order_limit ?? DEFAULT_PER_ORDER);
-  const [monthly, setMonthly] = useState(setting?.monthly_limit ?? DEFAULT_MONTHLY);
-  const valid = MONEY.test(perOrder.trim()) && MONEY.test(monthly.trim()) && (!enabled || consent);
+  const [f, setF] = useState<AutoFields>(() => autoOrderStart(item.auto_order));
+  const request = autoOrderRequest(f);
+  const set = (patch: Partial<AutoFields>) => {
+    setF((current) => ({ ...current, ...patch }));
+    onEdited();
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!valid || busy !== null) return;
-    onSave(item.item.item_id, { enabled, consent, per_order_limit: perOrder.trim(), monthly_limit: monthly.trim() });
+    if (request !== null && busy === null) onSave(item.item.item_id, request);
   };
   return (
     <form className="card stack" onSubmit={submit}>
       <h2>{`자동 주문 설정: ${item.item.name}`}</h2>
       <label className="row">
-        <input
-          type="checkbox"
-          disabled={busy !== null}
-          checked={enabled}
-          onChange={(e) => {
-            setEnabled(e.target.checked);
-            onEdited();
-          }}
-        />
+        <input type="checkbox" disabled={busy !== null} checked={f.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
         자동 주문 켜기
       </label>
-      {enabled && (
+      {f.enabled && (
         <label className="row">
-          <input
-            type="checkbox"
-            disabled={busy !== null}
-            checked={consent}
-            onChange={(e) => {
-              setConsent(e.target.checked);
-              onEdited();
-            }}
-          />
+          <input type="checkbox" disabled={busy !== null} checked={f.consent} onChange={(e) => set({ consent: e.target.checked })} />
           {CONSENT_TEXT}
         </label>
       )}
       <div className="row inv-wrap">
-        <input
-          inputMode="decimal"
-          disabled={busy !== null}
-          aria-label="1회 한도(원)"
-          value={perOrder}
-          onChange={(e) => {
-            setPerOrder(e.target.value);
-            onEdited();
-          }}
-        />
-        <input
-          inputMode="decimal"
-          disabled={busy !== null}
-          aria-label="월 한도(원)"
-          value={monthly}
-          onChange={(e) => {
-            setMonthly(e.target.value);
-            onEdited();
-          }}
-        />
+        <input inputMode="decimal" disabled={busy !== null} aria-label="1회 한도(원)" value={f.perOrder} onChange={(e) => set({ perOrder: e.target.value })} />
+        <input inputMode="decimal" disabled={busy !== null} aria-label="월 한도(원)" value={f.monthly} onChange={(e) => set({ monthly: e.target.value })} />
       </div>
       <div className="row">
-        <button type="submit" className="btn primary" disabled={busy !== null || !valid}>
+        <button type="submit" className="btn primary" disabled={busy !== null || request === null}>
           {busy === "save" ? "저장 중…" : "저장"}
         </button>
       </div>
@@ -128,7 +92,7 @@ export function AutoOrderScreen({ model, items, saved, busy, on, initialSelected
       <DataTable caption="자동 주문" columns={columns} rows={model.rows} rowKey={(r) => r.itemId} empty="구매하는 품목이 없어요." />
       {selected !== null && (
         <AutoEditForm
-          key={`${saved}:${selected.item.item_id}:${JSON.stringify(selected.auto_order)}`}
+          key={autoFormKey(saved, selected)}
           item={selected}
           busy={busy}
           onSave={on.onSaveAutoOrder}

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
+import { receiptFormKey, receiptRequest, receiptStart } from "../../inventory/forms";
+import type { ReceiptFieldLine } from "../../inventory/forms";
 import type { HoldRow, OrderCard } from "../../inventory/orderModel";
 import type { InventoryCall } from "../../inventory/state";
 
@@ -14,56 +16,37 @@ export type OrdersHandlers = {
 
 type Props = { orders: OrderCard[]; holds: HoldRow[]; saved: number; busy: InventoryCall | null; on: OrdersHandlers };
 
-const POSITIVE = /^\d+(\.\d+)?$/;
-const isPositive = (text: string) => POSITIVE.test(text) && Number(text) > 0;
-
-/** 입고 양식: 줄마다 입고 수량(남은 수량으로 시작)과 이미 마감에서 셌어요. 빈 칸 줄은 보내지 않는다. */
+/** 입고 양식: 줄마다 입고 수량(남은 수량으로 시작)과 이미 마감에서 셌어요. 판단은 forms.ts의 receiptRequest. */
 function ReceiptForm({ card, busy, onReceive, onEdited }: { card: OrderCard; busy: InventoryCall | null; onReceive: OrdersHandlers["onReceive"]; onEdited: () => void }) {
-  const open = card.lines.filter((l) => Number(l.remainingRaw) > 0);
-  const [quantities, setQuantities] = useState<Record<string, string>>(() => Object.fromEntries(open.map((l) => [l.itemId, l.remainingRaw])));
-  const [counted, setCounted] = useState<Record<string, boolean>>({});
-  const filled = open.filter((l) => (quantities[l.itemId] ?? "").trim() !== "");
-  const valid = filled.length > 0 && filled.every((l) => isPositive((quantities[l.itemId] ?? "").trim()));
+  const [lines, setLines] = useState<ReceiptFieldLine[]>(() => receiptStart(card));
+  const request = receiptRequest(lines);
+  const lineOf = (itemId: string) => card.lines.find((l) => l.itemId === itemId);
+  const set = (itemId: string, patch: Partial<ReceiptFieldLine>) => {
+    setLines((current) => current.map((l) => (l.itemId === itemId ? { ...l, ...patch } : l)));
+    onEdited();
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!valid || busy !== null) return;
-    onReceive(
-      card.orderId,
-      filled.map((l) => ({ item_id: l.itemId, quantity: (quantities[l.itemId] ?? "").trim(), already_counted: counted[l.itemId] === true })),
-    );
+    if (request !== null && busy === null) onReceive(card.orderId, request.lines);
   };
   return (
     <form className="stack" onSubmit={submit}>
       <h4>입고 기록</h4>
-      {open.map((l) => (
-        <div key={l.itemId} className="inv-order-line inv-wrap">
-          <span className="inv-line-name">{l.name}</span>
-          <input
-            inputMode="decimal"
-            aria-label={`${l.name} 입고 수량(${l.unit})`}
-            disabled={busy !== null}
-            value={quantities[l.itemId] ?? ""}
-            onChange={(e) => {
-              setQuantities((c) => ({ ...c, [l.itemId]: e.target.value }));
-              onEdited();
-            }}
-          />
-          <label className="row">
-            <input
-              type="checkbox"
-              disabled={busy !== null}
-              checked={counted[l.itemId] === true}
-              onChange={(e) => {
-                setCounted((c) => ({ ...c, [l.itemId]: e.target.checked }));
-                onEdited();
-              }}
-            />
-            이미 마감에서 셌어요
-          </label>
-        </div>
-      ))}
+      {lines.map((f) => {
+        const line = lineOf(f.itemId);
+        return (
+          <div key={f.itemId} className="inv-order-line inv-wrap">
+            <span className="inv-line-name">{line?.name}</span>
+            <input inputMode="decimal" aria-label={`${line?.name} 입고 수량(${line?.unit})`} disabled={busy !== null} value={f.quantity} onChange={(e) => set(f.itemId, { quantity: e.target.value })} />
+            <label className="row">
+              <input type="checkbox" disabled={busy !== null} checked={f.alreadyCounted} onChange={(e) => set(f.itemId, { alreadyCounted: e.target.checked })} />
+              이미 마감에서 셌어요
+            </label>
+          </div>
+        );
+      })}
       <div className="row">
-        <button type="submit" className="btn primary" disabled={busy !== null || !valid}>
+        <button type="submit" className="btn primary" disabled={busy !== null || request === null}>
           {busy === "save" ? "저장 중…" : "입고 저장"}
         </button>
       </div>
@@ -128,7 +111,7 @@ function OrderItem({ card, saved, busy, on }: { card: OrderCard; saved: number; 
       )}
       {card.canReceive && (
         <ReceiptForm
-          key={`${saved}:${card.orderId}:${card.lines.map((l) => l.received).join(",")}`}
+          key={receiptFormKey(saved, card)}
           card={card}
           busy={busy}
           onReceive={on.onReceive}
