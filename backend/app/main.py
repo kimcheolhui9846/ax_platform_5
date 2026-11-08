@@ -14,6 +14,7 @@ from app.core.storage import build_storage
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
 from app.inventory.store import InventoryStore
+from app.inventory.supplier import SupplierProvider, get_supplier_provider
 from app.providers.base import LLMProvider
 from app.providers.factory import get_provider
 from app.providers.image import ImageProvider, get_image_provider
@@ -28,6 +29,7 @@ def create_app(
     images: ImageProvider | None = None,
     slots: CallSlots | None = None,
     inventories: InventoryStore | None = None,
+    supplier: SupplierProvider | None = None,
 ) -> FastAPI:
     slots = slots or CallSlots(settings.ai_max_concurrent_calls, settings.ai_queue_wait_seconds)
     llm = LimitedProvider(
@@ -65,6 +67,8 @@ def create_app(
     app.state.store = store or storage.sessions
     app.state.assets = assets or storage.assets
     app.state.registry = HarnessRegistry(llm, image, app.state.assets)
+    app.state.llm = llm  # 재고 AI 기준 추천(app/inventory/advisor.py)이 코칭과 같은 호출 상한을 쓴다
+    app.state.supplier = supplier or get_supplier_provider(settings.supplier)
     app.state.locks = SessionLocks()
     app.state.inventories = inventories or storage.inventories
     app.state.inventory_locks = SessionLocks()  # 키는 owner id: 서로 다른 client id 수만큼만 늘고, 실패한 요청도 잠금을 만들 수 있다

@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     openai_base_url: str | None = None  # 비우면 공식 API(또는 SDK가 읽는 환경 변수)
     openai_api_key: SecretStr | None = None
     image_provider: str = "mock"
+    supplier: str = "mock"  # 재고 주문 거래처(app/inventory/supplier.py). 지금은 mock만 있다
     # AI 동시 호출 상한(LLM·이미지 합쳐서). 자리를 이 시간 안에 못 얻으면 503. app/providers/limit.py
     ai_max_concurrent_calls: PositiveInt = 4
     ai_queue_wait_seconds: NonNegativeFloat = 10
