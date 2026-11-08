@@ -14,7 +14,7 @@ from app.core.state import (
     ResultVersion,
     SessionState,
 )
-from app.harness.stats import metrics_table, session_metrics
+from app.harness.stats import metrics_table, session_metrics, without_owners
 
 NOW = datetime(2026, 10, 19, tzinfo=timezone.utc)
 MUST = {"branding": frozenset({"a", "b"})}
@@ -74,3 +74,11 @@ def test_metrics_table_renders_rates_as_percent():
     table = metrics_table([row])
     assert "| branding | 1 | 0 | 100% |" in table
     assert "-" in table
+
+
+def test_without_owners_drops_sessions_of_given_owners():
+    mine = SessionState(session_id="s1", task_type="branding", owner_id="client-aaaa")
+    qa = SessionState(session_id="s2", task_type="branding", owner_id="qa-perf-20261108")
+
+    assert without_owners([mine, qa], {"qa-perf-20261108"}) == [mine]
+    assert without_owners([mine, qa], set()) == [mine, qa]

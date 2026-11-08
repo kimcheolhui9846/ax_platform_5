@@ -3,7 +3,7 @@
 사용성 테스트(Mock으로도 질문 흐름은 그대로다)를 한 뒤 scripts/session_stats.py로 본다. 사실 보존율·출력 품질처럼
 사람이 결과를 읽어야 하는 지표와 내려받기처럼 서버에 남지 않는 행동은 여기서 세지 않는다(docs/EVALUATION.md).
 """
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 
 from pydantic import BaseModel
 
@@ -23,6 +23,11 @@ class TaskMetrics(BaseModel):
     regenerations: float | None  # 결과가 있는 세션당 다시 만든 버전 수(답·보완 정보 반영)
     adoption_rate: float | None  # 결과가 있는 세션 중 버전을 저장한 비율(결과 채택률, 내려받기는 세지 않는다)
     conversion_rate: float | None  # 결과가 있는 세션 중 다음 과제로 이어 간 비율(실행 전환율의 근사)
+
+
+def without_owners(states: Sequence[SessionState], owners: Set[str]) -> list[SessionState]:
+    """주인이 owners에 있는 세션을 뺀다(QA·측정용 익명 ID를 통계에서 제외)."""
+    return [s for s in states if s.owner_id not in owners]
 
 
 def _ratio(part: float, whole: int) -> float | None:
