@@ -117,8 +117,8 @@ def check_close(body: CloseCheckRequest, store: Inventories, owner: Owner) -> Cl
 def record_close(body: CloseRequest, store: Inventories, locks: InventoryLocks, supplier: SupplierDep, owner: Owner) -> CloseView:
     """S05 하루 마감. 저장한 직후 같은 잠금 안에서 자동 주문을 돌린다(주문 결과와 상관없이 마감은 저장된다).
 
-    run_auto_orders가 예외를 내면 마감도 저장되지 않는다. Mock은 예외를 내지 않고 거래처 계약은 통신 오류를
-    unknown으로 돌려주므로 예외는 버그뿐이다(500).
+    거래처가 예외를 내도 run_auto_orders는 그 주문을 접수 불명으로 남기므로 마감은 저장된다. 마감 검사(422)가
+    실패하면 자동 주문은 돌지 않고 아무것도 저장되지 않는다.
     """
     with _update(locks, store, owner) as state:
         close = service.record_close(state, body)

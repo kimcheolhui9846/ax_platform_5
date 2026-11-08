@@ -3,15 +3,17 @@
 계약:
 - place는 주문을 넣고, lookup은 같은 request_id의 상태를 다시 묻는다(다시 주문하지 않는다).
 - 통신 오류·시간 초과는 예외로 던지지 말고 ReplyStatus.UNKNOWN으로 돌려준다. 주문이 실제로 들어갔을 수 있어서다.
+  (그래도 예외가 나면 service가 place는 접수 불명으로, lookup은 그대로 접수 불명으로 둔다.)
+- 응답은 SupplierReply가 검증한다: 거절에만 사유가 있고, 단가는 저장 모델과 같은 금액 형식(0 이상, 둘째 자리까지)이다.
 """
 from collections.abc import Sequence
 from decimal import Decimal
 from enum import StrEnum
 from typing import Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from app.inventory.models import MockOutcome, OrderLine, RejectReason, Supplier
+from app.inventory.models import MockOutcome, Money, OrderLine, RejectReason, Supplier
 
 PRICE_CHANGE_RATE = Decimal("1.1")  # Mock 가격 변동: 단가 +10%
 CENT = Decimal("0.01")
@@ -24,10 +26,18 @@ class ReplyStatus(StrEnum):
 
 
 class SupplierReply(BaseModel):
+    """값은 OrderStatus와 같다(service가 OrderStatus(reply.status)로 옮긴다)."""
+
     status: ReplyStatus
     reason: RejectReason | None = None
-    current_prices: dict[str, Decimal] = Field(default_factory=dict)
+    current_prices: dict[str, Money] = Field(default_factory=dict)
     supplier_ref: str | None = None
+
+    @model_validator(mode="after")
+    def _reason_only_when_rejected(self) -> "SupplierReply":
+        if (self.status is ReplyStatus.REJECTED) != (self.reason is not None):
+            raise ValueError("거절 응답에만 사유가 있어야 합니다.")
+        return self
 
 
 class SupplierProvider(Protocol):

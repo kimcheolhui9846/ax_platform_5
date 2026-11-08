@@ -34,7 +34,7 @@
 - `Close`: `close_id`, 날짜, 품목별 실사 수량. 적지 않은 품목은 미입력이다(0이 아니다). 같은 날 다시 마감할 수 있고 나중 실사가 이긴다(원장에서 마지막 `count`).
 - `Order`: `order_id`, `request_id`(멱등 키), 줄(품목·수량·단가), 총액, `origin`(`manual`·`auto`), `status`(`accepted`·`rejected`·`unknown`·`partially_received`·`received`), 거절 사유, 거래처 주문 번호, 받은 수량.
 - `AutoOrderSetting`(품목마다): `enabled`, `consented_at`, `per_order_limit`, `monthly_limit`(금액). 처음엔 꺼짐.
-- `Hold`: `hold_id`, 품목, 주문(있으면), 사유(`price_changed`·`limit_exceeded`·`out_of_stock`·`stale_count`·`unknown`), 현재 단가(가격 변동일 때), 생긴 시각, `resolved`.
+- `Hold`: `hold_id`, 품목, 주문(있으면), 사유(`price_changed`·`limit_exceeded`·`out_of_stock`·`stale_count`·`unknown`·`address_missing`), 현재 단가(가격 변동일 때), 생긴 시각, `resolved`.
 - `InventorySettings`: 배송지, 이상 수량 기준(기본 감소율 50%), 오래된 재고 기준(기본 7일). 결제는 "거래처 계정 결제(모의)"로 표시만 한다.
 
 ## 2. 계산 규칙 (`app/inventory/rules.py`, 모두 순수 함수)
@@ -45,6 +45,7 @@
 - **제안 주문량** = (목표 − 보유 − 배송 중)을 구매 단위로 올림. 제작 품목은 주문 대신 '○ 제작 필요'.
 - **이상 수량**: 음수는 거부. 입고 없이 직전 보유보다 늘었거나, 직전 보유 대비 기준(50%)보다 많이 줄었으면 '확인 필요'. 확인한 품목만 저장된다.
 - **오래된 재고**: 마지막 실사가 기준(7일)보다 오래됐으면 자동 주문 대상에서 보류.
+- **금액** = 수량 × 단가를 소수 둘째 자리에서 반올림(`line_amount`, ROUND_HALF_UP). 주문 총액은 줄 금액의 합이고 자동 주문 한도도 같은 금액으로 비교한다.
 - **검색·분류 필터**는 프론트의 순수 함수다.
 
 ## 3. 거래처와 주문
@@ -54,6 +55,8 @@
 - `place(request_id, lines, address) -> SupplierReply`, `lookup(request_id) -> SupplierReply`
 - `SupplierReply`: 상태(`accepted`·`rejected`·`unknown`), 거절 사유(`price_changed`+현재 단가·`out_of_stock`), 거래처 주문 번호.
 - 통신 오류·시간 초과는 예외가 아니라 `unknown`이다(주문이 들어갔을 수 있다). 다시 주문하지 않고 `lookup`으로만 확인한다.
+  어댑터가 계약을 어기고 예외를 내도 `place`는 `unknown`으로 남기고, `lookup`은 주문을 그대로 둔다(자동 주문 중 마감이 되돌려지지 않게).
+- `SupplierReply`는 검증한다: 거절에만 사유가 있고, 현재 단가는 저장 모델과 같은 금액 형식이다.
 - 설정 `SUPPLIER=mock`(기본)으로 고르고 `factory`가 만든다.
 
 **Mock**: 비용 0, 저장 없이 결정적. 거래처의 `mock_outcome`이 결과를 정한다.
@@ -70,17 +73,19 @@
 **자동 주문**(하루 마감 저장 직후, 같은 잠금 안)
 
 1. `plan_auto_orders(state, today)`(순수)가 자동 주문을 켜고 동의한 구매 품목마다 정한다.
+   - 그 품목에 풀리지 않은 거래처 거절 보류(`price_changed`·`out_of_stock`)가 있으면 넘어감(사용자가 보류를 풀 때까지 멈춤)
    - 부족이 아니면 넘어감
+   - 배송지가 비어 있음 → 보류 `address_missing`(켤 때는 배송지가 있어야 하지만 나중에 지울 수 있다)
    - 오래된 재고 → 보류 `stale_count`
    - 같은 품목에 `unknown` 주문이 있음 → 보류 `unknown`(중복 주문 방지)
    - 제안량 × 단가 > 1회 한도 → 보류 `limit_exceeded`(수량을 줄여 주문하지 않는다)
-   - 이번 달 자동 주문 합계(`accepted`·`unknown`·입고 중) + 이번 금액 > 월 한도 → 보류 `limit_exceeded`
+   - 이번 달(한국 시각) 그 품목의 자동 주문 합계(`accepted`·`unknown`·입고 중) + 이번 금액 > 그 품목의 월 한도 → 보류 `limit_exceeded`
    - 그 밖에는 품목 하나에 주문 하나
-2. `request_id = auto:{close_id}:{item_id}`. 같은 마감을 다시 보내도 주문이 두 번 나가지 않는다.
-3. 거래처 응답을 주문 상태로, 거절·불명은 보류로 남긴다. 같은 품목·같은 사유의 미해결 보류는 하나만.
+2. `request_id = auto:{close_id}:{item_id}`. 같은 마감으로 다시 돌리면(같은 호출의 재시도) 주문이 두 번 나가지 않는다. API는 마감마다 새 `close_id`를 만들므로, 마감을 다시 보내도 겹치지 않는 것은 배송 중 수량(접수)과 접수 불명 보류 덕분이다.
+3. 거래처 응답을 주문 상태로, 거절·불명은 보류로 남긴다. 미해결 보류는 품목·사유·주문마다 하나다(주문 없는 계획 보류는 품목·사유마다 하나). 재조회로 결과가 정해지면 그 주문의 `unknown` 보류를 풀고, 그 품목에 접수 불명 주문이 더 없으면 주문 없는 `unknown` 보류도 푼다.
 4. 마감은 주문 결과와 상관없이 저장된다.
 
-자동 주문을 끄면 이후 실행만 멈추고 접수된 주문은 그대로다.
+자동 주문을 켜려면 동의와 배송지, 주문할 수 있는 품목(숨기지 않은 구매 품목·거래처·기준)이 있어야 한다(422). 끄면 이후 실행만 멈추고 접수된 주문은 그대로다.
 
 ## 4. AI 기준 추천
 

@@ -1,6 +1,6 @@
 """재고 계산. 모두 값을 받아 값을 돌려주는 순수 함수다. 상태를 바꾸지 않는다."""
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
@@ -8,6 +8,7 @@ from app.core.contract import ContractModel
 from app.inventory.models import (
     AdjustEntry,
     CountEntry,
+    Hold,
     HoldReason,
     InventoryState,
     LedgerEntry,
@@ -18,6 +19,15 @@ from app.inventory.models import (
     ReceiptEntry,
     ReorderPolicy,
 )
+
+
+KST = timezone(timedelta(hours=9))  # 사용자는 한국에 있다. 서머타임이 없어 고정 시차로 충분하다(tzdata 불필요)
+CENT = Decimal("0.01")
+
+
+def line_amount(quantity: Decimal, unit_price: Decimal) -> Decimal:
+    """수량 × 단가를 소수 둘째 자리까지 반올림한다(ROUND_HALF_UP). 금액은 둘째 자리까지 저장한다."""
+    return (quantity * unit_price).quantize(CENT, rounding=ROUND_HALF_UP)
 
 
 class StockStatus(StrEnum):
@@ -115,16 +125,28 @@ def has_unknown_order(orders: Sequence[Order], item_id: str) -> bool:
 _SPENT_STATUSES = (OrderStatus.ACCEPTED, OrderStatus.UNKNOWN, OrderStatus.PARTIALLY_RECEIVED, OrderStatus.RECEIVED)
 
 
-def month_auto_spend(orders: Sequence[Order], year: int, month: int) -> Decimal:
-    """그 달에 만든 자동 주문 중 나갔거나 나갔을 수 있는 주문(거절 제외)의 금액 합."""
+def month_auto_spend(orders: Sequence[Order], item_id: str, year: int, month: int) -> Decimal:
+    """그 품목의 자동 주문 중 그 달(한국 시각)에 만들었고 나갔거나 나갔을 수 있는 주문(거절 제외)의 금액 합."""
     return sum(
         (
-            o.total
+            line_amount(line.quantity, line.unit_price)
             for o in orders
-            if o.origin is OrderOrigin.AUTO and o.status in _SPENT_STATUSES and (o.created_at.year, o.created_at.month) == (year, month)
+            if o.origin is OrderOrigin.AUTO
+            and o.status in _SPENT_STATUSES
+            and (o.created_at.astimezone(KST).year, o.created_at.astimezone(KST).month) == (year, month)
+            for line in o.lines
+            if line.item_id == item_id
         ),
         Decimal(0),
     )
+
+
+_PAUSING_HOLDS = (HoldReason.PRICE_CHANGED, HoldReason.OUT_OF_STOCK)
+
+
+def is_paused(holds: Sequence[Hold], item_id: str) -> bool:
+    """거래처가 거절한 보류(가격 변동·품절)가 풀리지 않았으면 사용자가 해결할 때까지 자동 주문을 멈춘다."""
+    return any(h.item_id == item_id and h.reason in _PAUSING_HOLDS and not h.resolved for h in holds)
 
 
 def is_stale(last_counted: datetime | None, now: datetime, stale_days: int) -> bool:
@@ -145,10 +167,10 @@ class AutoDecision(ContractModel):
 
 
 def plan_auto_orders(state: InventoryState, now: datetime) -> list[AutoDecision]:
-    """자동 주문 대상 품목마다 주문할지 보류할지 정한다(품목 순서). AI는 관여하지 않는다."""
+    """자동 주문 대상 품목마다 주문할지 보류할지 정한다(품목 순서). AI는 관여하지 않는다.
+    한도는 품목마다다: 1회 한도와 그 품목의 이번 달(한국 시각) 자동 주문 합계를 본다."""
     decisions: list[AutoDecision] = []
-    planned = Decimal(0)
-    spent = month_auto_spend(state.orders, now.year, now.month)
+    local = now.astimezone(KST)
     for item in state.items:
         setting = state.auto_orders.get(item.item_id)
         policy = state.policies.get(item.item_id)
@@ -160,24 +182,27 @@ def plan_auto_orders(state: InventoryState, now: datetime) -> list[AutoDecision]
             or item.procurement is not Procurement.PURCHASE
             or item.supplier_id is None
             or policy is None
+            or is_paused(state.holds, item.item_id)
         ):
             continue
         quantity = suggested_quantity(on_hand(state.ledger, item.item_id), in_transit(state.orders, item.item_id), policy)
         if quantity is None:
             continue
-        amount = quantity * policy.unit_price
+        amount = line_amount(quantity, policy.unit_price)
+        spent = month_auto_spend(state.orders, item.item_id, local.year, local.month)
 
         def hold(reason: HoldReason) -> AutoDecision:
             return AutoDecision(item_id=item.item_id, action=AutoAction.HOLD, quantity=quantity, amount=amount, reason=reason)
 
-        if is_stale(last_counted_at(state.ledger, item.item_id), now, state.settings.stale_days):
+        if not state.settings.address:
+            decisions.append(hold(HoldReason.ADDRESS_MISSING))
+        elif is_stale(last_counted_at(state.ledger, item.item_id), now, state.settings.stale_days):
             decisions.append(hold(HoldReason.STALE_COUNT))
         elif has_unknown_order(state.orders, item.item_id):
             decisions.append(hold(HoldReason.UNKNOWN))
-        elif amount > setting.per_order_limit or spent + planned + amount > setting.monthly_limit:
+        elif amount > setting.per_order_limit or spent + amount > setting.monthly_limit:
             decisions.append(hold(HoldReason.LIMIT_EXCEEDED))
         else:
-            planned += amount
             decisions.append(AutoDecision(item_id=item.item_id, action=AutoAction.ORDER, quantity=quantity, amount=amount, reason=None))
     return decisions
 

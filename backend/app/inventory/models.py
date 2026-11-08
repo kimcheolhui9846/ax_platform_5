@@ -180,6 +180,7 @@ class HoldReason(StrEnum):
     OUT_OF_STOCK = "out_of_stock"
     STALE_COUNT = "stale_count"  # 실사가 오래됨
     UNKNOWN = "unknown"  # 접수 불명
+    ADDRESS_MISSING = "address_missing"  # 배송지가 비어 자동 주문을 보내지 않았다
 
 
 class Hold(ContractModel):

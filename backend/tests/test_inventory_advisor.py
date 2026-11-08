@@ -68,3 +68,12 @@ def test_suggest_blocks_leaked_system_lines():
     provider = Fixed(PolicySuggestionOut(min_stock=1, target_stock=2, purchase_unit=1, reason=leaked))
     with pytest.raises(PromptLeakError):
         suggest(provider, prompt)
+
+
+def test_suggest_rejects_unstructured_response():
+    class Unstructured(Fixed):
+        def complete(self, *, task_type, stage, prompt, response_model=None):
+            return ProviderResponse(text="그냥 글", model="fixed", parsed=None)
+
+    with pytest.raises(ProviderOutputError):
+        suggest(Unstructured(PolicySuggestionOut(min_stock=1, target_stock=2, purchase_unit=1, reason="이유")), render_prompt(ITEM, POLICY, D(12), None))

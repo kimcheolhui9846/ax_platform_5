@@ -3,26 +3,27 @@
 함수는 받은 state를 고친다. 규칙에 어긋나면 InventoryError(422)·InventoryNotFound(404)를 던지고,
 라우터는 그때 저장하지 않으므로(복사본을 고치고 성공해야 저장) 요청은 원자적이다.
 """
+import logging
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 
 from app.core.messages import (
     INVENTORY_ADDRESS_REQUIRED_MESSAGE,
-    INVENTORY_CONSENT_REQUIRED_MESSAGE,
     INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
+    INVENTORY_CONSENT_REQUIRED_MESSAGE,
     INVENTORY_DUPLICATE_LINE_MESSAGE,
+    INVENTORY_EMPTY_CLOSE_MESSAGE,
     INVENTORY_HOLD_NOT_FOUND_MESSAGE,
+    INVENTORY_ITEM_NOT_FOUND_MESSAGE,
     INVENTORY_MIXED_SUPPLIER_MESSAGE,
+    INVENTORY_NEGATIVE_STOCK_MESSAGE,
     INVENTORY_NOT_ORDERABLE_MESSAGE,
     INVENTORY_ORDER_NOT_FOUND_MESSAGE,
     INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE,
     INVENTORY_OVER_RECEIPT_MESSAGE,
     INVENTORY_POLICY_REQUIRED_MESSAGE,
-    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     INVENTORY_RECEIPT_ITEM_MESSAGE,
-    INVENTORY_EMPTY_CLOSE_MESSAGE,
-    INVENTORY_ITEM_NOT_FOUND_MESSAGE,
-    INVENTORY_NEGATIVE_STOCK_MESSAGE,
+    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_TARGET_BELOW_MIN_MESSAGE,
     INVENTORY_UNIT_LOCKED_MESSAGE,
@@ -33,7 +34,6 @@ from app.core.messages import (
 )
 from app.core.results import utcnow
 from app.inventory import advisor
-from app.providers.base import LLMProvider
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import (
     AdjustEntry,
@@ -56,8 +56,19 @@ from app.inventory.models import (
     ReorderPolicy,
     Supplier,
 )
-from app.inventory.rules import OPEN_STATUSES, Anomaly, AutoAction, plan_auto_orders, find_anomalies, on_hand, daily_usage
+from app.inventory.rules import (
+    OPEN_STATUSES,
+    Anomaly,
+    AutoAction,
+    daily_usage,
+    find_anomalies,
+    has_unknown_order,
+    line_amount,
+    on_hand,
+    plan_auto_orders,
+)
 from app.inventory.supplier import ReplyStatus, SupplierProvider, SupplierReply
+from app.providers.base import LLMProvider
 from app.schemas.inventory import (
     AutoOrderOutcome,
     AutoOrderRequest,
@@ -69,6 +80,8 @@ from app.schemas.inventory import (
     SupplierDraft,
     SupplierPatch,
 )
+
+logger = logging.getLogger(__name__)
 
 _KEEP_WHEN_NULL = ("name", "kind", "unit", "procurement", "archived")
 
@@ -229,8 +242,9 @@ def _replace_order(state: InventoryState, order: Order) -> None:
 def _hold(
     state: InventoryState, item_id: str, reason: HoldReason, order_id: str | None = None, current_unit_price: Decimal | None = None
 ) -> None:
-    """같은 품목·같은 사유의 미해결 보류가 있으면 새로 만들지 않는다."""
-    if any(h.item_id == item_id and h.reason is reason and not h.resolved for h in state.holds):
+    """같은 품목·같은 사유·같은 주문의 미해결 보류가 있으면 새로 만들지 않는다.
+    주문 없는 보류(자동 주문 계획의 보류)는 품목·사유마다 하나다."""
+    if any(h.item_id == item_id and h.reason is reason and h.order_id == order_id and not h.resolved for h in state.holds):
         return
     state.holds.append(Hold(item_id=item_id, reason=reason, order_id=order_id, current_unit_price=current_unit_price))
 
@@ -245,16 +259,35 @@ def _hold_for_reply(state: InventoryState, order: Order) -> None:
 
 
 def _applied(order: Order, reply: SupplierReply) -> Order:
-    status = {ReplyStatus.ACCEPTED: OrderStatus.ACCEPTED, ReplyStatus.REJECTED: OrderStatus.REJECTED, ReplyStatus.UNKNOWN: OrderStatus.UNKNOWN}[reply.status]
-    return order.model_copy(
-        update={
-            "status": status,
+    """거래처 응답을 주문에 옮긴다. 검증을 거쳐 만들어 잘못된 값이 저장되지 않게 한다."""
+    return Order.model_validate(
+        {
+            **order.model_dump(),
+            "status": OrderStatus(reply.status),
             "reject_reason": reply.reason,
             "current_prices": dict(reply.current_prices),
             "supplier_ref": reply.supplier_ref,
             "updated_at": utcnow(),
         }
     )
+
+
+def _placed(supplier: SupplierProvider, target: Supplier, request_id: str, lines: list[OrderLine], address: str) -> SupplierReply:
+    """계약을 어기고 예외를 내도 주문이 들어갔을 수 있으므로 접수 불명으로 본다(자동 주문 중 마감이 되돌려지지 않게)."""
+    try:
+        return supplier.place(target, request_id, lines, address)
+    except Exception:
+        logger.exception("거래처 주문 중 예외: 접수 불명으로 둔다 (request_id=%s)", request_id)
+        return SupplierReply(status=ReplyStatus.UNKNOWN)
+
+
+def _looked_up(supplier: SupplierProvider, target: Supplier, order: Order) -> SupplierReply:
+    """예외가 나면 여전히 모르는 것이므로 접수 불명이다(주문은 그대로 둔다)."""
+    try:
+        return supplier.lookup(target, order.request_id, order.lines)
+    except Exception:
+        logger.exception("거래처 재조회 중 예외: 접수 불명으로 둔다 (request_id=%s)", order.request_id)
+        return SupplierReply(status=ReplyStatus.UNKNOWN)
 
 
 def _orderable(state: InventoryState, item_id: str) -> Item:
@@ -283,11 +316,11 @@ def _submit(
         request_id=request_id,
         supplier_id=supplier_id,
         lines=lines,
-        total=sum((line.quantity * line.unit_price for line in lines), Decimal(0)),
+        total=sum((line_amount(line.quantity, line.unit_price) for line in lines), Decimal(0)),
         origin=origin,
         status=OrderStatus.UNKNOWN,
     )
-    order = _applied(draft, supplier.place(target, request_id, lines, state.settings.address))
+    order = _applied(draft, _placed(supplier, target, request_id, lines, state.settings.address))
     state.orders.append(order)
     _hold_for_reply(state, order)
     return order
@@ -319,17 +352,24 @@ def place_order(state: InventoryState, request: OrderRequest, supplier: Supplier
 
 
 def refresh_order(state: InventoryState, order_id: str, supplier: SupplierProvider) -> Order:
-    """접수 불명 주문만 거래처에 다시 묻는다(다시 주문하지 않는다). 그 밖에는 그대로 돌려준다."""
+    """접수 불명 주문만 거래처에 다시 묻는다(다시 주문하지 않는다). 그 밖에는 그대로 돌려준다.
+
+    결과가 정해지면 그 주문의 접수 불명 보류를 풀고, 품목에 접수 불명 주문이 더 없으면
+    자동 주문 계획이 남긴 주문 없는 접수 불명 보류도 푼다."""
     order = find_order(state, order_id)
     if order.status is not OrderStatus.UNKNOWN:
         return order
     target = _find_supplier(state, order.supplier_id)
-    updated = _applied(order, supplier.lookup(target, order.request_id, order.lines))
-    if updated.status is OrderStatus.UNKNOWN:
+    reply = _looked_up(supplier, target, order)
+    if reply.status is ReplyStatus.UNKNOWN:
         return order
+    updated = _applied(order, reply)
     _replace_order(state, updated)
+    settled = {line.item_id for line in updated.lines if not has_unknown_order(state.orders, line.item_id)}
     state.holds = [
-        h.model_copy(update={"resolved": True}) if h.order_id == order_id and h.reason is HoldReason.UNKNOWN else h
+        h.model_copy(update={"resolved": True})
+        if h.reason is HoldReason.UNKNOWN and (h.order_id == order_id or (h.order_id is None and h.item_id in settled))
+        else h
         for h in state.holds
     ]
     _hold_for_reply(state, updated)
@@ -372,16 +412,16 @@ def resolve_hold(state: InventoryState, hold_id: str) -> Hold:
 
 
 def set_auto_order(state: InventoryState, item_id: str, request: AutoOrderRequest) -> AutoOrderSetting:
-    item = find_item(state, item_id)
+    """켜려면 동의, 주문할 수 있는 품목(숨기지 않은 구매 품목·거래처·기준), 배송지가 있어야 한다. 끄기는 언제나 된다."""
+    find_item(state, item_id)
     previous = state.auto_orders.get(item_id)
     consented_at = previous.consented_at if previous else None
     if request.enabled:
         if not request.consent:
             raise InventoryError(INVENTORY_CONSENT_REQUIRED_MESSAGE)
-        if item.procurement is not Procurement.PURCHASE or item.supplier_id is None:
-            raise InventoryError(INVENTORY_NOT_ORDERABLE_MESSAGE)
-        if item_id not in state.policies:
-            raise InventoryError(INVENTORY_POLICY_REQUIRED_MESSAGE)
+        _orderable(state, item_id)
+        if not state.settings.address:
+            raise InventoryError(INVENTORY_ADDRESS_REQUIRED_MESSAGE)
         consented_at = utcnow()
     setting = AutoOrderSetting(
         enabled=request.enabled,
@@ -394,7 +434,11 @@ def set_auto_order(state: InventoryState, item_id: str, request: AutoOrderReques
 
 
 def run_auto_orders(state: InventoryState, close: Close, supplier: SupplierProvider) -> list[AutoOrderOutcome]:
-    """하루 마감 직후 부른다. 같은 마감으로 다시 불러도 request_id가 같아 주문이 두 번 나가지 않는다."""
+    """하루 마감 직후 부른다. 거래처가 예외를 내도 접수 불명으로 남기므로 마감은 되돌려지지 않는다.
+
+    request_id `auto:{close_id}:{item_id}`는 같은 마감으로 다시 부른 경우(같은 호출의 재시도)만 막는다.
+    API는 마감마다 새 close_id를 만들므로, 마감을 다시 보내도 주문이 겹치지 않는 것은 배송 중 수량(접수)과
+    접수 불명 보류 덕분이다(거절된 품목은 보류를 풀면 다음 마감에 다시 주문한다)."""
     outcomes: list[AutoOrderOutcome] = []
     for decision in plan_auto_orders(state, utcnow()):
         if decision.action is AutoAction.HOLD:

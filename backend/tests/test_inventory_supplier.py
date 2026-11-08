@@ -1,9 +1,10 @@
 from decimal import Decimal as D
 
 import pytest
+from pydantic import ValidationError
 
-from app.inventory.models import MockOutcome, OrderLine, RejectReason, Supplier
-from app.inventory.supplier import MockSupplier, ReplyStatus, get_supplier_provider
+from app.inventory.models import MockOutcome, OrderLine, OrderStatus, RejectReason, Supplier
+from app.inventory.supplier import MockSupplier, ReplyStatus, SupplierReply, get_supplier_provider
 from app.main import create_app
 from app.providers.mock import MockProvider
 
@@ -52,3 +53,23 @@ def test_factory_and_app_wiring():
     assert app.state.llm is not None
     custom = MockSupplier()
     assert create_app(provider=MockProvider(), supplier=custom).state.supplier is custom
+
+
+def test_every_reply_status_is_an_order_status():
+    for status in ReplyStatus:
+        assert OrderStatus(status) == status
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        {"status": "rejected"},  # 거절에는 사유가 있어야 한다
+        {"status": "accepted", "reason": "out_of_stock"},  # 거절이 아니면 사유가 없다
+        {"status": "unknown", "reason": "price_changed"},
+        {"status": "rejected", "reason": "price_changed", "current_prices": {"it_a": "1357.405"}},  # 금액은 둘째 자리까지
+        {"status": "rejected", "reason": "price_changed", "current_prices": {"it_a": "-1"}},
+    ],
+)
+def test_supplier_reply_is_validated(reply):
+    with pytest.raises(ValidationError):
+        SupplierReply.model_validate(reply)

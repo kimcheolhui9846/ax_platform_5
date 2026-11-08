@@ -59,15 +59,6 @@ INVENTORY_EMPTY_CLOSE_MESSAGE = "마감할 수량이나 조정을 하나 이상 
 INVENTORY_ADJUST_UNCOUNTED_MESSAGE = "수량을 센 적 없는 품목은 조정할 수 없습니다. 먼저 수량을 입력해 주세요."
 INVENTORY_NEGATIVE_STOCK_MESSAGE = "조정하면 수량이 0보다 작아집니다."
 INVENTORY_ZERO_ADJUST_MESSAGE = "조정 값은 0일 수 없습니다."
-
-
-def duplicate_item_message(name: str) -> str:
-    return f"같은 품목이 이미 있습니다: {name}"
-
-
-def unconfirmed_anomaly_message(names: Iterable[str]) -> str:
-    return f"확인이 필요한 수량이 있습니다: {', '.join(names)}"
-
 INVENTORY_ORDER_NOT_FOUND_MESSAGE = "그 주문을 찾을 수 없습니다."
 INVENTORY_HOLD_NOT_FOUND_MESSAGE = "그 보류 내역을 찾을 수 없습니다."
 INVENTORY_ADDRESS_REQUIRED_MESSAGE = "배송지를 먼저 설정해 주세요."
@@ -80,3 +71,11 @@ INVENTORY_RECEIPT_ITEM_MESSAGE = "이 주문에 없는 품목입니다."
 INVENTORY_OVER_RECEIPT_MESSAGE = "남은 수량보다 많이 입고할 수 없습니다."
 INVENTORY_CONSENT_REQUIRED_MESSAGE = "자동 주문을 켜려면 동의가 필요합니다."
 INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE = "적용할 AI 추천이 없습니다. 먼저 추천을 받아 주세요."
+
+
+def duplicate_item_message(name: str) -> str:
+    return f"같은 품목이 이미 있습니다: {name}"
+
+
+def unconfirmed_anomaly_message(names: Iterable[str]) -> str:
+    return f"확인이 필요한 수량이 있습니다: {', '.join(names)}"

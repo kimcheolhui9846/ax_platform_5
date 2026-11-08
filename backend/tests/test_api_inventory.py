@@ -9,6 +9,7 @@ from tests.conftest import OTHER_CLIENT_ID, api_client
 
 from app.api.errors import install_error_handlers
 from app.core.messages import (
+    AI_BUSY_MESSAGE,
     INVENTORY_HOLD_NOT_FOUND_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
     INVENTORY_ORDER_NOT_FOUND_MESSAGE,
@@ -16,14 +17,16 @@ from app.core.messages import (
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_UNKNOWN_ITEM_MESSAGE,
     PROVIDER_FAILED_MESSAGE,
+    unconfirmed_anomaly_message,
 )
 from app.inventory import service
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import InventorySettings, ReorderPolicy
 from app.inventory.store import InMemoryInventoryStore
-from app.main import create_app
-from app.providers.mock import MockProvider
 from app.inventory.supplier import MockSupplier
+from app.main import create_app
+from app.providers.base import ProviderBusy
+from app.providers.mock import MockProvider
 
 BASE = "/api/v1/inventory"
 POLICY = {"min_stock": "1", "target_stock": "1", "purchase_unit": "1", "lead_days": 1, "unit_price": "0"}
@@ -348,3 +351,77 @@ def test_order_routes_use_injected_supplier():
     item = _shop(client)
     client.post(f"{BASE}/orders", json={"request_id": "req-00000005", "lines": [{"item_id": item, "quantity": "10"}]})
     assert Counting.calls == 1
+
+
+class BusyProvider(MockProvider):
+    def complete(self, **kwargs):
+        raise ProviderBusy("자리 없음")
+
+
+def test_policy_suggestion_busy_is_503_with_retry_after_and_changes_nothing():
+    client = api_client(create_app(provider=BusyProvider(), inventories=InMemoryInventoryStore()))
+    item = _shop(client)
+    before = client.get(BASE).json()
+    busy = client.post(f"{BASE}/items/{item}/policy/suggestion")
+    assert busy.status_code == 503 and busy.json() == {"detail": AI_BUSY_MESSAGE}
+    assert busy.headers["Retry-After"]
+    assert client.get(BASE).json() == before
+
+
+def _auto_on(client, item, per_order="100000"):
+    on = {"enabled": True, "consent": True, "per_order_limit": per_order, "monthly_limit": "500000"}
+    assert client.put(f"{BASE}/items/{item}/auto-order", json=on).status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("outcome", "per_order", "status", "hold_reason"),
+    [("accept", "1", None, "limit_exceeded"), ("out_of_stock", "100000", "rejected", "out_of_stock")],
+)
+def test_close_is_saved_when_auto_order_holds_or_is_rejected(outcome, per_order, status, hold_reason):
+    client = api_client(make_app())
+    item = _shop(client, outcome)
+    _auto_on(client, item, per_order)
+
+    closed = client.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {item: "5"}, "confirmed": [item]})
+
+    assert closed.status_code == 201
+    [result] = closed.json()["auto_orders"]
+    assert (result["status"], result["hold_reason"]) == (status, hold_reason)
+    saved = client.get(BASE).json()
+    assert saved["last_close"]["close_id"] == closed.json()["close"]["close_id"]
+    assert [h["reason"] for h in saved["holds"]] == [hold_reason]
+
+
+def test_close_is_saved_when_supplier_raises():
+    class Raising(MockSupplier):
+        def place(self, *args):
+            raise ConnectionError("끊김")
+
+    client = api_client(create_app(provider=MockProvider(), inventories=InMemoryInventoryStore(), supplier=Raising()))
+    item = _shop(client)
+    _auto_on(client, item)
+
+    closed = client.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {item: "5"}, "confirmed": [item]})
+
+    assert closed.status_code == 201
+    assert [(o["status"], o["hold_reason"]) for o in closed.json()["auto_orders"]] == [("unknown", "unknown")]
+    saved = client.get(BASE).json()
+    assert saved["last_close"] is not None and [o["status"] for o in saved["orders"]] == ["unknown"]
+
+
+def test_failed_close_saves_nothing_and_orders_nothing(client):
+    item = _shop(client)
+    _auto_on(client, item)
+    before = client.get(BASE).json()
+
+    failed = client.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {item: "4"}})  # 10 → 4 확인 안 함
+
+    assert failed.status_code == 422 and failed.json() == {"detail": unconfirmed_anomaly_message(["원단"])}
+    assert client.get(BASE).json() == before
+
+
+def test_auto_order_needs_address(client):
+    item = _shop(client)
+    client.put(f"{BASE}/settings", json={"address": "", "anomaly_drop_ratio": "0.5", "stale_days": 7})
+    on = {"enabled": True, "consent": True, "per_order_limit": "1", "monthly_limit": "1"}
+    assert client.put(f"{BASE}/items/{item}/auto-order", json=on).status_code == 422
