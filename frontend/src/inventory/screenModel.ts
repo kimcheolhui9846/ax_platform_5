@@ -41,6 +41,7 @@ export type StockRow = {
 
 export type StockModel = { rows: StockRow[]; shortCount: number; uncountedCount: number; lastClose: string | null };
 
+// in_transit과 ok는 같은 순위다(일부러): 둘 다 급하지 않아 이름순으로 섞는다.
 const STATUS_ORDER: Record<StockStatus, number> = { short: 0, uncounted: 1, in_transit: 2, ok: 2 };
 
 export function stockModel(view: InventoryView, filter: Filter): StockModel {
@@ -60,10 +61,11 @@ export function stockModel(view: InventoryView, filter: Filter): StockModel {
         suggested: v.suggested_quantity === null ? "" : quantityText(v.suggested_quantity, v.item.unit),
       }),
     );
+  const all = filterItems(view.items, { query: "", kind: "all" }); // 개수는 검색·분류와 상관없이 전체
   return {
     rows,
-    shortCount: shown.filter((v) => v.status === "short").length,
-    uncountedCount: shown.filter((v) => v.status === "uncounted").length,
+    shortCount: all.filter((v) => v.status === "short").length,
+    uncountedCount: all.filter((v) => v.status === "uncounted").length,
     lastClose: view.last_close?.close_date ?? null,
   };
 }
@@ -90,6 +92,8 @@ export type CloseModel = {
 };
 
 const NUMBER = /^-?\d+(\.\d+)?$/;
+const QUANTITY = /^\d+(\.\d+)?$/; // 센 수량: 0 이상의 수
+const UNKNOWN_ITEM = "알 수 없는 품목";
 
 /** 조정 입력: 비었으면 쓰지 않음(empty), 사유와 0이 아닌 변화량이 다 있으면 ok, 그 밖은 덜 쓴 것(invalid). */
 function adjustmentState(adjustment: { delta: string; reason: string }): "empty" | "ok" | "invalid" {
@@ -105,8 +109,9 @@ function itemOf(view: InventoryView, itemId: string): ItemView["item"] | undefin
 
 export function autoOrderSummary(outcomes: AutoOrderOutcome[]): string {
   if (outcomes.length === 0) return "자동 주문 없음";
-  const orders = outcomes.filter((o) => o.order_id !== null).length;
+  // 보류 사유가 있으면 보류, 아니면 주문으로 센다(한 건을 두 번 세지 않는다).
   const holds = outcomes.filter((o) => o.hold_reason !== null).length;
+  const orders = outcomes.filter((o) => o.hold_reason === null && o.order_id !== null).length;
   return `주문 ${orders}건·보류 ${holds}건`;
 }
 
@@ -131,7 +136,7 @@ export function closeModel(view: InventoryView, close: CloseState, filter: Filte
     const unit = item?.unit ?? "";
     return {
       itemId: a.item_id,
-      name: item?.name ?? a.item_id,
+      name: item?.name ?? UNKNOWN_ITEM,
       kind: a.kind,
       kindLabel: ANOMALY_LABELS[a.kind],
       change: `${quantityText(a.previous, unit)} → ${quantityText(a.counted, unit)}`,
@@ -140,7 +145,8 @@ export function closeModel(view: InventoryView, close: CloseState, filter: Filte
     };
   });
   const adjustments = Object.values(close.adjustments).map(adjustmentState);
-  const hasCounts = Object.values(close.counts).some((text) => text.trim() !== "");
+  const entered = Object.values(close.counts).map((text) => text.trim()).filter((text) => text !== "");
+  const hasCounts = entered.length > 0 && entered.every((text) => QUANTITY.test(text));
   // 서버 규칙: 이상 수량은 모두 confirmed에 있어야 저장된다(조정은 확인을 대신하지 않는다).
   const canSave =
     close.check !== null &&
@@ -159,7 +165,7 @@ export function closeModel(view: InventoryView, close: CloseState, filter: Filte
             summary: autoOrderSummary(close.result.auto_orders),
             rows: close.result.auto_orders.map((o) => ({
               itemId: o.item_id,
-              name: itemOf(view, o.item_id)?.name ?? o.item_id,
+              name: itemOf(view, o.item_id)?.name ?? UNKNOWN_ITEM,
               text: outcomeText(o),
             })),
           },

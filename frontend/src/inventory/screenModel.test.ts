@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AutoOrderOutcome, CloseView, InventoryView, ItemView } from "../api/types";
 import { EMPTY_CLOSE, type InventoryState } from "./state";
-import { closeModel, filterItems, itemsModel, stockModel } from "./screenModel";
+import { autoOrderSummary, closeModel, filterItems, itemsModel, stockModel } from "./screenModel";
 
 function item(id: string, name: string, over: Partial<ItemView> = {}, itemOver: Partial<ItemView["item"]> = {}): ItemView {
   return {
@@ -71,9 +71,16 @@ describe("stockModel", () => {
     expect(m.rows.find((r) => r.itemId === "a")!.suggested).toBe("");
     expect(m.rows.find((r) => r.itemId === "e")!.inTransit).toBe("5 m");
   });
-  it("개수는 보이는 행 기준", () => {
-    const v = view([item("a", "가", { status: "short" }), item("b", "나", { status: "short" }, { kind: "packaging" })]);
-    expect(stockModel(v, { query: "", kind: "packaging" }).shortCount).toBe(1);
+  it("부족·미입력 개수는 필터와 상관없이 숨기지 않은 전체 품목 기준", () => {
+    const v = view([
+      item("a", "가", { status: "short" }),
+      item("b", "나", { status: "uncounted", on_hand: null }, { kind: "packaging" }),
+      item("c", "다", { status: "short" }, { archived: true }),
+    ]);
+    const m = stockModel(v, { query: "없는검색어", kind: "packaging" });
+    expect(m.rows).toHaveLength(0);
+    expect(m.shortCount).toBe(1);
+    expect(m.uncountedCount).toBe(1);
   });
   it("마지막 마감 날짜", () => {
     expect(stockModel(view([]), NO_FILTER).lastClose).toBeNull();
@@ -127,6 +134,25 @@ describe("closeModel", () => {
     expect(withCheck({ a: { delta: "0", reason: "그냥" } }).canSave).toBe(false);
     expect(withCheck({ a: { delta: "abc", reason: "그냥" } }).canSave).toBe(false);
     expect(withCheck({ a: { delta: "", reason: "" } }).canSave).toBe(true);
+  });
+  it("숫자가 아니거나 음수인 수량이 하나라도 있으면 검사·저장 모두 막는다", () => {
+    for (const bad of ["abc", "-1", "1e3"]) {
+      const m = closeModel(v, base({ counts: { a: "7", b: bad }, check: { anomalies: [] } }), NO_FILTER);
+      expect(m.canCheck).toBe(false);
+      expect(m.canSave).toBe(false);
+    }
+    expect(closeModel(v, base({ counts: { a: "0", b: "2.5" }, check: { anomalies: [] } }), NO_FILTER).canCheck).toBe(true);
+  });
+  it("주문과 보류가 함께 있는 결과는 보류 한 건으로만 센다", () => {
+    const auto: AutoOrderOutcome[] = [
+      { item_id: "a", order_id: "o1", status: "rejected", hold_reason: "out_of_stock" },
+      { item_id: "b", order_id: "o2", status: "accepted", hold_reason: null },
+    ];
+    expect(autoOrderSummary(auto)).toBe("주문 1건·보류 1건");
+  });
+  it("없는 품목은 알 수 없는 품목으로 보인다", () => {
+    const result = { close: {}, inventory: v, auto_orders: [{ item_id: "zzz", order_id: null, status: null, hold_reason: null }] } as unknown as CloseView;
+    expect(closeModel(v, base({ result }), NO_FILTER).result?.rows[0].name).toBe("알 수 없는 품목");
   });
   it("저장 결과는 자동 주문 요약 문장과 행", () => {
     const auto: AutoOrderOutcome[] = [
