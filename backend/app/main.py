@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import assets as assets_api, coaching
+from app.api import assets as assets_api, coaching, inventory as inventory_api
 from app.api.errors import install_error_handlers
 from app.api.locks import SessionLocks
 from app.api.responses import install_openapi
@@ -13,6 +13,7 @@ from app.core.assets import AssetStore
 from app.core.storage import build_storage
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
+from app.inventory.store import InventoryStore
 from app.providers.base import LLMProvider
 from app.providers.factory import get_provider
 from app.providers.image import ImageProvider, get_image_provider
@@ -26,6 +27,7 @@ def create_app(
     assets: AssetStore | None = None,
     images: ImageProvider | None = None,
     slots: CallSlots | None = None,
+    inventories: InventoryStore | None = None,
 ) -> FastAPI:
     slots = slots or CallSlots(settings.ai_max_concurrent_calls, settings.ai_queue_wait_seconds)
     llm = LimitedProvider(
@@ -36,7 +38,7 @@ def create_app(
     image = LimitedImageProvider(images or get_image_provider(settings.image_provider), slots)
 
     storage = None
-    if store is None or assets is None:  # 연결은 만들 때가 아니라 서버가 시작할 때(lifespan) 한다
+    if store is None or assets is None or inventories is None:  # 연결은 만들 때가 아니라 서버가 시작할 때(lifespan) 한다
         storage = build_storage(
             settings.store,
             settings.database_path,
@@ -63,9 +65,12 @@ def create_app(
     app.state.assets = assets or storage.assets
     app.state.registry = HarnessRegistry(llm, image, app.state.assets)
     app.state.locks = SessionLocks()
+    app.state.inventories = inventories or storage.inventories
+    app.state.inventory_locks = SessionLocks()  # 키는 owner(재고 묶음 하나)
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)
     app.include_router(assets_api.router)
+    app.include_router(inventory_api.router)
     install_error_handlers(app)
     install_openapi(app)
     return app
