@@ -63,9 +63,17 @@ export function draftFromProposal(group: ProposalGroup, requestId: string): Orde
   };
 }
 
+/** 보류가 생긴 뒤에 그 품목을 담은 주문이 있고 거절되지 않았다. */
+function reorderedAfter(view: InventoryView, hold: InventoryView["holds"][number]): boolean {
+  const since = Date.parse(hold.created_at);
+  return view.orders.some(
+    (o) => o.status !== "rejected" && Date.parse(o.created_at) > since && o.lines.some((l) => l.item_id === hold.item_id),
+  );
+}
 export function draftFromHold(view: InventoryView, holdId: string, requestId: string): OrderDraft | null {
   const hold = view.holds.find((h) => h.hold_id === holdId);
   if (hold === undefined || hold.reason !== "price_changed" || hold.current_unit_price === null) return null;
+  if (reorderedAfter(view, hold)) return null; // 이미 다시 주문했다(두 번 주문하지 않게)
   const item = itemOf(view, hold.item_id);
   if (item === undefined || !orderable(item) || item.item.supplier_id === null) return null;
   const heldOrder = hold.order_id === null ? undefined : view.orders.find((o) => o.order_id === hold.order_id);
@@ -190,6 +198,7 @@ export type HoldRow = {
   createdDate: string;
   orderId: string | null;
   canReview: boolean;
+  reordered: boolean; // 보류 뒤에 그 품목을 다시 주문했다(해결로 표시하면 된다)
   canRefresh: boolean;
   priceText: string | null;
 };
@@ -204,6 +213,7 @@ export function holdRows(view: InventoryView): HoldRow[] {
       createdDate: dateText(h.created_at),
       orderId: h.order_id,
       canReview: draftFromHold(view, h.hold_id, "") !== null,
+      reordered: reorderedAfter(view, h),
       canRefresh: view.orders.find((o) => o.order_id === h.order_id)?.status === "unknown",
       priceText: h.current_unit_price === null ? null : moneyText(h.current_unit_price),
     }));

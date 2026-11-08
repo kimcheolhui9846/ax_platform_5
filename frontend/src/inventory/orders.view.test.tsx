@@ -136,6 +136,16 @@ describe("OrdersScreen", () => {
     expect(html.match(/해결로 표시/g)?.length).toBe(2);
     expect(html.match(/다시 확인/g)?.length).toBeGreaterThanOrEqual(2); // 보류 줄 + 주문 카드
   });
+  it("보류 뒤에 다시 주문했으면 다시 주문 버튼 대신 해결 안내", () => {
+    const v = view({
+      items: [item("a", "원단"), item("b", "실")],
+      holds: [{ hold_id: "h-1", item_id: "a", order_id: null, reason: "price_changed", current_unit_price: "5000", created_at: "2026-11-08T01:00:00Z", resolved: false }],
+      orders: [order({ created_at: "2026-11-08T02:00:00Z" })],
+    });
+    const html = draw(v);
+    expect(html).not.toMatch(/>\s*새 단가로 다시 주문\s*</); // 버튼 없음
+    expect(html).toContain("새 단가로 다시 주문했어요");
+  });
   it("주문 카드: 접수 주문은 입고 양식(남은 0 줄 제외), 재조회 없음", () => {
     const html = draw(view({ items: [item("a", "원단"), item("b", "실")], orders: [order()] }));
     expect(html).toContain("한빛상사");

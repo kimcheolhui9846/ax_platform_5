@@ -89,6 +89,15 @@ describe("초안", () => {
     const noSuggest = withItems([{ ...flour, suggested_quantity: null }, ...base.slice(1)], { holds: [hold({ order_id: null })] });
     expect(draftFromHold(noSuggest, "h-1", "x")).toBeNull();
   });
+  it("보류 뒤에 그 품목을 다시 주문했고 거절되지 않았으면 다시 열지 않는다(두 번 주문하지 않게)", () => {
+    const later = order({ order_id: "o-2", created_at: "2026-11-08T05:00:00Z", status: "accepted" });
+    const reordered = withItems(base, { orders: [later, order({ status: "rejected" })], holds: [hold()] });
+    expect(draftFromHold(reordered, "h-1", "x")).toBeNull();
+    expect(holdRows(reordered)[0]).toMatchObject({ canReview: false, reordered: true });
+    const rejectedAgain = withItems(base, { orders: [{ ...later, status: "rejected" }, order({ status: "rejected" })], holds: [hold()] });
+    expect(draftFromHold(rejectedAgain, "h-1", "x")).not.toBeNull();
+    expect(holdRows(rejectedAgain)[0].reordered).toBe(false);
+  });
   it("가격 변동이 아니거나 새 단가가 없거나 주문 불가 품목이면 null", () => {
     expect(draftFromHold(withItems(base, { holds: [hold({ reason: "out_of_stock" })] }), "h-1", "x")).toBeNull();
     expect(draftFromHold(withItems(base, { holds: [hold({ current_unit_price: null })] }), "h-1", "x")).toBeNull();

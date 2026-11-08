@@ -31,6 +31,7 @@ export type InventoryState = {
   saved: Record<InventoryForm, number>; // 양식마다 저장이 성공한 횟수(그 양식의 key)
   order: OrderDraft | null; // 열어 둔 주문 초안(탭을 옮겨도 남는다)
   orderResult: OrderResultNotice | null; // 마지막 주문 응답 안내
+  pendingOrderIds: Record<string, string>; // 거래처 id → 응답을 받지 못한 주문의 request_id(다시 열면 같은 번호로, 두 번 주문하지 않게)
 };
 
 export type InventoryAction =
@@ -71,6 +72,7 @@ export function initialInventoryState(today = ""): InventoryState {
     saved: { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0, receipt: 0, auto: 0 },
     order: null,
     orderResult: null,
+    pendingOrderIds: {},
   };
 }
 
@@ -83,7 +85,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
       const inflight = state.inflight;
       if (inflight === null || inflight.seq !== action.seq) return state;
       const loadFailed = inflight.kind === "load" && state.view === null ? true : state.loadFailed;
-      return { ...state, inflight: null, toast: action.message, loadFailed };
+      return { ...state, inflight: null, toast: action.message, loadFailed, pendingOrderIds: pendingAfterFailure(state) };
     }
     case "loaded":
       if (!isCurrent(state, action.seq)) return state;
@@ -130,6 +132,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
     case "ordered": {
       if (!isCurrent(state, action.seq)) return state;
       const hold = action.view.holds.find((h) => h.order_id === action.order.order_id);
+      const { [action.order.supplier_id]: _answered, ...pendingOrderIds } = state.pendingOrderIds;
       return {
         ...state,
         inflight: null,
@@ -137,6 +140,7 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
         loadFailed: false,
         order: null,
         orderResult: { status: action.order.status, holdReason: hold?.reason ?? null },
+        pendingOrderIds,
       };
     }
     case "orderResultClosed":
@@ -176,6 +180,12 @@ export function inventoryReducer(state: InventoryState, action: InventoryAction)
 /** 탭을 옮길 때 물어야 하는가: 마감 입력이나 저장하지 않은 양식 입력이 있다. */
 export function hasUnsaved(state: InventoryState): boolean {
   return state.dirty || state.edited.length > 0;
+}
+
+/** 주문 요청이 실패하면 서버가 받았는지 모른다: 그 초안의 request_id를 거래처별로 기억한다. */
+function pendingAfterFailure(state: InventoryState): Record<string, string> {
+  if (state.inflight?.kind !== "order" || state.order === null) return state.pendingOrderIds;
+  return { ...state.pendingOrderIds, [state.order.supplierId]: state.order.requestId };
 }
 
 /** 저장 응답이면 그 요청을 낸 양식의 횟수만 하나 올린다. */

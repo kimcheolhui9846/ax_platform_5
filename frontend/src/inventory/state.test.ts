@@ -279,6 +279,19 @@ describe("inventoryReducer 주문 초안", () => {
   const viewWithHolds = (holds: unknown[]) => ({ holds }) as unknown as InventoryView;
   const opened = () => run([{ type: "orderOpened", draft }]);
 
+  it("주문이 실패하면 초안과 request_id를 두고, 결과를 모르는 그 번호를 거래처별로 기억한다", () => {
+    const failed = run([{ type: "requested", seq: 1, kind: "order" }, { type: "failed", seq: 1, message: "연결 실패" }], opened());
+    expect(failed.order).toEqual(draft);
+    expect(failed.pendingOrderIds).toEqual({ sup_1: "manual:1" });
+    expect(run([{ type: "orderCancelled" }], failed).pendingOrderIds).toEqual({ sup_1: "manual:1" }); // 취소해도 남는다
+    const done = run(
+      [{ type: "requested", seq: 2, kind: "order" }, { type: "ordered", seq: 2, order: { ...order("accepted"), supplier_id: "sup_1" } as Order, view: viewWithHolds([]) }],
+      failed,
+    );
+    expect(done.pendingOrderIds).toEqual({}); // 응답을 받았으면 잊는다
+    expect(initialInventoryState().pendingOrderIds).toEqual({});
+  });
+
   it("초안을 열면 이전 안내를 지운다", () => {
     const s = run([{ type: "orderOpened", draft }], { ...initialInventoryState(), orderResult: { status: "accepted", holdReason: null } });
     expect(s.order).toEqual(draft);

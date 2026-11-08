@@ -48,6 +48,9 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
       navigate(next);
     });
   };
+  /** 응답을 받지 못한 주문이 있던 거래처는 그 번호를 다시 쓴다(서버가 이미 받았으면 같은 주문을 돌려준다). */
+  const requestIdFor = (supplierId: string): string => state.pendingOrderIds[supplierId] ?? newRequestId();
+
   return {
     onTab,
     onLeave: leave,
@@ -89,7 +92,7 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
     onSaveSettings: (request) => void run(saveRequest("settings", () => setSettings(request))),
     onOpenOrder: (supplierId) => {
       const group = state.view === null ? undefined : orderProposals(state.view).find((g) => g.supplierId === supplierId);
-      if (group !== undefined) dispatch({ type: "orderOpened", draft: draftFromProposal(group, newRequestId()) });
+      if (group !== undefined) dispatch({ type: "orderOpened", draft: draftFromProposal(group, requestIdFor(supplierId)) });
     },
     onOrderQuantity: (itemId, quantity) => dispatch({ type: "orderQuantityChanged", itemId, quantity }),
     onOrderRemoveLine: (itemId) => dispatch({ type: "orderLineRemoved", itemId }),
@@ -118,8 +121,8 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, new
       void run({ kind: "save", form: "receipt", request: () => receive(orderId, { lines }), done: (r, seq) => loaded(seq, r.inventory) }),
     onResolveHold: (holdId) => void run({ kind: "resolve", request: () => resolveHold(holdId), done: (view, seq) => loaded(seq, view) }),
     onReviewHold: (holdId) => {
-      const draft = state.view === null ? null : draftFromHold(state.view, holdId, newRequestId());
-      if (draft !== null) dispatch({ type: "orderOpened", draft });
+      const draft = state.view === null ? null : draftFromHold(state.view, holdId, "");
+      if (draft !== null) dispatch({ type: "orderOpened", draft: { ...draft, requestId: requestIdFor(draft.supplierId) } });
     },
     onSaveAutoOrder: (itemId, request: AutoOrderRequest) => void run(saveRequest("auto", () => setAutoOrder(itemId, request))),
     onOpenOrders: () => onTab("orders"),

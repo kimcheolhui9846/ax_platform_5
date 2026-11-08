@@ -4,7 +4,7 @@
 
 - 기준일: 2026-11-08
 - main: `7f51326` (PR #43까지 머지). 재고 화면 1이 PR #44(머지 대기), 이 PR(#45 재고 화면 2)은 그 위에 쌓았다
-- 테스트: 백엔드 1142 passed, 프론트 712 passed, 빌드 OK
+- 테스트: 백엔드 1142 passed, 프론트 716 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.

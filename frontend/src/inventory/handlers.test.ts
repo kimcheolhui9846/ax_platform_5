@@ -205,6 +205,11 @@ describe("주문·입고·보류·자동 주문", () => {
     expect(t.actions).toHaveLength(1);
     expect(t.actions[0]).toMatchObject({ type: "orderOpened", draft: { requestId: "manual:1", supplierId: "sup-1", repriced: false } });
   });
+  it("결과를 모르는 주문이 있던 거래처는 그 request_id로 다시 연다(두 번 주문하지 않게)", () => {
+    const t = setup({ ...withView, pendingOrderIds: { "sup-1": "manual:old" } });
+    t.on.onOpenOrder("sup-1");
+    expect(t.actions[0]).toMatchObject({ type: "orderOpened", draft: { requestId: "manual:old" } });
+  });
   it("없는 묶음이면 아무것도 하지 않는다", () => {
     const t = setup(withView);
     t.on.onOpenOrder("nope");

@@ -64,6 +64,7 @@ function HoldItem({ hold, busy, on }: { hold: HoldRow; busy: InventoryCall | nul
         <span className="muted">{hold.createdDate}</span>
         {hold.priceText !== null && <span>{`새 단가 ${hold.priceText}`}</span>}
       </div>
+      {hold.reordered && <p className="muted">새 단가로 다시 주문했어요. 확인했으면 해결로 표시해 주세요.</p>}
       <div className="row inv-wrap">
         {hold.canReview && (
           <button type="button" className="btn primary" disabled={busy !== null} onClick={() => on.onReviewHold(hold.holdId)}>
