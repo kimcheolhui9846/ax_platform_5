@@ -127,5 +127,5 @@ def _postgres_pool_session(_postgres_url):
 def postgres_pool(_postgres_pool_session):
     """표를 비운 Postgres 풀."""
     with _postgres_pool_session.connection() as conn:
-        conn.execute("TRUNCATE sessions, assets")
+        conn.execute("TRUNCATE sessions, assets, inventories")
     return _postgres_pool_session
