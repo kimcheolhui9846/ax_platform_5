@@ -1,7 +1,7 @@
 """재고 계산. 모두 값을 받아 값을 돌려주는 순수 함수다. 상태를 바꾸지 않는다."""
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
-from decimal import ROUND_CEILING, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
 from app.core.contract import ContractModel
@@ -180,3 +180,19 @@ def plan_auto_orders(state: InventoryState, now: datetime) -> list[AutoDecision]
             planned += amount
             decisions.append(AutoDecision(item_id=item.item_id, action=AutoAction.ORDER, quantity=quantity, amount=amount, reason=None))
     return decisions
+
+
+def daily_usage(ledger: Sequence[LedgerEntry], item_id: str) -> Decimal | None:
+    """실사 사이에 줄어든 양의 합 ÷ 첫·마지막 실사 사이 날 수(소수 둘째 자리). 실사가 둘 미만이거나 기간이 0이면 None."""
+    counts = [(i, e) for i, e in enumerate(ledger) if isinstance(e, CountEntry) and e.item_id == item_id]
+    if len(counts) < 2:
+        return None
+    days = Decimal((counts[-1][1].at - counts[0][1].at).total_seconds()) / Decimal(86400)
+    if days <= 0:
+        return None
+    used = Decimal(0)
+    for index, entry in counts[1:]:
+        before = on_hand(ledger[:index], item_id)
+        if before is not None and before > entry.quantity:
+            used += before - entry.quantity
+    return (used / days).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

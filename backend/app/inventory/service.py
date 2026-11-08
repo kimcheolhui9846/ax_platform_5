@@ -18,6 +18,7 @@ from app.core.messages import (
     INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE,
     INVENTORY_OVER_RECEIPT_MESSAGE,
     INVENTORY_POLICY_REQUIRED_MESSAGE,
+    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     INVENTORY_RECEIPT_ITEM_MESSAGE,
     INVENTORY_EMPTY_CLOSE_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
@@ -31,6 +32,8 @@ from app.core.messages import (
     unconfirmed_anomaly_message,
 )
 from app.core.results import utcnow
+from app.inventory import advisor
+from app.providers.base import LLMProvider
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import (
     AdjustEntry,
@@ -46,13 +49,14 @@ from app.inventory.models import (
     OrderLine,
     OrderOrigin,
     OrderStatus,
+    PolicySuggestion,
     Procurement,
     ReceiptEntry,
     RejectReason,
     ReorderPolicy,
     Supplier,
 )
-from app.inventory.rules import OPEN_STATUSES, Anomaly, AutoAction, plan_auto_orders, find_anomalies, on_hand
+from app.inventory.rules import OPEN_STATUSES, Anomaly, AutoAction, plan_auto_orders, find_anomalies, on_hand, daily_usage
 from app.inventory.supplier import ReplyStatus, SupplierProvider, SupplierReply
 from app.schemas.inventory import (
     AutoOrderOutcome,
@@ -410,3 +414,32 @@ def run_auto_orders(state: InventoryState, close: Close, supplier: SupplierProvi
             AutoOrderOutcome(item_id=decision.item_id, order_id=order.order_id, status=order.status, hold_reason=hold.reason if hold else None)
         )
     return outcomes
+
+
+def suggest_policy(state: InventoryState, item_id: str, llm: LLMProvider) -> PolicySuggestion:
+    """AI 추천을 받아 '확인 전'으로 둔다. 기준(배송 기간·단가)이 있어야 한다. 실패하면 state는 그대로다."""
+    item = find_item(state, item_id)
+    policy = state.policies.get(item_id)
+    if policy is None:
+        raise InventoryError(INVENTORY_POLICY_REQUIRED_MESSAGE)
+    prompt = advisor.render_prompt(item, policy, on_hand(state.ledger, item_id), daily_usage(state.ledger, item_id))
+    suggestion = advisor.suggest(llm, prompt)
+    state.suggestions[item_id] = suggestion
+    return suggestion
+
+
+def apply_suggestion(state: InventoryState, item_id: str) -> ReorderPolicy:
+    """추천의 최소·목표·구매 단위를 기준에 반영하고 추천을 지운다(배송 기간·단가는 그대로)."""
+    find_item(state, item_id)
+    suggestion = state.suggestions.get(item_id)
+    if suggestion is None:
+        raise InventoryNotFound(INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE)
+    current = state.policies.get(item_id)
+    if current is None:
+        raise InventoryError(INVENTORY_POLICY_REQUIRED_MESSAGE)
+    policy = current.model_copy(
+        update={"min_stock": suggestion.min_stock, "target_stock": suggestion.target_stock, "purchase_unit": suggestion.purchase_unit}
+    )
+    state.policies[item_id] = policy
+    del state.suggestions[item_id]
+    return policy

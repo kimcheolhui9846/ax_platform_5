@@ -21,6 +21,7 @@ from app.inventory.models import (
     ReorderPolicy,
 )
 from app.inventory.rules import (
+    daily_usage,
     Anomaly,
     AnomalyKind,
     AutoAction,
@@ -255,3 +256,17 @@ def test_plan_monthly_limit_counts_earlier_decisions_in_same_run():
         auto_orders={"a": setting, "b": setting},
     )
     assert [(d.item_id, d.action) for d in plan_auto_orders(state, NOW)] == [("a", AutoAction.ORDER), ("b", AutoAction.HOLD)]
+
+
+def test_daily_usage():
+    t0 = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    ledger = [
+        count("20", at=t0),
+        count("14", at=t0 + timedelta(days=2)),  # 6 소진
+        receipt("10"),  # 24
+        count("18", at=t0 + timedelta(days=4)),  # 6 소진
+        count("19", at=t0 + timedelta(days=5)),  # 늘었으면 소진 아님
+    ]
+    assert daily_usage(ledger, "a") == D("2.40")  # 12 / 5일
+    assert daily_usage([count("5", at=t0)], "a") is None
+    assert daily_usage([count("5", at=t0), count("4", at=t0)], "a") is None

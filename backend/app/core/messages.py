@@ -79,3 +79,4 @@ INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE = "접수된 주문만 입고할 수 있�
 INVENTORY_RECEIPT_ITEM_MESSAGE = "이 주문에 없는 품목입니다."
 INVENTORY_OVER_RECEIPT_MESSAGE = "남은 수량보다 많이 입고할 수 없습니다."
 INVENTORY_CONSENT_REQUIRED_MESSAGE = "자동 주문을 켜려면 동의가 필요합니다."
+INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE = "적용할 AI 추천이 없습니다. 먼저 추천을 받아 주세요."

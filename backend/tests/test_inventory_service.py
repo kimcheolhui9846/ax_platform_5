@@ -24,10 +24,13 @@ from app.core.messages import (
     INVENTORY_OVER_RECEIPT_MESSAGE,
     INVENTORY_POLICY_REQUIRED_MESSAGE,
     INVENTORY_RECEIPT_ITEM_MESSAGE,
+    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     unconfirmed_anomaly_message,
     duplicate_item_message,
 )
 from app.inventory import service
+from app.providers.base import ProviderError
+from app.providers.mock import MockProvider
 from app.inventory.errors import InventoryError, InventoryNotFound
 from app.inventory.models import (
     AdjustEntry,
@@ -605,3 +608,36 @@ def test_run_auto_orders_records_holds_for_plan_and_supplier_failures():
     [outcome] = service.run_auto_orders(state, close, MockSupplier())
     assert (outcome.order_id, outcome.hold_reason) == (None, HoldReason.LIMIT_EXCEEDED)
     assert state.orders == [] and [h.reason for h in state.holds] == [HoldReason.LIMIT_EXCEEDED]
+
+
+def test_suggest_then_apply_policy():
+    state, item = shop()
+    suggestion = service.suggest_policy(state, item, MockProvider())
+    assert state.suggestions[item] == suggestion
+    assert state.policies[item].min_stock == D(20)  # 추천만으로는 바뀌지 않는다
+
+    applied = service.apply_suggestion(state, item)
+    assert (applied.min_stock, applied.target_stock, applied.purchase_unit) == (
+        suggestion.min_stock, suggestion.target_stock, suggestion.purchase_unit
+    )
+    assert (applied.lead_days, applied.unit_price) == (3, D(1000))  # 사용자 값은 그대로
+    assert item not in state.suggestions
+    with pytest.raises(InventoryNotFound, match=INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE):
+        service.apply_suggestion(state, item)
+
+
+def test_suggest_requires_policy_and_known_item():
+    state = fresh()
+    [item] = service.add_items(state, [draft()])
+    with pytest.raises(InventoryError, match=INVENTORY_POLICY_REQUIRED_MESSAGE):
+        service.suggest_policy(state, item.item_id, MockProvider())
+    with pytest.raises(InventoryNotFound):
+        service.suggest_policy(state, "it_none", MockProvider())
+
+
+def test_suggest_failure_leaves_state_untouched():
+    state, item = shop()
+    before = state.model_copy(deep=True)
+    with pytest.raises(ProviderError):
+        service.suggest_policy(state, item, MockProvider(fail_stages={"inventory_policy"}))
+    assert state == before
