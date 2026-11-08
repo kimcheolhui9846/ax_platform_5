@@ -1,4 +1,4 @@
-import type { AnomalyKind, AutoOrderOutcome, InventorySettings, InventoryView, ItemKind, ItemView, StockStatus, Supplier } from "../api/types";
+import type { AnomalyKind, AutoOrderOutcome, InventorySettings, InventoryView, ItemKind, ItemView, Procurement, StockStatus, Supplier } from "../api/types";
 import {
   ANOMALY_LABELS,
   HOLD_LABELS,
@@ -182,6 +182,11 @@ export type ItemRow = {
   unit: string;
   procurementLabel: string;
   supplierName: string;
+  /** 편집 양식의 시작값(서버가 준 그대로). */
+  kind: ItemKind;
+  procurement: Procurement;
+  supplierId: string;
+  policy: { min_stock: string; target_stock: string; purchase_unit: string; lead_days: number; unit_price: string } | null;
   policyText: string;
   suggestion: { label: string; reason: string; text: string } | null;
 };
@@ -200,6 +205,19 @@ export function itemsModel(view: InventoryView): ItemsModel {
         kindLabel: KIND_LABELS[item.kind],
         unit: item.unit,
         procurementLabel: PROCUREMENT_LABELS[item.procurement],
+        kind: item.kind,
+        procurement: item.procurement,
+        supplierId: item.supplier_id ?? "",
+        policy:
+          policy === null
+            ? null
+            : {
+                min_stock: policy.min_stock,
+                target_stock: policy.target_stock,
+                purchase_unit: policy.purchase_unit,
+                lead_days: policy.lead_days,
+                unit_price: policy.unit_price,
+              },
         supplierName: view.suppliers.find((s) => s.supplier_id === item.supplier_id)?.name ?? "",
         policyText:
           policy === null

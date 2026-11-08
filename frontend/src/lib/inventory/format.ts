@@ -1,4 +1,4 @@
-import type { AnomalyKind, HoldReason, ItemKind, OrderStatus, Procurement, StockStatus } from "../../api/types";
+import type { AnomalyKind, HoldReason, ItemKind, MockOutcome, OrderStatus, Procurement, StockStatus } from "../../api/types";
 
 export const KIND_LABELS: Record<ItemKind, string> = { finished: "완제품", material: "재료", packaging: "포장재" };
 export const STATUS_LABELS: Record<StockStatus, string> = { uncounted: "미입력", short: "부족", in_transit: "배송 중", ok: "충분" };
@@ -38,3 +38,10 @@ export function quantityText(quantity: string | null, unit: string): string {
 export function moneyText(amount: string): string {
   return `${grouped(amount)}원`;
 }
+
+export const MOCK_OUTCOME_LABELS: Record<MockOutcome, string> = {
+  accept: "접수",
+  price_changed: "가격 변동",
+  out_of_stock: "품절",
+  unknown_then_accept: "접수 불명 뒤 접수",
+};
