@@ -16,7 +16,7 @@ type Props = {
 export function ItemFilter({ query, kind, disabled = false, onChange }: Props) {
   const uid = useId();
   return (
-    <div className="row">
+    <div className="row inv-filter">
       <label htmlFor={`${uid}-query`} className="small">
         품목 검색
       </label>

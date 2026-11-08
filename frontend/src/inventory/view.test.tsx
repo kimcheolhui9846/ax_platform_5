@@ -63,6 +63,14 @@ describe("CloseScreen", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>마감 저장/);
     expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>검사/);
   });
+  it("수량 칸의 보이는 이름표는 품목 이름과 지난 수량 하나이고, 입력 이름은 '실사 수량'", () => {
+    const html = draw({}, null);
+    const label = html.match(/<label[^>]*for="([^"]*-count-a)"[^>]*>(.*?)<\/label>/);
+    expect(label?.[2]).toContain("원단");
+    expect(label?.[2]).toContain("지난 수량 10 m");
+    expect(html).toMatch(/<input[^>]*aria-label="원단 실사 수량\(m\)"/);
+    expect(html.match(/<label[^>]*for="[^"]*-count-/g)?.length).toBe(html.match(/<input[^>]*id="[^"]*-count-/g)?.length); // 수량 칸마다 이름표 하나
+  });
   it("요청 중엔 입력과 버튼이 막히고 눌린 버튼에 진행 글", () => {
     const html = draw({ a: "5" }, null, "check");
     expect(html).toContain("검사 중…");

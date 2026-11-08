@@ -40,7 +40,11 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
   };
   return {
     onTab: (next) => {
-      if (next !== tab) leave(() => navigate(next));
+      if (next === tab) return;
+      leave(() => {
+        if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
+        navigate(next);
+      });
     },
     onLeave: leave,
     onRetry: () => void run(loadRequest()),

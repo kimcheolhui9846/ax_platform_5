@@ -74,6 +74,15 @@ describe("탭 이동", () => {
     expect(t.actions).toEqual([{ type: "discarded" }]);
   });
 
+  it("저장한 마감 결과를 둔 채 마감 탭을 떠나면 결과를 비운다(다시 오면 새 마감)", () => {
+    const close = { ...initialInventoryState().close, result: {} as never };
+    const t = setup({ close });
+    t.on.onTab("stock");
+    expect(t.asked()).toBe(0);
+    expect(t.actions).toEqual([{ type: "closeReset" }]);
+    expect(t.tabs).toEqual(["stock"]);
+  });
+
   it("왼쪽 메뉴로 떠날 때도 같은 확인을 거친다", () => {
     const go = vi.fn();
     const kept = setup({ edited: ["settings"] }, false);

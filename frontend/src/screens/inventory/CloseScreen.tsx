@@ -114,17 +114,16 @@ export function CloseScreen({ model, filter, busy, on }: Props) {
       {model.rows.length === 0 ? (
         <p className="muted">조건에 맞는 품목이 없어요.</p>
       ) : (
-        <ul className="stack8">
+        <ul className="stack8 inv-count-list">
           {model.rows.map((r) => (
-            <li key={r.itemId} className="row">
-              <span className="grow">
-                {`${r.name}${r.option !== "" ? ` (${r.option})` : ""} · 지난 수량 ${r.previous}`}
-              </span>
-              <label htmlFor={`${uid}-count-${r.itemId}`} className="small">
-                {`${r.name} 실사 수량(${r.unit})`}
+            <li key={r.itemId} className="inv-count">
+              <label htmlFor={`${uid}-count-${r.itemId}`}>
+                <span>{`${r.name}${r.option !== "" ? ` (${r.option})` : ""}`}</span>
+                <span className="small muted">{`지난 수량 ${r.previous}`}</span>
               </label>
               <input
                 id={`${uid}-count-${r.itemId}`}
+                aria-label={`${r.name} 실사 수량(${r.unit})`}
                 inputMode="decimal"
                 value={r.input}
                 placeholder="미입력"

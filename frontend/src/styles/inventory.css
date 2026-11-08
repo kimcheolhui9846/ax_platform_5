@@ -46,3 +46,14 @@
   }
   .data-table td::before { content: attr(data-label); color: var(--color-muted); text-align: start; }
 }
+
+/* 검색·분류: 좁으면 줄을 바꾸고 이름표는 한 줄로 둔다 */
+.inv-filter { flex-wrap: wrap; }
+.inv-filter > label { flex: none; white-space: nowrap; }
+.inv-filter > input { flex: 1 1 0; }
+
+/* 하루 마감 수량 줄: 이름표(품목·지난 수량)와 입력 칸 */
+.inv-count { display: flex; align-items: center; gap: var(--space-3); }
+.inv-count > label { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.inv-count > input { flex: 0 1 auto; min-width: 0; }
+.inv-count-list { list-style: none; margin: 0; padding: 0; }
