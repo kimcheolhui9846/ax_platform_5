@@ -17,6 +17,8 @@ def _item_view(state: InventoryState, item: Item) -> ItemView:
         suggested_quantity=suggested_quantity(quantity, in_transit, policy),
         policy=policy,
         last_counted_at=last_counted_at(state.ledger, item.item_id),
+        suggestion=state.suggestions.get(item.item_id),
+        auto_order=state.auto_orders.get(item.item_id),
     )
 
 
@@ -26,4 +28,6 @@ def to_inventory_view(state: InventoryState) -> InventoryView:
         suppliers=state.suppliers,
         settings=state.settings,
         last_close=state.closes[-1] if state.closes else None,
+        orders=sorted(state.orders, key=lambda o: o.created_at, reverse=True),
+        holds=sorted(state.holds, key=lambda h: (h.resolved, -h.created_at.timestamp())),
     )

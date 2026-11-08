@@ -8,14 +8,18 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 from app.core.contract import ContractModel
 from app.core.messages import INVENTORY_ZERO_ADJUST_MESSAGE
 from app.inventory.models import (
+    AutoOrderSetting,
     Close,
+    Hold,
     HoldReason,
     InventorySettings,
     Item,
     ItemKind,
     MockOutcome,
     Money,
+    Order,
     OrderStatus,
+    PolicySuggestion,
     PositiveQuantity,
     Procurement,
     Quantity,
@@ -117,6 +121,8 @@ class ItemView(ContractModel):
     suggested_quantity: Decimal | None  # 부족할 때만. 제작 품목이면 '제작 필요' 수량
     policy: ReorderPolicy | None
     last_counted_at: datetime | None
+    suggestion: PolicySuggestion | None  # AI 추천(확인 전)
+    auto_order: AutoOrderSetting | None
 
 
 class InventoryView(ContractModel):
@@ -124,15 +130,12 @@ class InventoryView(ContractModel):
     suppliers: list[Supplier]
     settings: InventorySettings
     last_close: Close | None
+    orders: list[Order]  # 최근 것 먼저
+    holds: list[Hold]  # 미해결 먼저, 그 안에서 최근 것 먼저
 
 
 class CloseCheckView(ContractModel):
     anomalies: list[Anomaly]
-
-
-class CloseView(ContractModel):
-    close: Close
-    inventory: InventoryView
 
 
 RequestId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9:_-]{8,64}$")]
@@ -175,3 +178,14 @@ class AutoOrderOutcome(ContractModel):
     order_id: str | None  # 주문했으면 그 주문
     status: OrderStatus | None
     hold_reason: HoldReason | None  # 계획 단계 보류이거나 거래처 거절·불명으로 생긴 보류
+
+
+class CloseView(ContractModel):
+    close: Close
+    inventory: InventoryView
+    auto_orders: list[AutoOrderOutcome]  # 마감 직후 자동 주문 결과(대상이 없으면 빈 목록)
+
+
+class OrderView(ContractModel):
+    order: Order
+    inventory: InventoryView

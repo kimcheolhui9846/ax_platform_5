@@ -9,9 +9,13 @@ from tests.conftest import OTHER_CLIENT_ID, api_client
 
 from app.api.errors import install_error_handlers
 from app.core.messages import (
+    INVENTORY_HOLD_NOT_FOUND_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
+    INVENTORY_ORDER_NOT_FOUND_MESSAGE,
+    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_UNKNOWN_ITEM_MESSAGE,
+    PROVIDER_FAILED_MESSAGE,
 )
 from app.inventory import service
 from app.inventory.errors import InventoryError, InventoryNotFound
@@ -19,6 +23,7 @@ from app.inventory.models import InventorySettings, ReorderPolicy
 from app.inventory.store import InMemoryInventoryStore
 from app.main import create_app
 from app.providers.mock import MockProvider
+from app.inventory.supplier import MockSupplier
 
 BASE = "/api/v1/inventory"
 POLICY = {"min_stock": "1", "target_stock": "1", "purchase_unit": "1", "lead_days": 1, "unit_price": "0"}
@@ -76,6 +81,8 @@ def test_empty_inventory_for_new_owner(client):
         "suppliers": [],
         "settings": {"address": "", "anomaly_drop_ratio": "0.5", "stale_days": 7},
         "last_close": None,
+        "orders": [],
+        "holds": [],
     }
 
 
@@ -211,3 +218,133 @@ def test_create_app_without_inventories_uses_storage():
     client = api_client(app)
     assert client.get(BASE).json()["items"] == []
     assert _bulk(client, {"name": "원단", "kind": "material", "unit": "m"}).status_code == 201
+
+
+def _shop(client, outcome="accept"):
+    client.put(f"{BASE}/settings", json={"address": "서울시 어딘가 1", "anomaly_drop_ratio": "0.5", "stale_days": 7})
+    supplier_id = client.post(f"{BASE}/suppliers", json={"name": "원단상회", "mock_outcome": outcome}).json()["suppliers"][0]["supplier_id"]
+    view = _bulk(client, {"name": "원단", "kind": "material", "unit": "m", "procurement": "purchase", "supplier_id": supplier_id, "quantity": "10"})
+    item = _ids(view.json())[0]
+    policy = {"min_stock": "20", "target_stock": "50", "purchase_unit": "10", "lead_days": 3, "unit_price": "1000"}
+    client.put(f"{BASE}/items/{item}/policy", json=policy)
+    return item
+
+
+def _row(view, item):
+    return next(r for r in view["items"] if r["item"]["item_id"] == item)
+
+
+def test_manual_order_partial_receipt_and_idempotency(client):
+    item = _shop(client)
+    body = {"request_id": "req-00000001", "lines": [{"item_id": item, "quantity": "40"}]}
+
+    placed = client.post(f"{BASE}/orders", json=body)
+    assert placed.status_code == 201
+    order = placed.json()["order"]
+    assert order["status"] == "accepted" and D(order["total"]) == D(40000)
+    assert D(_row(placed.json()["inventory"], item)["in_transit"]) == D(40)
+    assert _row(placed.json()["inventory"], item)["status"] == "in_transit"
+
+    again = client.post(f"{BASE}/orders", json=body).json()
+    assert again["order"]["order_id"] == order["order_id"]
+    assert len(again["inventory"]["orders"]) == 1
+
+    received = client.post(f"{BASE}/orders/{order['order_id']}/receipts", json={"lines": [{"item_id": item, "quantity": "15"}]})
+    assert received.status_code == 200
+    assert received.json()["order"]["status"] == "partially_received"
+    row = _row(received.json()["inventory"], item)
+    assert (D(row["on_hand"]), D(row["in_transit"])) == (D(25), D(25))
+
+    over = client.post(f"{BASE}/orders/{order['order_id']}/receipts", json={"lines": [{"item_id": item, "quantity": "26"}]})
+    assert over.status_code == 422
+
+
+def test_unknown_order_refresh_resolves_hold(client):
+    item = _shop(client, "unknown_then_accept")
+    placed = client.post(f"{BASE}/orders", json={"request_id": "req-00000002", "lines": [{"item_id": item, "quantity": "40"}]}).json()
+    assert placed["order"]["status"] == "unknown"
+    assert [(h["reason"], h["resolved"]) for h in placed["inventory"]["holds"]] == [("unknown", False)]
+
+    refreshed = client.post(f"{BASE}/orders/{placed['order']['order_id']}/refresh").json()
+    assert refreshed["order"]["status"] == "accepted"
+    assert [h["resolved"] for h in refreshed["inventory"]["holds"]] == [True]
+
+
+def test_hold_resolve_and_404s(client):
+    item = _shop(client, "out_of_stock")
+    placed = client.post(f"{BASE}/orders", json={"request_id": "req-00000003", "lines": [{"item_id": item, "quantity": "40"}]}).json()
+    hold_id = placed["inventory"]["holds"][0]["hold_id"]
+
+    resolved = client.post(f"{BASE}/holds/{hold_id}/resolve")
+    assert resolved.status_code == 200 and resolved.json()["holds"][0]["resolved"] is True
+    assert client.post(f"{BASE}/holds/ho_none/resolve").json() == {"detail": INVENTORY_HOLD_NOT_FOUND_MESSAGE}
+    assert client.post(f"{BASE}/orders/or_none/refresh").json() == {"detail": INVENTORY_ORDER_NOT_FOUND_MESSAGE}
+    missing = client.post(f"{BASE}/orders/or_none/receipts", json={"lines": [{"item_id": item, "quantity": "1"}]})
+    assert missing.status_code == 404
+
+
+def test_auto_order_runs_after_close_once(client):
+    item = _shop(client)
+    on = {"enabled": True, "consent": True, "per_order_limit": "100000", "monthly_limit": "500000"}
+    view = client.put(f"{BASE}/items/{item}/auto-order", json=on)
+    assert view.status_code == 200 and _row(view.json(), item)["auto_order"]["enabled"] is True
+    assert client.put(f"{BASE}/items/{item}/auto-order", json=on | {"consent": False}).status_code == 422
+
+    closed = client.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {item: "5"}, "confirmed": [item]}).json()
+    [outcome] = closed["auto_orders"]
+    assert outcome["item_id"] == item and outcome["status"] == "accepted" and outcome["hold_reason"] is None
+    [order] = closed["inventory"]["orders"]
+    assert order["origin"] == "auto" and D(order["lines"][0]["quantity"]) == D(50)
+
+    second = client.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {item: "5"}}).json()
+    assert second["auto_orders"] == []  # 배송 중이라 부족이 아니다
+    assert len(second["inventory"]["orders"]) == 1
+
+
+def test_policy_suggestion_and_apply(client):
+    item = _shop(client)
+    assert client.post(f"{BASE}/items/{item}/policy/suggestion/apply").json() == {"detail": INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE}
+
+    suggested = client.post(f"{BASE}/items/{item}/policy/suggestion")
+    assert suggested.status_code == 200
+    row = _row(suggested.json(), item)
+    assert row["suggestion"]["reason"] and D(row["policy"]["min_stock"]) == D(20)
+
+    applied = _row(client.post(f"{BASE}/items/{item}/policy/suggestion/apply").json(), item)
+    assert applied["suggestion"] is None
+    assert D(applied["policy"]["min_stock"]) == D(row["suggestion"]["min_stock"])
+    assert D(applied["policy"]["unit_price"]) == D(1000)
+
+
+def test_policy_suggestion_provider_failure_is_502_and_changes_nothing():
+    app = create_app(provider=MockProvider(fail_stages={"inventory_policy"}), inventories=InMemoryInventoryStore())
+    client = api_client(app)
+    item = _shop(client)
+    before = client.get(BASE).json()
+    failed = client.post(f"{BASE}/items/{item}/policy/suggestion")
+    assert failed.status_code == 502 and failed.json() == {"detail": PROVIDER_FAILED_MESSAGE}
+    assert client.get(BASE).json() == before
+
+
+def test_other_owner_cannot_touch_orders_or_holds(client):
+    item = _shop(client, "out_of_stock")
+    placed = client.post(f"{BASE}/orders", json={"request_id": "req-00000004", "lines": [{"item_id": item, "quantity": "40"}]}).json()
+    other = api_client(client.app, client_id=OTHER_CLIENT_ID)
+    assert other.post(f"{BASE}/orders/{placed['order']['order_id']}/refresh").status_code == 404
+    assert other.post(f"{BASE}/holds/{placed['inventory']['holds'][0]['hold_id']}/resolve").status_code == 404
+    assert other.post(f"{BASE}/orders", json={"request_id": "req-00000004", "lines": [{"item_id": item, "quantity": "1"}]}).status_code == 422
+
+
+def test_order_routes_use_injected_supplier():
+    class Counting(MockSupplier):
+        calls = 0
+
+        def place(self, *args):
+            Counting.calls += 1
+            return super().place(*args)
+
+    app = create_app(provider=MockProvider(), inventories=InMemoryInventoryStore(), supplier=Counting())
+    client = api_client(app)
+    item = _shop(client)
+    client.post(f"{BASE}/orders", json={"request_id": "req-00000005", "lines": [{"item_id": item, "quantity": "10"}]})
+    assert Counting.calls == 1
