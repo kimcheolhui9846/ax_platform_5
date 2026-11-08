@@ -4,23 +4,60 @@ from decimal import Decimal as D
 import pytest
 
 from app.core.messages import (
+    INVENTORY_ADDRESS_REQUIRED_MESSAGE,
     INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
+    INVENTORY_CONSENT_REQUIRED_MESSAGE,
+    INVENTORY_DUPLICATE_LINE_MESSAGE,
     INVENTORY_EMPTY_CLOSE_MESSAGE,
+    INVENTORY_HOLD_NOT_FOUND_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
+    INVENTORY_MIXED_SUPPLIER_MESSAGE,
     INVENTORY_NEGATIVE_STOCK_MESSAGE,
+    INVENTORY_NOT_ORDERABLE_MESSAGE,
+    INVENTORY_ORDER_NOT_FOUND_MESSAGE,
+    INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE,
+    INVENTORY_OVER_RECEIPT_MESSAGE,
+    INVENTORY_POLICY_REQUIRED_MESSAGE,
+    INVENTORY_RECEIPT_ITEM_MESSAGE,
+    INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE,
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_TARGET_BELOW_MIN_MESSAGE,
     INVENTORY_UNIT_LOCKED_MESSAGE,
     INVENTORY_UNKNOWN_ITEM_MESSAGE,
     INVENTORY_UNKNOWN_SUPPLIER_MESSAGE,
-    unconfirmed_anomaly_message,
     duplicate_item_message,
+    unconfirmed_anomaly_message,
 )
 from app.inventory import service
 from app.inventory.errors import InventoryError, InventoryNotFound
-from app.inventory.models import AdjustEntry, CountEntry, InventorySettings, InventoryState, MockOutcome, ReorderPolicy
-from app.inventory.rules import AnomalyKind, on_hand
-from app.schemas.inventory import Adjustment, CloseRequest, ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
+from app.inventory.models import (
+    AdjustEntry,
+    CountEntry,
+    HoldReason,
+    InventorySettings,
+    InventoryState,
+    MockOutcome,
+    OrderOrigin,
+    OrderStatus,
+    ReceiptEntry,
+    RejectReason,
+    ReorderPolicy,
+)
+from app.inventory.rules import AnomalyKind, in_transit, on_hand
+from app.inventory.supplier import MockSupplier, ReplyStatus, SupplierReply
+from app.providers.base import ProviderError
+from app.providers.mock import MockProvider
+from app.schemas.inventory import (
+    Adjustment,
+    AutoOrderRequest,
+    CloseRequest,
+    ItemDraft,
+    ItemPatch,
+    OrderRequest,
+    ReceiptRequest,
+    SupplierDraft,
+    SupplierPatch,
+)
 
 
 def draft(name="에코백", **overrides) -> ItemDraft:
@@ -309,3 +346,508 @@ def test_unknown_id_only_in_adjustments_is_rejected():
         service.record_close(
             state, CloseRequest(close_date=DAY, adjustments=[Adjustment(item_id="it_none", delta=D(1), reason="r")])
         )
+
+
+def shop(outcome=MockOutcome.ACCEPT, address="서울시 어딘가 1"):
+    """구매 품목 '원단'(보유 10m, 단가 1000)과 거래처 하나."""
+    state = fresh()
+    service.set_settings(state, InventorySettings(address=address))
+    supplier = service.add_supplier(state, SupplierDraft(name="원단상회", mock_outcome=outcome))
+    [item] = service.add_items(
+        state, [draft("원단", kind="material", unit="m", procurement="purchase", supplier_id=supplier.supplier_id, quantity=D(10))]
+    )
+    service.set_policy(
+        state, item.item_id, ReorderPolicy(min_stock=D(20), target_stock=D(50), purchase_unit=D(10), lead_days=3, unit_price=D(1000))
+    )
+    return state, item.item_id
+
+
+def order_request(item_id, qty="40", request_id="req-00000001", **line):
+    return OrderRequest(request_id=request_id, lines=[{"item_id": item_id, "quantity": qty, **line}])
+
+
+def test_place_order_accepted_uses_policy_price_and_counts_in_transit():
+    state, item = shop()
+    order = service.place_order(state, order_request(item), MockSupplier())
+
+    assert order.status is OrderStatus.ACCEPTED and order.origin is OrderOrigin.MANUAL
+    assert order.lines[0].unit_price == D(1000) and order.total == D(40000)
+    assert order.supplier_ref == "mock-req-00000001"
+    assert state.orders == [order]
+    assert in_transit(state.orders, item) == D(40)
+    assert state.holds == []
+
+
+def test_same_request_id_returns_existing_order_without_calling_supplier():
+    state, item = shop()
+    first = service.place_order(state, order_request(item), MockSupplier())
+
+    class Exploding(MockSupplier):
+        def place(self, *args):
+            raise AssertionError("거래처를 다시 부르면 안 된다")
+
+    again = service.place_order(state, order_request(item, qty="99"), Exploding())
+    assert again == first and len(state.orders) == 1
+
+
+def test_line_unit_price_overrides_policy_price():
+    state, item = shop()
+    order = service.place_order(state, order_request(item, unit_price="1100"), MockSupplier())
+    assert order.total == D(44000)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "status", "hold_reason"),
+    [
+        (MockOutcome.PRICE_CHANGED, OrderStatus.REJECTED, HoldReason.PRICE_CHANGED),
+        (MockOutcome.OUT_OF_STOCK, OrderStatus.REJECTED, HoldReason.OUT_OF_STOCK),
+        (MockOutcome.UNKNOWN_THEN_ACCEPT, OrderStatus.UNKNOWN, HoldReason.UNKNOWN),
+    ],
+)
+def test_failed_orders_are_recorded_with_a_hold(outcome, status, hold_reason):
+    state, item = shop(outcome)
+    order = service.place_order(state, order_request(item), MockSupplier())
+
+    assert order.status is status
+    assert [(h.item_id, h.order_id, h.reason) for h in state.holds] == [(item, order.order_id, hold_reason)]
+    assert in_transit(state.orders, item) == D(0)
+
+
+def test_price_changed_hold_keeps_current_price():
+    state, item = shop(MockOutcome.PRICE_CHANGED)
+    order = service.place_order(state, order_request(item), MockSupplier())
+    assert order.reject_reason is RejectReason.PRICE_CHANGED
+    assert order.current_prices == {item: D("1100.00")}
+    assert state.holds[0].current_unit_price == D("1100.00")
+
+
+@pytest.mark.parametrize(
+    ("setup", "message"),
+    [
+        ("no_address", INVENTORY_ADDRESS_REQUIRED_MESSAGE),
+        ("make_item", INVENTORY_NOT_ORDERABLE_MESSAGE),
+        ("no_policy", INVENTORY_POLICY_REQUIRED_MESSAGE),
+        ("unknown_item", INVENTORY_UNKNOWN_ITEM_MESSAGE),
+        ("duplicate_line", INVENTORY_DUPLICATE_LINE_MESSAGE),
+        ("mixed_supplier", INVENTORY_MIXED_SUPPLIER_MESSAGE),
+    ],
+)
+def test_place_order_rejections_leave_state_untouched(setup, message):
+    state, item = shop(address="" if setup == "no_address" else "서울시 어딘가 1")
+    lines = [{"item_id": item, "quantity": "10"}]
+    if setup == "make_item":
+        [made] = service.add_items(state, [draft("에코백")])
+        lines = [{"item_id": made.item_id, "quantity": "1"}]
+    if setup == "no_policy":
+        [bare] = service.add_items(
+            state, [draft("끈", kind="packaging", procurement="purchase", supplier_id=state.suppliers[0].supplier_id)]
+        )
+        lines = [{"item_id": bare.item_id, "quantity": "1"}]
+    if setup == "unknown_item":
+        lines = [{"item_id": "it_none", "quantity": "1"}]
+    if setup == "duplicate_line":
+        lines = lines * 2
+    if setup == "mixed_supplier":
+        other = service.add_supplier(state, SupplierDraft(name="다른상회"))
+        [thread] = service.add_items(
+            state, [draft("실", kind="material", procurement="purchase", supplier_id=other.supplier_id)]
+        )
+        service.set_policy(state, thread.item_id, state.policies[item])
+        lines = [*lines, {"item_id": thread.item_id, "quantity": "1"}]
+    before = state.model_copy(deep=True)
+
+    with pytest.raises(InventoryError, match=message):
+        service.place_order(state, OrderRequest(request_id="req-00000009", lines=lines), MockSupplier())
+    assert state == before
+
+
+def test_refresh_unknown_order_settles_and_resolves_unknown_hold():
+    state, item = shop(MockOutcome.UNKNOWN_THEN_ACCEPT)
+    order = service.place_order(state, order_request(item), MockSupplier())
+
+    refreshed = service.refresh_order(state, order.order_id, MockSupplier())
+
+    assert refreshed.status is OrderStatus.ACCEPTED and refreshed.supplier_ref == "mock-req-00000001"
+    assert state.orders == [refreshed]
+    assert [h.resolved for h in state.holds] == [True]
+    assert in_transit(state.orders, item) == D(40)
+
+
+def test_refresh_settled_order_does_not_call_supplier():
+    state, item = shop()
+    order = service.place_order(state, order_request(item), MockSupplier())
+
+    class Exploding(MockSupplier):
+        def lookup(self, *args):
+            raise AssertionError("접수 불명이 아니면 다시 묻지 않는다")
+
+    assert service.refresh_order(state, order.order_id, Exploding()) == order
+    with pytest.raises(InventoryNotFound, match=INVENTORY_ORDER_NOT_FOUND_MESSAGE):
+        service.refresh_order(state, "or_none", MockSupplier())
+
+
+def test_receive_partial_then_full_and_already_counted():
+    state, item = shop()
+    order = service.place_order(state, order_request(item), MockSupplier())
+
+    service.receive(state, order.order_id, ReceiptRequest(lines=[{"item_id": item, "quantity": "15"}]))
+    assert state.orders[0].status is OrderStatus.PARTIALLY_RECEIVED
+    assert on_hand(state.ledger, item) == D(25)
+    assert in_transit(state.orders, item) == D(25)
+
+    done = service.receive(
+        state, order.order_id, ReceiptRequest(lines=[{"item_id": item, "quantity": "25", "already_counted": True}])
+    )
+    assert done.status is OrderStatus.RECEIVED
+    assert on_hand(state.ledger, item) == D(25)  # 이미 센 물건은 더하지 않는다
+    assert in_transit(state.orders, item) == D(0)
+    assert isinstance(state.ledger[-1], ReceiptEntry) and state.ledger[-1].order_id == order.order_id
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("over", INVENTORY_OVER_RECEIPT_MESSAGE),
+        ("other_item", INVENTORY_RECEIPT_ITEM_MESSAGE),
+        ("rejected", INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE),
+    ],
+)
+def test_receive_rejections_leave_state_untouched(case, message):
+    state, item = shop(MockOutcome.OUT_OF_STOCK if case == "rejected" else MockOutcome.ACCEPT)
+    order = service.place_order(state, order_request(item), MockSupplier())
+    line = {"item_id": item, "quantity": "41" if case == "over" else "1"}
+    if case == "other_item":
+        line["item_id"] = "it_other"
+    before = state.model_copy(deep=True)
+
+    with pytest.raises(InventoryError, match=message):
+        service.receive(state, order.order_id, ReceiptRequest(lines=[line]))
+    assert state == before
+
+
+def test_receive_unknown_order_is_not_found():
+    state, _ = shop()
+    with pytest.raises(InventoryNotFound, match=INVENTORY_ORDER_NOT_FOUND_MESSAGE):
+        service.receive(state, "or_none", ReceiptRequest(lines=[{"item_id": "it_x", "quantity": "1"}]))
+
+
+def test_resolve_hold_is_idempotent_and_unknown_is_not_found():
+    state, item = shop(MockOutcome.OUT_OF_STOCK)
+    service.place_order(state, order_request(item), MockSupplier())
+    hold_id = state.holds[0].hold_id
+
+    assert service.resolve_hold(state, hold_id).resolved is True
+    assert service.resolve_hold(state, hold_id).resolved is True
+    with pytest.raises(InventoryNotFound, match=INVENTORY_HOLD_NOT_FOUND_MESSAGE):
+        service.resolve_hold(state, "ho_none")
+
+
+class Scripted:
+    """정해 둔 응답을 내는 거래처. 응답 자리에 예외를 두면 그 예외를 던진다. 부른 request_id를 남긴다."""
+
+    def __init__(self, place=None, lookup=None):
+        self.place_reply, self.lookup_reply = place, lookup
+        self.placed: list[str] = []
+        self.looked_up: list[str] = []
+
+    @staticmethod
+    def _answer(reply):
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    def place(self, supplier, request_id, lines, address):
+        self.placed.append(request_id)
+        return self._answer(self.place_reply(lines) if callable(self.place_reply) else self.place_reply)
+
+    def lookup(self, supplier, request_id, lines):
+        self.looked_up.append(request_id)
+        return self._answer(self.lookup_reply)
+
+
+UNKNOWN_REPLY = SupplierReply(status=ReplyStatus.UNKNOWN)
+
+
+def test_each_failed_order_keeps_its_own_hold():
+    state, item = shop(MockOutcome.PRICE_CHANGED)
+    first = service.place_order(state, order_request(item, request_id="req-00000001"), MockSupplier())
+    second = service.place_order(state, order_request(item, request_id="req-00000002", unit_price="2000"), MockSupplier())
+    assert [(h.order_id, h.current_unit_price) for h in state.holds] == [
+        (first.order_id, D("1100.00")),
+        (second.order_id, D("2200.00")),  # 두 번째 거절도 자기 현재 단가를 가진다
+    ]
+
+
+def test_two_unknown_orders_each_get_a_hold_and_refresh_resolves_only_its_own():
+    state, item = shop(MockOutcome.UNKNOWN_THEN_ACCEPT)
+    first = service.place_order(state, order_request(item, request_id="req-00000001"), MockSupplier())
+    second = service.place_order(state, order_request(item, request_id="req-00000002"), MockSupplier())
+    assert [h.order_id for h in state.holds] == [first.order_id, second.order_id]
+
+    service.refresh_order(state, first.order_id, MockSupplier())
+    assert [(h.order_id, h.resolved) for h in state.holds] == [(first.order_id, True), (second.order_id, False)]
+
+
+def test_refresh_ending_rejected_switches_unknown_hold_to_price_changed():
+    state, item = shop()
+    supplier = Scripted(
+        place=UNKNOWN_REPLY,
+        lookup=SupplierReply(status=ReplyStatus.REJECTED, reason=RejectReason.PRICE_CHANGED, current_prices={item: D("1200")}),
+    )
+    order = service.place_order(state, order_request(item), supplier)
+
+    refreshed = service.refresh_order(state, order.order_id, supplier)
+
+    assert refreshed.status is OrderStatus.REJECTED and refreshed.current_prices == {item: D(1200)}
+    assert [(h.reason, h.order_id, h.resolved, h.current_unit_price) for h in state.holds] == [
+        (HoldReason.UNKNOWN, order.order_id, True, None),
+        (HoldReason.PRICE_CHANGED, order.order_id, False, D(1200)),
+    ]
+    assert supplier.placed == ["req-00000001"]  # 재조회는 다시 주문하지 않는다
+    assert supplier.looked_up == ["req-00000001"]
+
+
+@pytest.mark.parametrize("lookup", [UNKNOWN_REPLY, TimeoutError("거래처 응답 없음")])
+def test_refresh_still_unknown_or_failing_lookup_keeps_order(lookup):
+    state, item = shop()
+    supplier = Scripted(place=UNKNOWN_REPLY, lookup=lookup)
+    order = service.place_order(state, order_request(item), supplier)
+    before = state.model_copy(deep=True)
+
+    assert service.refresh_order(state, order.order_id, supplier) == order
+    assert state == before
+    assert supplier.placed == ["req-00000001"]
+
+
+def test_supplier_exception_on_place_is_recorded_as_unknown():
+    state, item = shop()
+    order = service.place_order(state, order_request(item), Scripted(place=ConnectionError("끊김")))
+    assert order.status is OrderStatus.UNKNOWN
+    assert [(h.reason, h.order_id) for h in state.holds] == [(HoldReason.UNKNOWN, order.order_id)]
+
+
+@pytest.mark.parametrize(("qty", "price", "total"), [("1.5", "1234.55", "1851.83"), ("0.33", "0.33", "0.11")])
+def test_order_total_is_rounded_to_cents(qty, price, total):
+    state, item = shop()
+    order = service.place_order(state, order_request(item, qty=qty, unit_price=price), MockSupplier())
+    assert order.total == D(total)
+
+
+def test_on_hand_with_partial_receipts_between_counts():
+    state, item = shop()  # 보유 10
+    order = service.place_order(state, order_request(item), MockSupplier())
+    service.receive(state, order.order_id, ReceiptRequest(lines=[{"item_id": item, "quantity": "15"}]))
+    assert on_hand(state.ledger, item) == D(25)
+    service.record_close(state, CloseRequest(close_date=DAY, counts={item: D(22)}))  # 3 썼다
+    service.receive(state, order.order_id, ReceiptRequest(lines=[{"item_id": item, "quantity": "10"}]))
+    service.receive(state, order.order_id, ReceiptRequest(lines=[{"item_id": item, "quantity": "5", "already_counted": True}]))
+    assert on_hand(state.ledger, item) == D(32)  # 22 + 10, 이미 센 5는 더하지 않는다
+    assert in_transit(state.orders, item) == D(10)
+
+
+def auto_ready(outcome=MockOutcome.ACCEPT):
+    state, item = shop(outcome)
+    service.set_auto_order(
+        state, item, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(100000), monthly_limit=D(500000))
+    )
+    return state, item
+
+
+def close_to(state, item, qty="5"):
+    return service.record_close(
+        state, CloseRequest(close_date=date(2026, 11, 8), counts={item: D(qty)}, confirmed=[item])
+    )
+
+
+def test_set_auto_order_requires_consent_supplier_and_policy():
+    state, item = shop()
+    on = AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1))
+    with pytest.raises(InventoryError, match=INVENTORY_CONSENT_REQUIRED_MESSAGE):
+        service.set_auto_order(state, item, on.model_copy(update={"consent": False}))
+    [made] = service.add_items(state, [draft("에코백")])
+    with pytest.raises(InventoryError, match=INVENTORY_NOT_ORDERABLE_MESSAGE):
+        service.set_auto_order(state, made.item_id, on)
+    with pytest.raises(InventoryNotFound):
+        service.set_auto_order(state, "it_none", on)
+
+    setting = service.set_auto_order(state, item, on)
+    assert setting.enabled is True and setting.consented_at is not None
+
+    off = service.set_auto_order(state, item, AutoOrderRequest(enabled=False, per_order_limit=D(2), monthly_limit=D(3)))
+    assert off.enabled is False and off.consented_at == setting.consented_at  # 끄기는 동의 없이, 기록은 남긴다
+    assert state.auto_orders[item].monthly_limit == D(3)
+
+
+def test_run_auto_orders_places_with_close_request_id_and_reports():
+    state, item = auto_ready()
+    close = close_to(state, item)
+
+    outcomes = service.run_auto_orders(state, close, MockSupplier())
+
+    [order] = state.orders
+    assert order.origin is OrderOrigin.AUTO and order.request_id == f"auto:{close.close_id}:{item}"
+    assert order.lines[0].quantity == D(50)  # 목표 50 − 보유 5 = 45 → 10 단위 올림
+    assert [(o.item_id, o.order_id, o.status, o.hold_reason) for o in outcomes] == [(item, order.order_id, OrderStatus.ACCEPTED, None)]
+
+
+def test_run_auto_orders_again_for_same_close_reuses_the_order():
+    """같은 마감으로 다시 부르면(재시도) request_id가 같아 거래처를 다시 부르지 않는다.
+    API는 마감마다 새 close_id를 만들므로 이 경로는 같은 마감의 재시도만 막는다."""
+    state, item = auto_ready(MockOutcome.OUT_OF_STOCK)
+    close = close_to(state, item)
+    service.run_auto_orders(state, close, MockSupplier())
+    service.resolve_hold(state, state.holds[0].hold_id)  # 보류를 풀면 다시 주문 대상이 된다
+
+    supplier = Scripted(place=AssertionError("같은 마감으로 다시 주문하면 안 된다"))
+    [outcome] = service.run_auto_orders(state, close, supplier)
+
+    assert supplier.placed == [] and len(state.orders) == 1
+    assert (outcome.order_id, outcome.status) == (state.orders[0].order_id, OrderStatus.REJECTED)
+
+
+def test_set_auto_order_requires_address_and_rejects_archived_items():
+    on = AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1))
+    state, item = shop(address="")
+    with pytest.raises(InventoryError, match=INVENTORY_ADDRESS_REQUIRED_MESSAGE):
+        service.set_auto_order(state, item, on)
+
+    state, item = shop()
+    service.update_item(state, item, ItemPatch(archived=True))
+    with pytest.raises(InventoryError, match=INVENTORY_UNKNOWN_ITEM_MESSAGE):
+        service.set_auto_order(state, item, on)
+    off = AutoOrderRequest(enabled=False, per_order_limit=D(1), monthly_limit=D(1))
+    assert service.set_auto_order(state, item, off).enabled is False  # 끄기는 언제나 된다
+
+
+def test_run_auto_orders_holds_when_address_was_cleared():
+    state, item = auto_ready()
+    service.set_settings(state, InventorySettings())
+    [outcome] = service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert (outcome.order_id, outcome.hold_reason) == (None, HoldReason.ADDRESS_MISSING)
+    assert state.orders == [] and [h.reason for h in state.holds] == [HoldReason.ADDRESS_MISSING]
+
+
+def test_run_auto_orders_pauses_item_with_open_rejection_hold():
+    state, item = auto_ready(MockOutcome.OUT_OF_STOCK)
+    service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert len(state.orders) == 1 and len(state.holds) == 1
+
+    assert service.run_auto_orders(state, close_to(state, item), MockSupplier()) == []  # 보류를 풀 때까지 멈춘다
+    assert len(state.orders) == 1 and len(state.holds) == 1
+
+    service.resolve_hold(state, state.holds[0].hold_id)
+    service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert len(state.orders) == 2
+
+
+def test_orderless_holds_dedupe_by_item_and_reason():
+    state, item = auto_ready()
+    service.set_auto_order(state, item, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1)))
+    service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert [(h.reason, h.order_id) for h in state.holds] == [(HoldReason.LIMIT_EXCEEDED, None)]
+    service.resolve_hold(state, state.holds[0].hold_id)
+    service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert len(state.holds) == 2  # 해결한 뒤 다시 생기면 새로 남긴다
+
+
+def test_refresh_resolves_orderless_unknown_hold_when_no_unknown_order_is_left():
+    state, item = auto_ready(MockOutcome.UNKNOWN_THEN_ACCEPT)
+    first = service.place_order(state, order_request(item, qty="10", request_id="req-00000001"), MockSupplier())
+    second = service.place_order(state, order_request(item, qty="10", request_id="req-00000002"), MockSupplier())
+    [outcome] = service.run_auto_orders(state, close_to(state, item), MockSupplier())
+    assert (outcome.order_id, outcome.hold_reason) == (None, HoldReason.UNKNOWN)
+    plan_hold = state.holds[-1]
+    assert plan_hold.order_id is None
+
+    service.refresh_order(state, first.order_id, MockSupplier())
+    assert next(h for h in state.holds if h.hold_id == plan_hold.hold_id).resolved is False  # 두 번째가 아직 불명
+
+    service.refresh_order(state, second.order_id, MockSupplier())
+    assert all(h.resolved for h in state.holds)
+
+
+def test_supplier_exception_in_auto_run_keeps_close_and_other_orders():
+    state, first = auto_ready()
+    [second] = service.add_items(
+        state,
+        [draft("실", kind="material", unit="m", procurement="purchase", supplier_id=state.suppliers[0].supplier_id, quantity=D(10))],
+    )
+    service.set_policy(state, second.item_id, state.policies[first])
+    service.set_auto_order(
+        state, second.item_id, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(100000), monthly_limit=D(500000))
+    )
+
+    def reply(lines):
+        if lines[0].item_id == first:
+            return RuntimeError("어댑터 버그")
+        return SupplierReply(status=ReplyStatus.ACCEPTED, supplier_ref="ok")
+
+    close = service.record_close(
+        state, CloseRequest(close_date=DAY, counts={first: D(5), second.item_id: D(5)}, confirmed=[first, second.item_id])
+    )
+    outcomes = service.run_auto_orders(state, close, Scripted(place=reply))
+
+    assert [(o.item_id, o.status, o.hold_reason) for o in outcomes] == [
+        (first, OrderStatus.UNKNOWN, HoldReason.UNKNOWN),
+        (second.item_id, OrderStatus.ACCEPTED, None),
+    ]
+    assert state.closes == [close] and len(state.orders) == 2
+
+
+def test_run_auto_orders_records_holds_for_plan_and_supplier_failures():
+    state, item = auto_ready(MockOutcome.OUT_OF_STOCK)
+    close = close_to(state, item)
+    [outcome] = service.run_auto_orders(state, close, MockSupplier())
+    assert outcome.status is OrderStatus.REJECTED and outcome.hold_reason is HoldReason.OUT_OF_STOCK
+    assert [h.reason for h in state.holds] == [HoldReason.OUT_OF_STOCK]
+
+    state, item = auto_ready()
+    service.set_auto_order(state, item, AutoOrderRequest(enabled=True, consent=True, per_order_limit=D(1), monthly_limit=D(1)))
+    close = close_to(state, item)
+    [outcome] = service.run_auto_orders(state, close, MockSupplier())
+    assert (outcome.order_id, outcome.hold_reason) == (None, HoldReason.LIMIT_EXCEEDED)
+    assert state.orders == [] and [h.reason for h in state.holds] == [HoldReason.LIMIT_EXCEEDED]
+
+
+def test_suggest_then_apply_policy():
+    state, item = shop()
+    suggestion = service.suggest_policy(state, item, MockProvider())
+    assert state.suggestions[item] == suggestion
+    assert state.policies[item].min_stock == D(20)  # 추천만으로는 바뀌지 않는다
+
+    applied = service.apply_suggestion(state, item)
+    assert (applied.min_stock, applied.target_stock, applied.purchase_unit) == (
+        suggestion.min_stock, suggestion.target_stock, suggestion.purchase_unit
+    )
+    assert (applied.lead_days, applied.unit_price) == (3, D(1000))  # 사용자 값은 그대로
+    assert item not in state.suggestions
+    with pytest.raises(InventoryNotFound, match=INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE):
+        service.apply_suggestion(state, item)
+
+
+def test_suggest_requires_policy_and_known_item():
+    state = fresh()
+    [item] = service.add_items(state, [draft()])
+    with pytest.raises(InventoryError, match=INVENTORY_POLICY_REQUIRED_MESSAGE):
+        service.suggest_policy(state, item.item_id, MockProvider())
+    with pytest.raises(InventoryNotFound):
+        service.suggest_policy(state, "it_none", MockProvider())
+
+
+def test_suggest_failure_leaves_state_untouched():
+    state, item = shop()
+    before = state.model_copy(deep=True)
+    with pytest.raises(ProviderError):
+        service.suggest_policy(state, item, MockProvider(fail_stages={"inventory_policy"}))
+    assert state == before
+
+
+def test_apply_suggestion_without_policy_is_rejected():
+    state, item = shop()
+    service.suggest_policy(state, item, MockProvider())
+    del state.policies[item]
+    before = state.model_copy(deep=True)
+    with pytest.raises(InventoryError, match=INVENTORY_POLICY_REQUIRED_MESSAGE):
+        service.apply_suggestion(state, item)
+    assert state == before

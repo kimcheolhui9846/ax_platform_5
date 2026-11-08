@@ -59,6 +59,18 @@ INVENTORY_EMPTY_CLOSE_MESSAGE = "마감할 수량이나 조정을 하나 이상 
 INVENTORY_ADJUST_UNCOUNTED_MESSAGE = "수량을 센 적 없는 품목은 조정할 수 없습니다. 먼저 수량을 입력해 주세요."
 INVENTORY_NEGATIVE_STOCK_MESSAGE = "조정하면 수량이 0보다 작아집니다."
 INVENTORY_ZERO_ADJUST_MESSAGE = "조정 값은 0일 수 없습니다."
+INVENTORY_ORDER_NOT_FOUND_MESSAGE = "그 주문을 찾을 수 없습니다."
+INVENTORY_HOLD_NOT_FOUND_MESSAGE = "그 보류 내역을 찾을 수 없습니다."
+INVENTORY_ADDRESS_REQUIRED_MESSAGE = "배송지를 먼저 설정해 주세요."
+INVENTORY_NOT_ORDERABLE_MESSAGE = "주문할 수 없는 품목이 있습니다. 거래처가 정해진 구매 품목이어야 합니다."
+INVENTORY_POLICY_REQUIRED_MESSAGE = "먼저 배송 기간과 단가를 넣은 보충 기준을 저장해 주세요."
+INVENTORY_DUPLICATE_LINE_MESSAGE = "같은 품목이 주문에 두 번 들어 있습니다."
+INVENTORY_MIXED_SUPPLIER_MESSAGE = "한 주문에는 한 거래처의 품목만 담을 수 있습니다."
+INVENTORY_ORDER_NOT_RECEIVABLE_MESSAGE = "접수된 주문만 입고할 수 있습니다."
+INVENTORY_RECEIPT_ITEM_MESSAGE = "이 주문에 없는 품목입니다."
+INVENTORY_OVER_RECEIPT_MESSAGE = "남은 수량보다 많이 입고할 수 없습니다."
+INVENTORY_CONSENT_REQUIRED_MESSAGE = "자동 주문을 켜려면 동의가 필요합니다."
+INVENTORY_SUGGESTION_NOT_FOUND_MESSAGE = "적용할 AI 추천이 없습니다. 먼저 추천을 받아 주세요."
 
 
 def duplicate_item_message(name: str) -> str:

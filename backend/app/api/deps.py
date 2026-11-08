@@ -8,6 +8,8 @@ from app.core.assets import AssetStore
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
 from app.inventory.store import InventoryStore
+from app.inventory.supplier import SupplierProvider
+from app.providers.base import LLMProvider
 
 
 def get_registry(request: Request) -> HarnessRegistry:
@@ -40,6 +42,18 @@ Locks = Annotated[SessionLocks, Depends(get_locks)]
 Assets = Annotated[AssetStore, Depends(get_assets)]
 Inventories = Annotated[InventoryStore, Depends(get_inventories)]
 InventoryLocks = Annotated[SessionLocks, Depends(get_inventory_locks)]
+
+
+def get_supplier(request: Request) -> SupplierProvider:
+    return request.app.state.supplier
+
+
+def get_llm(request: Request) -> LLMProvider:
+    return request.app.state.llm
+
+
+SupplierDep = Annotated[SupplierProvider, Depends(get_supplier)]
+LLM = Annotated[LLMProvider, Depends(get_llm)]
 
 
 def require_debug(request: Request) -> None:

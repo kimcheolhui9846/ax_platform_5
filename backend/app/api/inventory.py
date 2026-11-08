@@ -8,7 +8,7 @@ from contextlib import contextmanager
 
 from fastapi import APIRouter
 
-from app.api.deps import Inventories, InventoryLocks, Owner
+from app.api.deps import LLM, Inventories, InventoryLocks, Owner, SupplierDep
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.inventory import service
@@ -16,6 +16,7 @@ from app.inventory.models import InventorySettings, InventoryState, ReorderPolic
 from app.inventory.store import InventoryStore
 from app.inventory.views import to_inventory_view
 from app.schemas.inventory import (
+    AutoOrderRequest,
     BulkItemsRequest,
     CloseCheckRequest,
     CloseCheckView,
@@ -25,6 +26,9 @@ from app.schemas.inventory import (
     InventoryView,
     ItemDraft,
     ItemPatch,
+    OrderRequest,
+    OrderView,
+    ReceiptRequest,
     ReorderPolicyRequest,
     SupplierDraft,
     SupplierPatch,
@@ -110,7 +114,65 @@ def check_close(body: CloseCheckRequest, store: Inventories, owner: Owner) -> Cl
 
 
 @router.post("/closes", response_model=CloseView, status_code=201, responses=error_responses(422))
-def record_close(body: CloseRequest, store: Inventories, locks: InventoryLocks, owner: Owner) -> CloseView:
+def record_close(body: CloseRequest, store: Inventories, locks: InventoryLocks, supplier: SupplierDep, owner: Owner) -> CloseView:
+    """S05 하루 마감. 저장한 직후 같은 잠금 안에서 자동 주문을 돌린다(주문 결과와 상관없이 마감은 저장된다).
+
+    거래처가 예외를 내도 run_auto_orders는 그 주문을 접수 불명으로 남기므로 마감은 저장된다. 마감 검사(422)가
+    실패하면 자동 주문은 돌지 않고 아무것도 저장되지 않는다.
+    """
     with _update(locks, store, owner) as state:
         close = service.record_close(state, body)
-    return CloseView(close=close, inventory=to_inventory_view(state))
+        outcomes = service.run_auto_orders(state, close, supplier)
+    return CloseView(close=close, inventory=to_inventory_view(state), auto_orders=outcomes)
+
+
+@router.post("/orders", response_model=OrderView, status_code=201, responses=error_responses(422))
+def place_order(body: OrderRequest, store: Inventories, locks: InventoryLocks, supplier: SupplierDep, owner: Owner) -> OrderView:
+    """S07 주문 확인. 같은 request_id면 거래처를 다시 부르지 않고 기존 주문을 돌려준다."""
+    with _update(locks, store, owner) as state:
+        order = service.place_order(state, body, supplier)
+    return OrderView(order=order, inventory=to_inventory_view(state))
+
+
+@router.post("/orders/{order_id}/refresh", response_model=OrderView, responses=error_responses(404, 422))
+def refresh_order(order_id: str, store: Inventories, locks: InventoryLocks, supplier: SupplierDep, owner: Owner) -> OrderView:
+    """S10 상태 재조회. 접수 불명 주문만 거래처에 다시 묻는다(다시 주문하지 않는다)."""
+    with _update(locks, store, owner) as state:
+        order = service.refresh_order(state, order_id, supplier)
+    return OrderView(order=order, inventory=to_inventory_view(state))
+
+
+@router.post("/orders/{order_id}/receipts", response_model=OrderView, responses=error_responses(404, 422))
+def receive(order_id: str, body: ReceiptRequest, store: Inventories, locks: InventoryLocks, owner: Owner) -> OrderView:
+    with _update(locks, store, owner) as state:
+        order = service.receive(state, order_id, body)
+    return OrderView(order=order, inventory=to_inventory_view(state))
+
+
+@router.post("/holds/{hold_id}/resolve", response_model=InventoryView, responses=error_responses(404, 422))
+def resolve_hold(hold_id: str, store: Inventories, locks: InventoryLocks, owner: Owner) -> InventoryView:
+    with _update(locks, store, owner) as state:
+        service.resolve_hold(state, hold_id)
+    return to_inventory_view(state)
+
+
+@router.put("/items/{item_id}/auto-order", response_model=InventoryView, responses=error_responses(404, 422))
+def set_auto_order(item_id: str, body: AutoOrderRequest, store: Inventories, locks: InventoryLocks, owner: Owner) -> InventoryView:
+    with _update(locks, store, owner) as state:
+        service.set_auto_order(state, item_id, body)
+    return to_inventory_view(state)
+
+
+@router.post("/items/{item_id}/policy/suggestion", response_model=InventoryView, responses=error_responses(404, 422, 502, 503))
+def suggest_policy(item_id: str, store: Inventories, locks: InventoryLocks, llm: LLM, owner: Owner) -> InventoryView:
+    """S03 AI 추천 받기. 추천은 '확인 전'으로 두고 기준은 바꾸지 않는다."""
+    with _update(locks, store, owner) as state:
+        service.suggest_policy(state, item_id, llm)
+    return to_inventory_view(state)
+
+
+@router.post("/items/{item_id}/policy/suggestion/apply", response_model=InventoryView, responses=error_responses(404, 422))
+def apply_suggestion(item_id: str, store: Inventories, locks: InventoryLocks, owner: Owner) -> InventoryView:
+    with _update(locks, store, owner) as state:
+        service.apply_suggestion(state, item_id)
+    return to_inventory_view(state)

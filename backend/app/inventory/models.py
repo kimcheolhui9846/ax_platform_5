@@ -42,7 +42,7 @@ class Procurement(StrEnum):
 
 
 class MockOutcome(StrEnum):
-    """모의 거래처가 낼 결과(PR #41의 SupplierProvider Mock이 쓴다)."""
+    """모의 거래처가 낼 결과(supplier.py의 MockSupplier가 쓴다)."""
 
     ACCEPT = "accept"
     PRICE_CHANGED = "price_changed"
@@ -105,7 +105,19 @@ class AdjustEntry(ContractModel):
     close_id: str | None = None
 
 
-LedgerEntry = Annotated[CountEntry | AdjustEntry, Field(discriminator="type")]
+class ReceiptEntry(ContractModel):
+    """입고: 주문에서 받은 수량. already_counted면 이미 마감에서 센 물건이라 보유에 더하지 않는다."""
+
+    type: Literal["receipt"] = "receipt"
+    entry_id: str = Field(default_factory=lambda: new_id("le"))
+    item_id: str
+    quantity: PositiveQuantity
+    order_id: str
+    already_counted: bool = False
+    at: datetime = Field(default_factory=utcnow)
+
+
+LedgerEntry = Annotated[CountEntry | AdjustEntry | ReceiptEntry, Field(discriminator="type")]
 
 
 class Close(ContractModel):
@@ -115,6 +127,82 @@ class Close(ContractModel):
     at: datetime = Field(default_factory=utcnow)
 
 
+class OrderStatus(StrEnum):
+    ACCEPTED = "accepted"  # 접수
+    REJECTED = "rejected"  # 거절(사유는 reject_reason)
+    UNKNOWN = "unknown"  # 접수 불명: 다시 주문하지 않고 재조회만
+    PARTIALLY_RECEIVED = "partially_received"
+    RECEIVED = "received"
+
+
+class RejectReason(StrEnum):
+    PRICE_CHANGED = "price_changed"
+    OUT_OF_STOCK = "out_of_stock"
+
+
+class OrderOrigin(StrEnum):
+    MANUAL = "manual"
+    AUTO = "auto"
+
+
+class OrderLine(ContractModel):
+    item_id: str
+    quantity: PositiveQuantity
+    unit_price: Money
+    received: Quantity = Decimal(0)
+
+
+class Order(ContractModel):
+    order_id: str = Field(default_factory=lambda: new_id("or"))
+    request_id: str  # 멱등 키: 같은 값이면 새 주문을 만들지 않는다
+    supplier_id: str
+    lines: list[OrderLine]
+    total: Money
+    origin: OrderOrigin
+    status: OrderStatus
+    reject_reason: RejectReason | None = None
+    current_prices: dict[str, Money] = Field(default_factory=dict)  # 가격 변동 거절 때 거래처가 알려 준 단가
+    supplier_ref: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class AutoOrderSetting(ContractModel):
+    enabled: bool = False
+    consented_at: datetime | None = None
+    per_order_limit: Money
+    monthly_limit: Money
+
+
+class HoldReason(StrEnum):
+    PRICE_CHANGED = "price_changed"
+    LIMIT_EXCEEDED = "limit_exceeded"
+    OUT_OF_STOCK = "out_of_stock"
+    STALE_COUNT = "stale_count"  # 실사가 오래됨
+    UNKNOWN = "unknown"  # 접수 불명
+    ADDRESS_MISSING = "address_missing"  # 배송지가 비어 자동 주문을 보내지 않았다
+
+
+class Hold(ContractModel):
+    hold_id: str = Field(default_factory=lambda: new_id("ho"))
+    item_id: str
+    order_id: str | None = None
+    reason: HoldReason
+    current_unit_price: Money | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+    resolved: bool = False
+
+
+class PolicySuggestion(ContractModel):
+    """AI 추천(확인 전). 적용해야 기준(ReorderPolicy)이 된다."""
+
+    min_stock: Quantity
+    target_stock: Quantity
+    purchase_unit: PositiveQuantity
+    reason: str = Field(min_length=1)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class InventoryState(ContractModel):
     owner_id: str
     items: list[Item] = Field(default_factory=list)
@@ -122,5 +210,9 @@ class InventoryState(ContractModel):
     policies: dict[str, ReorderPolicy] = Field(default_factory=dict)  # 품목 id → 기준
     ledger: list[LedgerEntry] = Field(default_factory=list)
     closes: list[Close] = Field(default_factory=list)
+    orders: list[Order] = Field(default_factory=list)
+    auto_orders: dict[str, AutoOrderSetting] = Field(default_factory=dict)  # 품목 id → 자동 주문 설정
+    holds: list[Hold] = Field(default_factory=list)
+    suggestions: dict[str, PolicySuggestion] = Field(default_factory=dict)  # 품목 id → AI 추천(확인 전)
     settings: InventorySettings = Field(default_factory=InventorySettings)
     updated_at: datetime = Field(default_factory=utcnow)

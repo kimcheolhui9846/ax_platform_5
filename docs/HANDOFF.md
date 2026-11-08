@@ -3,8 +3,8 @@
 세션이 바뀌어도 이 문서만 읽고 이어서 일할 수 있게 둔다. **PR을 머지할 때마다 같은 PR에서 "지금 상태"와 "다음 할 일"을 고친다**(WBS와 같이).
 
 - 기준일: 2026-11-08
-- main: `1f6bcbc` (PR #39까지 머지, 이 PR이 #40)
-- 테스트: 백엔드 1021 passed, 프론트 495 passed, 빌드 OK
+- main: `e94cefe` (PR #40까지 머지, 이 PR이 #42)
+- 테스트: 백엔드 1124 passed, 프론트 495 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -47,12 +47,13 @@
 | 화면 전환 계산 시간(TC1) | #38 | 버튼 → 다음 화면의 상태 갱신·화면 판단(reducer → screenModel·needsLoad, 네트워크·렌더 제외)을 화면 전환 15개(실제 앱에서 가능한 시작 상태 → 이동·요청·응답, 도착 화면·남은 불러오기 없음 확인)마다 중앙값으로 재는 인수 테스트 `frontend/src/acceptance/tc1.test.ts`(기준 0.5ms, 측정 도우미 `testing/timing.ts`). 시작 전 측정 중앙값 약 0.0013ms(개발 PC)라 코드 최적화는 하지 않았다 |
 | 제공자 비교(TC3) | #39 | 같은 평가 시나리오를 제공자마다 돌려 나란히 비교하는 `scripts/compare_providers.py`(`measure.compare`·`write_comparison`, 예산은 제공자마다 나눔, 실제 제공자는 `--budget-usd` 필수), 실행마다 결과 글(`documents/`)과 제공자별 합계 표(`provider_totals`). 2026-11-04 실제 실행(승인): Claude Sonnet 5.5 vs GPT-6.1 terra, 시나리오 10개씩 모두 완료·실패 0, 추정 $0.41 vs $0.11. 결과·관찰 `docs/PROVIDER-COMPARISON.md` |
 | 재고 관리 핵심 | #40 | 설계(`docs/superpowers/specs/2026-11-08-inventory-design.md`)·IA 원본(`design/2026-11-05-ia-inventory-proposal/`), owner별 재고 묶음, 원장 기반 수량, 품목·거래처·설정·보충 기준·하루 마감(이상 수량 확인) API |
+| 재고 주문·자동 주문·AI 추천 | #42 | 모의 거래처(`SupplierProvider`, `mock_outcome`로 접수·가격 변동·품절·접수 불명), 수동 주문(멱등 `request_id`)·재조회·일부 입고(`already_counted`)·보류(해결), 자동 주문(마감 직후, 동의·배송지·1회/품목별 월 한도·오래된 실사·접수 불명은 보류, 가격 변동·품절 보류 중인 품목은 멈춤), AI 보충 기준 추천(확인 전 → 적용). API 7개 + 마감 응답 `auto_orders` |
 
 계획 문서는 `docs/superpowers/plans/`에 묶음마다 있다(무엇을 왜 그렇게 정했는지는 각 계획의 "결정 사항").
 
 ## 다음 할 일 (WBS 순서)
 
-**재고 관리 묶음**: #40 재고 핵심(이 PR) → #41 주문·자동 주문·AI 기준 추천 → #42·#43 화면(디자인은 기능을 더 발전시킨 뒤 받는다).
+**재고 관리 묶음**: #40 재고 핵심 → #42 주문·자동 주문·AI 기준 추천(이 PR) → 화면 두 PR(디자인은 기능을 더 발전시킨 뒤 받는다).
 
 **끝난 묶음(2026-11-04 요청, 테스트 케이스 = 자동 테스트 + `docs/TEST-CASES.xlsx`)**: #36 IR 과제(완료) → #37 테스트 케이스 문서와(완료) TC2(외부 메모리 동적 참조 = README '설계 고민 기록' 1번: 무상태 처리 + 세션 저장소 + 동시 호출 상한)·TC4(과제별 하네스, IR 포함 5개)·TC5(호출 상한 503, 세션 불변)·TC6(모드별 컨텍스트)·TC7(이어가기 오류: 404·없는 버전·미리보기 실패·빼기·비공개 유지)·TC8(결과 생성·PDF/Word/HTML) → #38 TC1(화면 전환 계산 0.5ms 이하, 완료) → #39 TC3(OpenAI vs Claude 같은 시나리오 비교, 완료). 남은 것: 수동 TC8-7('PDF로 저장'을 실제 브라우저에서 확인 → YAML `manual_result`·`ran_on` → `scripts/test_cases.py run`).
 

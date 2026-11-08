@@ -6,13 +6,22 @@ from pydantic import ValidationError
 
 from app.inventory.models import (
     AdjustEntry,
+    AutoOrderSetting,
     Close,
     CountEntry,
+    Hold,
+    HoldReason,
     InventorySettings,
     InventoryState,
     Item,
     ItemKind,
+    Order,
+    OrderLine,
+    OrderOrigin,
+    OrderStatus,
+    PolicySuggestion,
     Procurement,
+    ReceiptEntry,
     ReorderPolicy,
     Supplier,
 )
@@ -88,6 +97,44 @@ def test_settings_reject_bad_anomaly_ratio(ratio):
 def test_settings_reject_bad_stale_days(days):
     with pytest.raises(ValidationError):
         InventorySettings(stale_days=days)
+
+
+def test_new_state_has_empty_order_collections():
+    state = InventoryState(owner_id="client-aaaa")
+    assert state.orders == [] and state.holds == []
+    assert state.auto_orders == {} and state.suggestions == {}
+
+
+def test_old_document_without_order_fields_still_loads():
+    old = '{"owner_id": "client-aaaa", "items": [], "ledger": [{"type": "count", "item_id": "it_a", "quantity": "3"}]}'
+    state = InventoryState.model_validate_json(old)
+    assert state.orders == [] and state.ledger[0].quantity == Decimal(3)
+
+
+def test_receipt_and_order_round_trip():
+    order = Order(
+        request_id="req-00000001",
+        supplier_id="sup_a",
+        lines=[OrderLine(item_id="it_a", quantity=Decimal(10), unit_price=Decimal(1000))],
+        total=Decimal(10000),
+        origin=OrderOrigin.MANUAL,
+        status=OrderStatus.ACCEPTED,
+    )
+    state = InventoryState(owner_id="client-aaaa", orders=[order])
+    state.ledger.append(ReceiptEntry(item_id="it_a", quantity=Decimal(4), order_id=order.order_id))
+    state.holds.append(Hold(item_id="it_a", reason=HoldReason.STALE_COUNT))
+    state.auto_orders["it_a"] = AutoOrderSetting(per_order_limit=Decimal(50000), monthly_limit=Decimal(200000))
+    state.suggestions["it_a"] = PolicySuggestion(
+        min_stock=Decimal(5), target_stock=Decimal(20), purchase_unit=Decimal(10), reason="최근 소진량 기준"
+    )
+
+    loaded = InventoryState.model_validate_json(state.model_dump_json())
+
+    assert order.order_id.startswith("or_") and state.holds[0].hold_id.startswith("ho_")
+    assert isinstance(loaded.ledger[0], ReceiptEntry) and loaded.ledger[0].already_counted is False
+    assert loaded.orders[0].lines[0].received == Decimal(0)
+    assert loaded.auto_orders["it_a"].enabled is False
+    assert loaded == state
 
 
 def test_empty_names_units_and_reasons_are_rejected():

@@ -8,11 +8,19 @@ from pydantic import BaseModel, Field, StringConstraints, field_validator
 from app.core.contract import ContractModel
 from app.core.messages import INVENTORY_ZERO_ADJUST_MESSAGE
 from app.inventory.models import (
+    AutoOrderSetting,
     Close,
+    Hold,
+    HoldReason,
     InventorySettings,
     Item,
     ItemKind,
     MockOutcome,
+    Money,
+    Order,
+    OrderStatus,
+    PolicySuggestion,
+    PositiveQuantity,
     Procurement,
     Quantity,
     ReorderPolicy,
@@ -113,6 +121,8 @@ class ItemView(ContractModel):
     suggested_quantity: Decimal | None  # 부족할 때만. 제작 품목이면 '제작 필요' 수량
     policy: ReorderPolicy | None
     last_counted_at: datetime | None
+    suggestion: PolicySuggestion | None  # AI 추천(확인 전)
+    auto_order: AutoOrderSetting | None
 
 
 class InventoryView(ContractModel):
@@ -120,12 +130,62 @@ class InventoryView(ContractModel):
     suppliers: list[Supplier]
     settings: InventorySettings
     last_close: Close | None
+    orders: list[Order]  # 최근 것 먼저
+    holds: list[Hold]  # 미해결 먼저, 그 안에서 최근 것 먼저
 
 
 class CloseCheckView(ContractModel):
     anomalies: list[Anomaly]
 
 
+RequestId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9:_-]{8,64}$")]
+
+
+class OrderLineRequest(BaseModel):
+    item_id: str
+    quantity: PositiveQuantity
+    unit_price: Money | None = None  # 없으면 보충 기준의 단가. 가격 변동 보류를 직접 검토할 때 새 단가를 넣는다
+
+
+class OrderRequest(BaseModel):
+    """S07 주문 확인. 같은 request_id로 다시 보내면 새로 주문하지 않고 기존 주문을 돌려준다."""
+
+    request_id: RequestId
+    lines: list[OrderLineRequest] = Field(min_length=1, max_length=50)
+
+
+class ReceiptLine(BaseModel):
+    item_id: str
+    quantity: PositiveQuantity
+    already_counted: bool = False  # 이미 마감에서 센 물건이면 보유에 더하지 않는다
+
+
+class ReceiptRequest(BaseModel):
+    lines: list[ReceiptLine] = Field(min_length=1, max_length=50)
+
+
+class AutoOrderRequest(BaseModel):
+    """S08 자동 주문 설정. 켤 때는 consent가 true여야 한다. 끄면 이후 실행만 멈춘다(접수된 주문은 그대로)."""
+
+    enabled: bool
+    consent: bool = False
+    per_order_limit: Money
+    monthly_limit: Money
+
+
+class AutoOrderOutcome(ContractModel):
+    item_id: str
+    order_id: str | None  # 주문했으면 그 주문
+    status: OrderStatus | None
+    hold_reason: HoldReason | None  # 계획 단계 보류이거나 거래처 거절·불명으로 생긴 보류
+
+
 class CloseView(ContractModel):
     close: Close
+    inventory: InventoryView
+    auto_orders: list[AutoOrderOutcome]  # 마감 직후 자동 주문 결과(대상이 없으면 빈 목록)
+
+
+class OrderView(ContractModel):
+    order: Order
     inventory: InventoryView
