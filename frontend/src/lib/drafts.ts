@@ -23,12 +23,22 @@ export function writeDraft(storage: KeyValueStore | null, task: string, text: st
 // 보내기 전 입력 초안(질문 직접 답변·답 고치기·결과 문구 고치기). 요청 글과 같은 원칙이고 키가 다르다.
 const INPUT_PREFIX = "ax.draft.input.";
 
-export const answerDraftKey = (sessionId: string, questionId: string): string => `answer:${sessionId}:${questionId}`;
-export const reviseDraftKey = (sessionId: string, questionId: string): string => `revise:${sessionId}:${questionId}`;
-export const sectionDraftKey = (sessionId: string, order: number): string => `section:${sessionId}:${order}`;
+// 초안은 이 브라우저 안에만 있고 서버·AI로 나가지 않는다. 'AI에 보내지 않기' 설정은 AI 전송에 대한 것이라 초안 저장과 무관하다.
+const INPUT_KEY_PREFIX = "input:";
 
-/** 요청 글 초안의 키는 과제 이름이고, 입력 초안의 키는 위 함수들이 만든다(콜론이 들어 있다). */
-export const isInputDraftKey = (key: string): boolean => key.includes(":");
+export const answerDraftKey = (sessionId: string, questionId: string): string => `${INPUT_KEY_PREFIX}answer:${sessionId}:${questionId}`;
+export const reviseDraftKey = (sessionId: string, questionId: string): string => `${INPUT_KEY_PREFIX}revise:${sessionId}:${questionId}`;
+/** 문구 초안은 결과 버전별이다. 다시 만들거나 글이 바뀐 결과에 낡은 초안이 채워지지 않게 한다. */
+export const sectionDraftKey = (sessionId: string, version: number, order: number): string =>
+  `${INPUT_KEY_PREFIX}section:${sessionId}:v${version}:${order}`;
+
+/** 요청 글 초안의 키는 과제 이름이고, 입력 초안의 키는 위 함수들이 만든다(접두사로 구분). */
+export const isInputDraftKey = (key: string): boolean => key.startsWith(INPUT_KEY_PREFIX);
+
+/** [순수] 화면에 들어올 때 저장소에서 되살릴 글. 이미 상태에 있거나(지운 것 포함) 저장된 글이 없으면 null. */
+export function draftToRestore(drafts: Record<string, string>, key: string, stored: string): string | null {
+  return key in drafts || stored === "" ? null : stored;
+}
 
 export function readInputDraft(storage: KeyValueStore | null, key: string): string {
   try {

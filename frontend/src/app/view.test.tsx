@@ -67,7 +67,7 @@ describe("renderScreen", () => {
 
   it("질문은 질문 카드와 흐름 패널", () => {
     const session = makeSession();
-    const { main, side } = draw({ kind: "question", task, session, question: session.next_question!, draft: "" });
+    const { main, side } = draw({ kind: "question", task, session, question: session.next_question!, draft: "", draftKey: "input:k" });
     expect(main).toContain("◈ AI 코치 · 핵심 질문");
     expect(side).toContain("스탠다드 · 질문 1/5");
     expect(side).toContain("02 사용자 · 현재 질문");
@@ -75,7 +75,7 @@ describe("renderScreen", () => {
 
   it("답 고치기는 고치기 카드와 흐름 패널", () => {
     const session = makeSession({ flow: [answered] });
-    const { main, side } = draw({ kind: "revise", task, session, item: { ...answered, question: answered.question! }, draft: "" });
+    const { main, side } = draw({ kind: "revise", task, session, item: { ...answered, question: answered.question! }, draft: "", draftKey: "input:k" });
     expect(main).toContain("◈ 답변 고치기 · 사용자");
     expect(side).toContain("질문과 답변 흐름");
   });
@@ -246,7 +246,7 @@ describe("renderScreen — 보완·문구 수정", () => {
   it("문구 수정은 수정 카드와 흐름 요약·미확인 정보", () => {
     const session = makeSession({ has_result: true, supplements });
     const result = makeResult();
-    const { main, side } = draw({ kind: "edit", task, session, result, section: result.result.sections[0], images: {}, draft: "" });
+    const { main, side } = draw({ kind: "edit", task, session, result, section: result.result.sections[0], images: {}, draft: "", draftKey: "input:k" });
     expect(main).toContain("문구 반영하기");
     expect(side).toContain("미확인 정보 채우기");
   });
@@ -258,7 +258,7 @@ describe("AppView", () => {
     const html = renderToString(
       <AppView
         route={{ name: "question", sessionId: "sess_1" }}
-        model={{ kind: "question", task, session, question: session.next_question!, draft: "" }}
+        model={{ kind: "question", task, session, question: session.next_question!, draft: "", draftKey: "input:k" }}
         busy={false}
         on={NOOP_HANDLERS}
       />,

@@ -56,12 +56,12 @@ describe("reducer", () => {
   });
 
   it("보내기가 성공해야 입력 초안을 비운다(실패하면 남는다)", () => {
-    const drafts = { "answer:sess_1:q_1": "쓰던 답", "section:sess_1:1": "문구", branding: "요청" };
+    const drafts = { "input:answer:sess_1:q_1": "쓰던 답", "input:section:sess_1:v1:1": "문구", branding: "요청" };
     const base = { ...initialState(question), drafts };
-    const sent = reducer(waiting(base, 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: null, notice: null, clearedDraft: "answer:sess_1:q_1" });
-    expect(sent.drafts).toEqual({ "section:sess_1:1": "문구", branding: "요청" });
-    const edited = reducer(waiting(base, 2), { type: "resultLoaded", seq: 2, result: makeResult(), next: null, outdatesSession: false, notice: null, clearedDraft: "section:sess_1:1" });
-    expect(edited.drafts).toEqual({ "answer:sess_1:q_1": "쓰던 답", branding: "요청" });
+    const sent = reducer(waiting(base, 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: null, notice: null, clearedDraft: "input:answer:sess_1:q_1" });
+    expect(sent.drafts).toEqual({ "input:section:sess_1:v1:1": "문구", branding: "요청" });
+    const edited = reducer(waiting(base, 2), { type: "resultLoaded", seq: 2, result: makeResult(), next: null, outdatesSession: false, notice: null, clearedDraft: "input:section:sess_1:v1:1" });
+    expect(edited.drafts).toEqual({ "input:answer:sess_1:q_1": "쓰던 답", branding: "요청" });
     const failed = reducer(waiting(base, 3), { type: "failed", seq: 3, message: "실패", outdatesSession: false, next: null });
     expect(failed.drafts).toBe(drafts);
     const loaded = reducer(waiting(base, 4), { type: "sessionLoaded", seq: 4, session: makeSession(), next: null, noticeConsumed: null, notice: null });

@@ -45,7 +45,7 @@ describe("screenModel", () => {
   it("질문 주소는 걸린 질문이 있으면 질문, 없으면 답변 확인이다", () => {
     const route: Route = { name: "question", sessionId: "sess_1" };
     const session = makeSession();
-    expect(screenModel(at(route, { session }))).toEqual({ kind: "question", task, session, question: session.next_question, draft: "" });
+    expect(screenModel(at(route, { session }))).toEqual({ kind: "question", task, session, question: session.next_question, draft: "", draftKey: `input:answer:sess_1:${session.next_question!.question_id}` });
     const done = makeSession({ next_question: null });
     expect(screenModel(at(route, { session: done }))).toEqual({ kind: "confirm", task, session: done });
   });
@@ -64,6 +64,7 @@ describe("screenModel", () => {
       session,
       item: answered,
       draft: "부모",
+      draftKey: "input:revise:sess_1:q_0",
     });
     expect(screenModel(at({ name: "revise", sessionId: "sess_1", questionId: "q_1" }, { session })).kind).toBe("question");
     expect(screenModel(at({ name: "revise", sessionId: "sess_1", questionId: "q_없음" }, { session })).kind).toBe("question");
@@ -136,7 +137,7 @@ describe("screenModel", () => {
     const base = { ...initialState(route), tasks: [makeTask()], session };
     expect(screenModel(base).kind).toBe("loading");
     const model = screenModel({ ...base, result });
-    expect(model).toEqual({ kind: "edit", task: makeTask(), session, result, section: result.result.sections[0], images: {}, draft: sectionText(result.result.sections[0]) });
+    expect(model).toEqual({ kind: "edit", task: makeTask(), session, result, section: result.result.sections[0], images: {}, draft: sectionText(result.result.sections[0]), draftKey: "input:section:sess_1:v1:1" });
     const missing = screenModel({ ...base, route: { ...route, order: 99 }, result });
     expect(missing).toEqual({ kind: "result", task: makeTask(), session, result, images: {} });
     const noResult = makeSession({ session_id: "sess_1", has_result: false });
@@ -252,9 +253,9 @@ describe("입력 초안 (보내기 전 글)", () => {
   it("질문은 저장된 초안을 보이고, 없으면 빈 글이다", () => {
     const route: Route = { name: "question", sessionId: "sess_1" };
     const qid = session.next_question!.question_id;
-    const model = screenModel(at(route, { session, drafts: { [`answer:sess_1:${qid}`]: "쓰던 답" } }));
+    const model = screenModel(at(route, { session, drafts: { [`input:answer:sess_1:${qid}`]: "쓰던 답" } }));
     expect(model).toMatchObject({ kind: "question", draft: "쓰던 답" });
-    expect(inputDraftKey(model)).toBe(`answer:sess_1:${qid}`);
+    expect(inputDraftKey(model)).toBe(`input:answer:sess_1:${qid}`);
     expect(screenModel(at(route, { session }))).toMatchObject({ draft: "" });
   });
 
@@ -262,18 +263,27 @@ describe("입력 초안 (보내기 전 글)", () => {
     const answered = makeFlowItem({ status: "answered", answer: "부모", question: makeQuestion({ question_id: "q_0" }) });
     const withFlow = makeSession({ session_id: "sess_1", flow: [answered] });
     const route: Route = { name: "revise", sessionId: "sess_1", questionId: "q_0" };
-    expect(screenModel(at(route, { session: withFlow, drafts: { "revise:sess_1:q_0": "고치던 답" } }))).toMatchObject({ draft: "고치던 답" });
+    expect(screenModel(at(route, { session: withFlow, drafts: { "input:revise:sess_1:q_0": "고치던 답" } }))).toMatchObject({ draft: "고치던 답" });
     expect(screenModel(at(route, { session: withFlow }))).toMatchObject({ draft: "부모" });
-    expect(screenModel(at(route, { session: withFlow, drafts: { "revise:sess_1:q_0": "" } }))).toMatchObject({ draft: "" });
-    expect(inputDraftKey(screenModel(at(route, { session: withFlow })))).toBe("revise:sess_1:q_0");
+    expect(screenModel(at(route, { session: withFlow, drafts: { "input:revise:sess_1:q_0": "" } }))).toMatchObject({ draft: "" });
+    expect(inputDraftKey(screenModel(at(route, { session: withFlow })))).toBe("input:revise:sess_1:q_0");
   });
 
   it("문구 고치기는 저장된 초안이 우선이고, 없으면 지금 문구다", () => {
     const route: Route = { name: "edit", sessionId: "sess_1", order: 1 };
-    expect(screenModel(at(route, { session, result, drafts: { "section:sess_1:1": "고치던 문구" } }))).toMatchObject({ draft: "고치던 문구" });
+    expect(screenModel(at(route, { session, result, drafts: { "input:section:sess_1:v1:1": "고치던 문구" } }))).toMatchObject({ draft: "고치던 문구" });
     const model = screenModel(at(route, { session, result }));
     expect(model).toMatchObject({ draft: sectionText(result.result.sections[0]) });
-    expect(inputDraftKey(model)).toBe("section:sess_1:1");
+    expect(inputDraftKey(model)).toBe("input:section:sess_1:v1:1");
+  });
+
+  it("문구 고치기 키는 결과 버전이 다르면 달라진다(낡은 초안이 새 결과에 채워지지 않는다)", () => {
+    const route: Route = { name: "edit", sessionId: "sess_1", order: 1 };
+    const newer = makeResult({ session_id: "sess_1", version: { ...result.version, version: 2 } });
+    const drafts = { "input:section:sess_1:v1:1": "낡은 초안" };
+    expect(screenModel(at(route, { session, result, drafts }))).toMatchObject({ draft: "낡은 초안" });
+    const model = screenModel(at(route, { session, result: newer, drafts }));
+    expect(model).toMatchObject({ draft: sectionText(newer.result.sections[0]), draftKey: "input:section:sess_1:v2:1" });
   });
 
   it("입력 칸이 없는 화면은 키가 없다", () => {

@@ -113,20 +113,24 @@ describe("makeHandlers — 이동", () => {
 
   it("입력 초안은 상태에만 둔다(저장소에는 App이 상태를 따라 쓴다)", () => {
     const { on, actions, saved } = setup();
-    on.changeInput("answer:sess_1:q_1", "쓰던 답");
-    expect(actions).toEqual([{ type: "draftChanged", key: "answer:sess_1:q_1", text: "쓰던 답" }]);
+    on.changeInput("input:answer:sess_1:q_1", "쓰던 답");
+    expect(actions).toEqual([{ type: "draftChanged", key: "input:answer:sess_1:q_1", text: "쓰던 답" }]);
     expect(saved).toEqual([]);
   });
 
-  it("직접 답변·답 고치기가 성공하면 그 초안을 비우고, 고르기·건너뛰기는 비우지 않는다", async () => {
+  it("답이 성공하면(직접·고르기·건너뛰기·다른 예시) 그 질문의 초안을 비우고, 답 고치기는 고치기 초안을 비운다", async () => {
     const { on, calls } = setup({ session });
     on.answer({ answer_type: "free_text", value: "내 답" });
     on.answer({ answer_type: "skip" });
+    on.answer({ answer_type: "option", option_ids: ["o1"] });
+    on.answer({ answer_type: "easier" });
     on.revise("q_0", { answer_type: "free_text", value: "고친 답" });
     const done = makeSession({ next_question: null });
-    expect(calls[0].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "answer:sess_1:q_1" });
-    expect(calls[1].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: undefined });
-    expect(calls[2].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "revise:sess_1:q_0" });
+    expect(calls[0].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "input:answer:sess_1:q_1" });
+    for (const index of [1, 2, 3]) {
+      expect(calls[index].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "input:answer:sess_1:q_1" });
+    }
+    expect(calls[4].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "input:revise:sess_1:q_0" });
   });
 
   it("세션이 없으면 세션 동작은 아무것도 하지 않는다", () => {
@@ -362,7 +366,7 @@ describe("makeHandlers — 보완·문구 수정", () => {
   });
 
   it("문구 수정하기는 그 섹션의 수정 화면으로, 반영하면 결과로 돌아와 알린다", async () => {
-    const { on, calls, actions } = setup({ session });
+    const { on, calls, actions } = setup({ session, result: makeResult() });
     on.editSection(1);
     expect(actions).toEqual([{ type: "navigated", route: { name: "edit", sessionId: "sess_1", order: 1 } }]);
     on.submitEdit(1, "고친 문구");
@@ -376,7 +380,7 @@ describe("makeHandlers — 보완·문구 수정", () => {
       next: { name: "result", sessionId: "sess_1" },
       outdatesSession: false,
       notice: SECTION_EDITED_NOTICE,
-      clearedDraft: "section:sess_1:1",
+      clearedDraft: "input:section:sess_1:v1:1", // 결과 버전 1의 섹션 1
     });
   });
 

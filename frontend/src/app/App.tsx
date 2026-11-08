@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { Toast } from "../components/Toast";
 import { exportDocument } from "../lib/download";
-import { inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
+import { draftToRestore, inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
 import { carryScreenOf, isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
@@ -63,17 +63,18 @@ export default function App() {
   const model = screenModel(state);
 
   // 보내기 전 입력(직접 답변·답 고치기·문구 고치기)은 그 화면에 처음 들어올 때 저장소에서 꺼내고, 상태가 바뀌면 저장소에 따라 쓴다
-  const inputKey = inputDraftKey(model);
-  useEffect(() => {
-    if (inputKey === null || inputKey in state.drafts) return;
-    const stored = readInputDraft(storage, inputKey);
-    if (stored !== "") dispatch({ type: "draftChanged", key: inputKey, text: stored });
-  }, [inputKey, state.drafts, storage]);
+  // 쓰기를 읽기보다 먼저 선언한다: 같은 렌더에서 방금 지운 초안이 저장소에 남은 옛 글로 되살아나지 않게 한다
   const writtenDrafts = useRef(state.drafts);
   useEffect(() => {
     for (const { key, text } of inputDraftWrites(writtenDrafts.current, state.drafts)) writeInputDraft(storage, key, text);
     writtenDrafts.current = state.drafts;
   }, [state.drafts, storage]);
+  const inputKey = inputDraftKey(model);
+  useEffect(() => {
+    if (inputKey === null) return;
+    const restored = draftToRestore(state.drafts, inputKey, readInputDraft(storage, inputKey));
+    if (restored !== null) dispatch({ type: "draftChanged", key: inputKey, text: restored });
+  }, [inputKey, state.drafts, storage]);
   // 결과 이미지는 화면 불러오기와 따로, 그릴 이미지마다 한 번씩 받는다(받는 중인 id는 끝날 때까지 적어 두어 StrictMode에서도 두 번 받지 않는다)
   const [inFlightAssets] = useState(() => new Set<string>());
   // 목록은 렌더마다 새 배열이라 의존성으로 쓰면 effect가 매번 돈다. 같은 목록이면 같은 문자열이 되도록 id를 이어 붙여 의존성으로 둔다.

@@ -72,9 +72,8 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
   const answer = (body: AnswerBody) => {
     const question = session?.next_question;
     if (!session || !question) return;
-    // 보낸 직접 답변의 초안은 보내기가 성공해야 지운다
-    const sent = body.answer_type === "free_text" ? answerDraftKey(session.session_id, question.question_id) : undefined;
-    moveOn(() => submitAnswer(session.session_id, question.question_id, body), null, sent);
+    // 이 질문의 답이 성공하면(어떤 방식이든) 질문이 넘어가므로 그 질문의 초안을 지운다
+    moveOn(() => submitAnswer(session.session_id, question.question_id, body), null, answerDraftKey(session.session_id, question.question_id));
   };
 
   /** 지금 정보로 결과를 만들고 결과 화면으로 간다. 성공이든 실패든 서버 세션이 바뀌었으니 다시 받는다. */
@@ -219,8 +218,10 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
       if (session) go({ name: "edit", sessionId: session.session_id, order });
     },
     submitEdit: (order, text) => {
-      if (!session) return;
+      const result = state.result;
+      if (!session || !result) return;
       const sessionId = session.session_id;
+      const version = result.version.version;
       void run({
         request: () => editResultSection(sessionId, order, text),
         // 문구 수정은 세션(답·보완 정보·최신 여부)을 바꾸지 않는다
@@ -231,7 +232,7 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
           next: { name: "result", sessionId },
           outdatesSession: false,
           notice: SECTION_EDITED_NOTICE,
-          clearedDraft: sectionDraftKey(sessionId, order),
+          clearedDraft: sectionDraftKey(sessionId, version, order),
         }),
         ...PLAIN,
       });
