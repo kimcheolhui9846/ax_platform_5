@@ -107,8 +107,26 @@ describe("makeHandlers — 이동", () => {
   it("쓰다 만 요청 글은 상태와 저장소에 함께 둔다", () => {
     const { on, actions, saved } = setup();
     on.changeDraft("branding", "한글 파우치");
-    expect(actions).toEqual([{ type: "draftChanged", task: "branding", text: "한글 파우치" }]);
+    expect(actions).toEqual([{ type: "draftChanged", key: "branding", text: "한글 파우치" }]);
     expect(saved).toEqual([["branding", "한글 파우치"]]);
+  });
+
+  it("입력 초안은 상태에만 둔다(저장소에는 App이 상태를 따라 쓴다)", () => {
+    const { on, actions, saved } = setup();
+    on.changeInput("answer:sess_1:q_1", "쓰던 답");
+    expect(actions).toEqual([{ type: "draftChanged", key: "answer:sess_1:q_1", text: "쓰던 답" }]);
+    expect(saved).toEqual([]);
+  });
+
+  it("직접 답변·답 고치기가 성공하면 그 초안을 비우고, 고르기·건너뛰기는 비우지 않는다", async () => {
+    const { on, calls } = setup({ session });
+    on.answer({ answer_type: "free_text", value: "내 답" });
+    on.answer({ answer_type: "skip" });
+    on.revise("q_0", { answer_type: "free_text", value: "고친 답" });
+    const done = makeSession({ next_question: null });
+    expect(calls[0].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "answer:sess_1:q_1" });
+    expect(calls[1].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: undefined });
+    expect(calls[2].done(done, 1)).toMatchObject({ type: "sessionLoaded", clearedDraft: "revise:sess_1:q_0" });
   });
 
   it("세션이 없으면 세션 동작은 아무것도 하지 않는다", () => {
@@ -358,6 +376,7 @@ describe("makeHandlers — 보완·문구 수정", () => {
       next: { name: "result", sessionId: "sess_1" },
       outdatesSession: false,
       notice: SECTION_EDITED_NOTICE,
+      clearedDraft: "section:sess_1:1",
     });
   });
 

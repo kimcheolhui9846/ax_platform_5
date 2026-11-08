@@ -20,6 +20,7 @@ import type { DocumentFile } from "../lib/document";
 import { EXPORTED_NOTICE, EXPORT_BUSY_NOTICE, EXPORT_FAILED_NOTICE } from "../lib/documentFormats";
 import type { DocumentFormat } from "../lib/documentFormats";
 import { EVIDENCE_APPLIED_NOTICE, versionBeforeEvidence } from "../lib/evidence";
+import { answerDraftKey, reviseDraftKey, sectionDraftKey } from "../lib/drafts";
 import { HOME } from "../lib/routes";
 import type { CarryScreen, Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
@@ -61,16 +62,19 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
   const go = (route: Route) => dispatch({ type: "navigated", route });
 
   /** 세션을 바꾸는 요청. 응답 세션의 다음 화면(질문 또는 답변 확인)으로 간다. 세션을 새로 만들면 그 과제(noticeConsumed)의 안내 확인을 지운다. */
-  const moveOn = (request: () => Promise<ApiResult<SessionView>>, noticeConsumed: string | null = null) =>
+  const moveOn = (request: () => Promise<ApiResult<SessionView>>, noticeConsumed: string | null = null, clearedDraft?: string) =>
     void run({
       request,
-      done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), noticeConsumed, notice: null }),
+      done: (next, seq) => ({ type: "sessionLoaded", seq, session: next, next: routeAfterSession(next), noticeConsumed, notice: null, clearedDraft }),
       ...PLAIN,
     });
 
   const answer = (body: AnswerBody) => {
     const question = session?.next_question;
-    if (session && question) moveOn(() => submitAnswer(session.session_id, question.question_id, body));
+    if (!session || !question) return;
+    // 보낸 직접 답변의 초안은 보내기가 성공해야 지운다
+    const sent = body.answer_type === "free_text" ? answerDraftKey(session.session_id, question.question_id) : undefined;
+    moveOn(() => submitAnswer(session.session_id, question.question_id, body), null, sent);
   };
 
   /** 지금 정보로 결과를 만들고 결과 화면으로 간다. 성공이든 실패든 서버 세션이 바뀌었으니 다시 받는다. */
@@ -101,9 +105,11 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
     retry: () => dispatch({ type: "retried" }),
     start: (task) => go({ name: "request", task, from: null }),
     changeDraft: (task, text) => {
-      dispatch({ type: "draftChanged", task, text });
+      dispatch({ type: "draftChanged", key: task, text });
       saveDraft(task, text);
     },
+    // 입력 초안은 상태만 바꾼다. 저장소에는 App이 상태 변화를 따라 쓴다(지울 때도 같다)
+    changeInput: (key, text) => dispatch({ type: "draftChanged", key, text }),
     submitRequest: (task) => go({ name: "mode", task, from }),
     editRequest: (task) => go({ name: "request", task, from }),
     // 안내 확인 여부는 그대로 보낸다. 확인하지 않았으면 서버가 거절한다(판정은 서버 한 곳)
@@ -141,7 +147,7 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
       if (session) go({ name: "revise", sessionId: session.session_id, questionId });
     },
     revise: (questionId, body) => {
-      if (session) moveOn(() => reviseAnswer(session.session_id, questionId, body));
+      if (session) moveOn(() => reviseAnswer(session.session_id, questionId, body), null, reviseDraftKey(session.session_id, questionId));
     },
     backToQuestions: () => {
       if (session) go(routeAfterSession(session));
@@ -225,6 +231,7 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
           next: { name: "result", sessionId },
           outdatesSession: false,
           notice: SECTION_EDITED_NOTICE,
+          clearedDraft: sectionDraftKey(sessionId, order),
         }),
         ...PLAIN,
       });

@@ -9,6 +9,8 @@ import { PrivacyToggle } from "./PrivacyToggle";
 
 type Props = {
   question: Question;
+  text: string; // 직접 답변 입력(보내기 전 초안. 값은 부모가 가진다)
+  onTextChange: (text: string) => void;
   kicker: string;
   request: string;
   defaultPrivate: boolean; // 이 질문의 항목이 지금 AI에 보내지 않음으로 정해져 있는지
@@ -19,8 +21,7 @@ type Props = {
 };
 
 /** 질문 하나. 비공개 체크는 이 답에 실려 간다(기본은 정책·이전 설정). 질문이 바뀌면 부모가 key(question_id)로 새로 만들어 고른 답·입력이 비워진다. */
-export function QuestionCard({ question, kicker, request, defaultPrivate, busy, onAnswer, onExample, onEarlyDraft }: Props) {
-  const [text, setText] = useState("");
+export function QuestionCard({ question, text, onTextChange, kicker, request, defaultPrivate, busy, onAnswer, onExample, onEarlyDraft }: Props) {
   const [hidden, setHidden] = useState(defaultPrivate);
   return (
     <section className="card question-card stack">
@@ -54,7 +55,7 @@ export function QuestionCard({ question, kicker, request, defaultPrivate, busy, 
         maxLength={ANSWER_MAX}
         submitLabel="전송 ↑"
         busy={busy}
-        onChange={setText}
+        onChange={onTextChange}
         onSubmit={(value) => onAnswer({ answer_type: "free_text", value, private: hidden })}
       />
     </section>

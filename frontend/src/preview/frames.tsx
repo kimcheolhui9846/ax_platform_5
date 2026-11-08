@@ -5,6 +5,7 @@ import { AppView } from "../app/view";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { SupplementForm } from "../components/SupplementForm";
 import { nextTask } from "../lib/carry";
+import { sectionText } from "../lib/document";
 import { HOME } from "../lib/routes";
 import type { Route } from "../lib/routes";
 import {
@@ -99,25 +100,27 @@ export const FRAMES: Frame[] = [
     noticeAcknowledged: false,
   }),
   frame("mode", "02 코칭 모드 선택", mode, { kind: "mode", task: PRODUCT, form: FORM, draft: REQUEST, context: null, carryFailed: false, noticeAcknowledged: true }),
-  frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION }),
-  frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION }),
+  frame("question", "질문 · 기본", question, { kind: "question", task: PRODUCT, session: SESSION_QUESTION, question: QUESTION, draft: "" }),
+  frame("question-ladder", "질문 · 다른 예시", question, { kind: "question", task: PRODUCT, session: SESSION_LADDER, question: LADDER_QUESTION, draft: "" }),
   frame("question-proposal", "질문 · AI 후보 제안", question, {
     kind: "question",
     task: PRODUCT,
     session: SESSION_PROPOSAL,
     question: PROPOSAL_QUESTION,
+    draft: "",
   }),
   frame("question-private", "질문 · AI에 보내지 않기(체크됨)", question, {
     kind: "question",
     task: PRODUCT,
     session: SESSION_QUESTION_PRIVATE,
     question: QUESTION,
+    draft: "",
   }),
   frame(
     "revise",
     "답변 고치기",
     { name: "revise", sessionId: SESSION_ID, questionId: ANSWERED_USER.question.question_id },
-    { kind: "revise", task: PRODUCT, session: SESSION_QUESTION, item: ANSWERED_USER },
+    { kind: "revise", task: PRODUCT, session: SESSION_QUESTION, item: ANSWERED_USER, draft: ANSWERED_USER.answer ?? "" },
   ),
   frame("confirm", "03 답변 의미 확인", confirm, { kind: "confirm", task: PRODUCT, session: SESSION_READY }),
   frame("confirm-context", "03 답변 의미 확인 · 가져온 기준", confirm, {
@@ -169,7 +172,7 @@ export const FRAMES: Frame[] = [
     "edit",
     "소개 문구 수정",
     { name: "edit", sessionId: SESSION_ID, order: 1 },
-    { kind: "edit", task: PRODUCT, session: SESSION_DONE, result: RESULT, section: RESULT.result.sections[0], images: {} },
+    { kind: "edit", task: PRODUCT, session: SESSION_DONE, result: RESULT, section: RESULT.result.sections[0], images: {}, draft: sectionText(RESULT.result.sections[0]) },
   ),
   frame(
     "evidence",

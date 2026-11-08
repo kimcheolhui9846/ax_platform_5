@@ -55,6 +55,19 @@ describe("reducer", () => {
     expect(state.toast).toBe("결과를 만들지 못했습니다.");
   });
 
+  it("보내기가 성공해야 입력 초안을 비운다(실패하면 남는다)", () => {
+    const drafts = { "answer:sess_1:q_1": "쓰던 답", "section:sess_1:1": "문구", branding: "요청" };
+    const base = { ...initialState(question), drafts };
+    const sent = reducer(waiting(base, 1), { type: "sessionLoaded", seq: 1, session: makeSession(), next: null, noticeConsumed: null, notice: null, clearedDraft: "answer:sess_1:q_1" });
+    expect(sent.drafts).toEqual({ "section:sess_1:1": "문구", branding: "요청" });
+    const edited = reducer(waiting(base, 2), { type: "resultLoaded", seq: 2, result: makeResult(), next: null, outdatesSession: false, notice: null, clearedDraft: "section:sess_1:1" });
+    expect(edited.drafts).toEqual({ "answer:sess_1:q_1": "쓰던 답", branding: "요청" });
+    const failed = reducer(waiting(base, 3), { type: "failed", seq: 3, message: "실패", outdatesSession: false, next: null });
+    expect(failed.drafts).toBe(drafts);
+    const loaded = reducer(waiting(base, 4), { type: "sessionLoaded", seq: 4, session: makeSession(), next: null, noticeConsumed: null, notice: null });
+    expect(loaded.drafts).toBe(drafts);
+  });
+
   it("기다리는 요청의 응답만 받는다", () => {
     const session = makeSession();
     const state = waiting(initialState(question), 2);
@@ -193,7 +206,7 @@ describe("reducer", () => {
   });
 
   it("쓰다 만 요청 글을 과제별로 두고, 알림을 띄우고 닫는다", () => {
-    const drafted = reducer(initialState(HOME), { type: "draftChanged", task: "branding", text: "한글 파우치" });
+    const drafted = reducer(initialState(HOME), { type: "draftChanged", key: "branding", text: "한글 파우치" });
     expect(drafted.drafts).toEqual({ branding: "한글 파우치" });
     const noticed = reducer(drafted, { type: "noticed", message: "알림" });
     expect(noticed.toast).toBe("알림");

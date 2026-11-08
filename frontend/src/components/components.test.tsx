@@ -51,7 +51,7 @@ describe("Composer", () => {
 describe("QuestionCard", () => {
   const card = (question = makeQuestion(), kicker = "핵심 질문", defaultPrivate = false) =>
     renderToString(
-      <QuestionCard question={question} kicker={kicker} request="수제 향초" defaultPrivate={defaultPrivate} busy={false} onAnswer={noop} onExample={noop} onEarlyDraft={noop} />,
+      <QuestionCard question={question} text="" onTextChange={noop} kicker={kicker} request="수제 향초" defaultPrivate={defaultPrivate} busy={false} onAnswer={noop} onExample={noop} onEarlyDraft={noop} />,
     );
 
   it("요청·제목·선택지·도움 버튼을 그린다", () => {
@@ -88,6 +88,23 @@ describe("QuestionCard", () => {
   });
 });
 
+describe("입력 초안이 채워진 화면", () => {
+  it("질문 카드는 받은 초안을 입력창에 채운다", () => {
+    const html = renderToString(
+      <QuestionCard question={makeQuestion()} text="쓰던 답" onTextChange={noop} kicker="핵심 질문" request="수제 향초" defaultPrivate={false} busy={false} onAnswer={noop} onExample={noop} onEarlyDraft={noop} />,
+    );
+    expect(html).toMatch(/<textarea[^>]*>쓰던 답<\/textarea>/);
+  });
+
+  it("고치기 카드와 문구 수정은 받은 초안을 입력창에 채운다", () => {
+    const revise = renderToString(<ReviseCard defaultPrivate={false} text="고치던 답" onTextChange={noop} item={makeFlowItem({ status: "answered", answer: "부모", question: makeQuestion() }) as EditableFlowItem} busy={false} onRevise={noop} onCancel={noop} />);
+    expect(revise).toMatch(/<textarea[^>]*>고치던 답<\/textarea>/);
+    const section = { order: 1, heading: "상품 콘셉트", kind: "diagnosis" as const, blocks: [{ type: "text" as const, text: "지금 문구" }] };
+    const edit = renderToString(<EditMain section={section} text="고치던 문구" onTextChange={noop} busy={false} onSubmit={noop} onBack={noop} />);
+    expect(edit).toMatch(/<textarea[^>]*>고치던 문구<\/textarea>/);
+  });
+});
+
 describe("ReviseCard", () => {
   const item = (patch: Partial<EditableFlowItem>): EditableFlowItem => ({
     ...makeFlowItem({ status: "answered", answer: "부모" }),
@@ -96,7 +113,7 @@ describe("ReviseCard", () => {
   });
 
   it("지금 답을 입력창에 채워 둔다", () => {
-    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} text="부모" onTextChange={noop} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("◈ 답변 고치기 · 사용자");
     expect(html).toContain("지금 답: 부모");
     expect(html).toMatch(/<textarea[^>]*>부모<\/textarea>/);
@@ -104,20 +121,20 @@ describe("ReviseCard", () => {
   });
 
   it("같은 체크 칸이 있고 기본값을 따른다", () => {
-    const html = (hidden: boolean) => renderToString(<ReviseCard defaultPrivate={hidden} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = (hidden: boolean) => renderToString(<ReviseCard defaultPrivate={hidden} text="부모" onTextChange={noop} item={item({})} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html(false)).toContain("🔒 이 답은 AI에 보내지 않기");
     expect(html(false)).not.toMatch(/<input type="checkbox"[^>]*checked/);
     expect(html(true)).toMatch(/<input type="checkbox"[^>]*checked/);
   });
 
   it("다른 예시를 보던 중에 멈춘 질문은 그렇다고 안내한다(빈 '지금 답'을 보이지 않는다)", () => {
-    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({ status: "paused", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} text="" onTextChange={noop} item={item({ status: "paused", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("다른 예시를 보던 중에 멈춘 질문이에요");
     expect(html).not.toContain("지금 답:");
   });
 
   it("미정으로 둔 질문은 지금 답할 수 있다고 안내한다", () => {
-    const html = renderToString(<ReviseCard defaultPrivate={false} item={item({ status: "skipped", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
+    const html = renderToString(<ReviseCard defaultPrivate={false} text="" onTextChange={noop} item={item({ status: "skipped", answer: null })} busy={false} onRevise={noop} onCancel={noop} />);
     expect(html).toContain("아직 미정으로 남겨 둔 질문이에요");
   });
 });
@@ -338,7 +355,7 @@ describe("EditMain", () => {
   const section = { order: 1, heading: "상품 콘셉트", kind: "diagnosis" as const, blocks: [{ type: "text" as const, text: "한글 파우치 소개" }] };
 
   it("지금 문구를 보이고 입력창을 그 문구로 채운다", () => {
-    const html = renderToString(<EditMain section={section} busy={false} onSubmit={noop} onBack={noop} />);
+    const html = renderToString(<EditMain section={section} text="한글 파우치 소개" onTextChange={noop} busy={false} onSubmit={noop} onBack={noop} />);
     expect(html).toContain("상품 콘셉트");
     expect(html.match(/한글 파우치 소개/g)).toHaveLength(2); // 지금 문구와 입력창
     expect(html).toMatch(/maxlength="2500"/i);
@@ -347,7 +364,7 @@ describe("EditMain", () => {
   });
 
   it("글이 지금 문구와 같으면 문구 반영하기를 누를 수 없다", () => {
-    const html = renderToString(<EditMain section={section} busy={false} onSubmit={noop} onBack={noop} />);
+    const html = renderToString(<EditMain section={section} text="한글 파우치 소개" onTextChange={noop} busy={false} onSubmit={noop} onBack={noop} />);
     expect(html).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>문구 반영하기/);
   });
 });

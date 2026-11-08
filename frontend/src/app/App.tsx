@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { Toast } from "../components/Toast";
 import { exportDocument } from "../lib/download";
-import { readDraft, writeDraft } from "../lib/drafts";
+import { inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
 import { carryScreenOf, isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
 import { assetWork, assetsToLoad } from "./assets";
 import { createRunner, loadAsset, startLoad } from "./requests";
-import { screenModel } from "./screenModel";
+import { inputDraftKey, screenModel } from "./screenModel";
 import { initialState, isBusy, reducer } from "./state";
 import { AppView, pageTitle } from "./view";
 
@@ -49,7 +49,7 @@ export default function App() {
   const task = taskOf(state.route);
   useEffect(() => {
     if (task !== null && !(task in state.drafts)) {
-      dispatch({ type: "draftChanged", task, text: readDraft(storage, task) });
+      dispatch({ type: "draftChanged", key: task, text: readDraft(storage, task) });
     }
   }, [task, state.drafts, storage]);
 
@@ -61,6 +61,19 @@ export default function App() {
   }, [state.toast]);
 
   const model = screenModel(state);
+
+  // 보내기 전 입력(직접 답변·답 고치기·문구 고치기)은 그 화면에 처음 들어올 때 저장소에서 꺼내고, 상태가 바뀌면 저장소에 따라 쓴다
+  const inputKey = inputDraftKey(model);
+  useEffect(() => {
+    if (inputKey === null || inputKey in state.drafts) return;
+    const stored = readInputDraft(storage, inputKey);
+    if (stored !== "") dispatch({ type: "draftChanged", key: inputKey, text: stored });
+  }, [inputKey, state.drafts, storage]);
+  const writtenDrafts = useRef(state.drafts);
+  useEffect(() => {
+    for (const { key, text } of inputDraftWrites(writtenDrafts.current, state.drafts)) writeInputDraft(storage, key, text);
+    writtenDrafts.current = state.drafts;
+  }, [state.drafts, storage]);
   // 결과 이미지는 화면 불러오기와 따로, 그릴 이미지마다 한 번씩 받는다(받는 중인 id는 끝날 때까지 적어 두어 StrictMode에서도 두 번 받지 않는다)
   const [inFlightAssets] = useState(() => new Set<string>());
   // 목록은 렌더마다 새 배열이라 의존성으로 쓰면 effect가 매번 돈다. 같은 목록이면 같은 문자열이 되도록 id를 이어 붙여 의존성으로 둔다.

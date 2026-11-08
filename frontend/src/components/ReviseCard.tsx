@@ -10,6 +10,8 @@ import { PrivacyToggle } from "./PrivacyToggle";
 
 type Props = {
   item: EditableFlowItem;
+  text: string; // 직접 고쳐 쓰기 입력(보내기 전 초안. 값은 부모가 가진다)
+  onTextChange: (text: string) => void;
   defaultPrivate: boolean;
   busy: boolean;
   onRevise: (body: ReviseBody) => void;
@@ -17,8 +19,7 @@ type Props = {
 };
 
 /** 답했거나 미정으로 둔 질문의 답을 고친다. 부모가 key(question_id)로 새로 만든다. */
-export function ReviseCard({ item, defaultPrivate, busy, onRevise, onCancel }: Props) {
-  const [text, setText] = useState(item.answer ?? "");
+export function ReviseCard({ item, text, onTextChange, defaultPrivate, busy, onRevise, onCancel }: Props) {
   const [hidden, setHidden] = useState(defaultPrivate);
   const { question } = item;
   return (
@@ -36,7 +37,7 @@ export function ReviseCard({ item, defaultPrivate, busy, onRevise, onCancel }: P
         maxLength={ANSWER_MAX}
         submitLabel="고친 답 보내기"
         busy={busy}
-        onChange={setText}
+        onChange={onTextChange}
         onSubmit={(value) => onRevise({ answer_type: "free_text", value, private: hidden })}
       />
       <button type="button" className="btn" disabled={busy} onClick={onCancel}>
