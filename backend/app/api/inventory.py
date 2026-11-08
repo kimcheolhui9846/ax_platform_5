@@ -12,7 +12,7 @@ from app.api.deps import Inventories, InventoryLocks, Owner
 from app.api.locks import SessionLocks
 from app.api.responses import error_responses
 from app.inventory import service
-from app.inventory.models import InventoryState
+from app.inventory.models import InventorySettings, InventoryState, ReorderPolicy
 from app.inventory.store import InventoryStore
 from app.inventory.views import to_inventory_view
 from app.schemas.inventory import (
@@ -39,6 +39,7 @@ def _load(store: InventoryStore, owner: str) -> InventoryState:
 
 @contextmanager
 def _update(locks: SessionLocks, store: InventoryStore, owner: str) -> Iterator[InventoryState]:
+    # 잠금 키는 owner id다(서로 다른 client id 수로 한정). 요청이 실패해도 잠금은 만들어질 수 있다.
     with locks.hold(owner):
         state = _load(store, owner)
         yield state
@@ -91,14 +92,14 @@ def update_supplier(
 @router.put("/settings", response_model=InventoryView, responses=error_responses(422))
 def set_settings(body: InventorySettingsRequest, store: Inventories, locks: InventoryLocks, owner: Owner) -> InventoryView:
     with _update(locks, store, owner) as state:
-        service.set_settings(state, body)
+        service.set_settings(state, InventorySettings.model_validate(body.model_dump()))
     return to_inventory_view(state)
 
 
 @router.put("/items/{item_id}/policy", response_model=InventoryView, responses=error_responses(404, 422))
 def set_policy(item_id: str, body: ReorderPolicyRequest, store: Inventories, locks: InventoryLocks, owner: Owner) -> InventoryView:
     with _update(locks, store, owner) as state:
-        service.set_policy(state, item_id, body)
+        service.set_policy(state, item_id, ReorderPolicy.model_validate(body.model_dump()))
     return to_inventory_view(state)
 
 

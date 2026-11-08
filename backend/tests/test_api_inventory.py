@@ -1,16 +1,27 @@
 """재고 API(/api/v1/inventory). 사용자가 화면에서 하는 순서대로 부른다."""
+from decimal import Decimal as D
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests.conftest import OTHER_CLIENT_ID, api_client
 
 from app.api.errors import install_error_handlers
+from app.core.messages import (
+    INVENTORY_ITEM_NOT_FOUND_MESSAGE,
+    INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
+    INVENTORY_UNKNOWN_ITEM_MESSAGE,
+)
+from app.inventory import service
 from app.inventory.errors import InventoryError, InventoryNotFound
+from app.inventory.models import InventorySettings, ReorderPolicy
 from app.inventory.store import InMemoryInventoryStore
 from app.main import create_app
 from app.providers.mock import MockProvider
 
 BASE = "/api/v1/inventory"
+POLICY = {"min_stock": "1", "target_stock": "1", "purchase_unit": "1", "lead_days": 1, "unit_price": "0"}
 
 
 def make_app():
@@ -42,10 +53,6 @@ def test_inventory_errors_become_korean_error_bodies():
     assert client.get("/missing").status_code == 404
     assert client.get("/missing").json() == {"detail": "없는 대상 문구"}
 
-
-from decimal import Decimal as D
-
-import pytest
 
 
 @pytest.fixture
@@ -119,19 +126,33 @@ def test_rule_violations_are_422_and_change_nothing(client):
 
 
 def test_unknown_ids_are_404(client):
-    assert client.patch(f"{BASE}/items/it_none", json={"name": "x"}).status_code == 404
-    assert client.patch(f"{BASE}/suppliers/sup_none", json={"name": "x"}).status_code == 404
-    policy = {"min_stock": "1", "target_stock": "1", "purchase_unit": "1", "lead_days": 1, "unit_price": "0"}
-    assert client.put(f"{BASE}/items/it_none/policy", json=policy).status_code == 404
+    item_missing = {"detail": INVENTORY_ITEM_NOT_FOUND_MESSAGE}
+    patched = client.patch(f"{BASE}/items/it_none", json={"name": "x"})
+    assert (patched.status_code, patched.json()) == (404, item_missing)
+    supplier = client.patch(f"{BASE}/suppliers/sup_none", json={"name": "x"})
+    assert (supplier.status_code, supplier.json()) == (404, {"detail": INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE})
+    put = client.put(f"{BASE}/items/it_none/policy", json=POLICY)
+    assert (put.status_code, put.json()) == (404, item_missing)
 
 
 def test_other_owner_sees_nothing_and_cannot_touch(client):
     fabric = _ids(_bulk(client, {"name": "원단", "kind": "material", "unit": "m"}).json())[0]
+    supplier_id = client.post(f"{BASE}/suppliers", json={"name": "상회"}).json()["suppliers"][0]["supplier_id"]
     other = api_client(client.app, client_id=OTHER_CLIENT_ID)
+    item_missing = {"detail": INVENTORY_ITEM_NOT_FOUND_MESSAGE}
 
     assert other.get(BASE).json()["items"] == []
-    assert other.patch(f"{BASE}/items/{fabric}", json={"name": "남의 것"}).status_code == 404
+    patched = other.patch(f"{BASE}/items/{fabric}", json={"name": "남의 것"})
+    assert (patched.status_code, patched.json()) == (404, item_missing)
+    put = other.put(f"{BASE}/items/{fabric}/policy", json=POLICY)
+    assert (put.status_code, put.json()) == (404, item_missing)
+    supplier = other.patch(f"{BASE}/suppliers/{supplier_id}", json={"name": "남의 상회"})
+    assert (supplier.status_code, supplier.json()) == (404, {"detail": INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE})
+    closed = other.post(f"{BASE}/closes", json={"close_date": "2026-11-08", "counts": {fabric: "1"}})
+    assert (closed.status_code, closed.json()) == (422, {"detail": INVENTORY_UNKNOWN_ITEM_MESSAGE})
     assert client.get(BASE).json()["items"][0]["item"]["name"] == "원단"
+    assert client.get(BASE).json()["suppliers"][0]["name"] == "상회"
+    assert client.get(BASE).json()["items"][0]["policy"] is None
 
 
 def test_settings_and_supplier_patch(client):
@@ -151,8 +172,6 @@ def test_single_item_create_and_archive(client):
 
 
 def test_mutations_hold_the_owner_lock(monkeypatch):
-    from app.inventory import service
-
     app = make_app()
     client = api_client(app)
     seen = []
@@ -165,3 +184,30 @@ def test_mutations_hold_the_owner_lock(monkeypatch):
     monkeypatch.setattr(service, "add_supplier", spy)
     client.post(f"{BASE}/suppliers", json={"name": "상회"})
     assert seen == [True]
+
+
+def test_exponent_numbers_come_back_plain(client):
+    fabric = _ids(_bulk(client, {"name": "원단", "kind": "material", "unit": "m"}).json())[0]
+    put = client.put(f"{BASE}/items/{fabric}/policy", json=POLICY | {"unit_price": "1e3"})
+    assert put.json()["items"][0]["policy"]["unit_price"] == "1000"
+
+
+def test_state_holds_base_types_not_request_subclasses():
+    app = make_app()
+    client = api_client(app)
+    owner = client.headers["X-Client-Id"]
+    fabric = _ids(_bulk(client, {"name": "원단", "kind": "material", "unit": "m"}).json())[0]
+    client.put(f"{BASE}/settings", json={"address": "", "anomaly_drop_ratio": "0.5", "stale_days": 7})
+    client.put(f"{BASE}/items/{fabric}/policy", json=POLICY)
+
+    state = app.state.inventories.get(owner)
+    assert type(state.settings) is InventorySettings
+    assert type(state.policies[fabric]) is ReorderPolicy
+
+
+def test_create_app_without_inventories_uses_storage():
+    app = create_app(provider=MockProvider())
+    assert isinstance(app.state.inventories, InMemoryInventoryStore)
+    client = api_client(app)
+    assert client.get(BASE).json()["items"] == []
+    assert _bulk(client, {"name": "원단", "kind": "material", "unit": "m"}).status_code == 201

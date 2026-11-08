@@ -9,15 +9,21 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import AfterValidator, Field
 
 from app.core.contract import ContractModel
 from app.core.results import utcnow
 
-Quantity = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
-PositiveQuantity = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
-SignedQuantity = Annotated[Decimal, Field(max_digits=12, decimal_places=2)]
-Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2)]
+
+def _plain(value: Decimal) -> Decimal:
+    """'1e3'처럼 지수로 들어온 값도 '1000'으로 나가게 한다(값은 그대로)."""
+    return Decimal(format(value, "f"))
+
+
+Quantity = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2), AfterValidator(_plain)]
+PositiveQuantity = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2), AfterValidator(_plain)]
+SignedQuantity = Annotated[Decimal, Field(max_digits=12, decimal_places=2), AfterValidator(_plain)]
+Money = Annotated[Decimal, Field(ge=0, max_digits=14, decimal_places=2), AfterValidator(_plain)]
 
 
 def new_id(prefix: str) -> str:
@@ -46,10 +52,10 @@ class MockOutcome(StrEnum):
 
 class Item(ContractModel):
     item_id: str = Field(default_factory=lambda: new_id("it"))
-    name: str
+    name: str = Field(min_length=1)
     option: str | None = None
     kind: ItemKind
-    unit: str
+    unit: str = Field(min_length=1)
     procurement: Procurement
     supplier_id: str | None = None  # 구매 품목만. 제작 품목은 늘 None
     archived: bool = False  # 지우지 않고 숨긴다(원장·주문 보존)
@@ -57,7 +63,7 @@ class Item(ContractModel):
 
 class Supplier(ContractModel):
     supplier_id: str = Field(default_factory=lambda: new_id("sup"))
-    name: str
+    name: str = Field(min_length=1)
     kind: Literal["mock"] = "mock"
     mock_outcome: MockOutcome = MockOutcome.ACCEPT
 
@@ -94,7 +100,7 @@ class AdjustEntry(ContractModel):
     entry_id: str = Field(default_factory=lambda: new_id("le"))
     item_id: str
     delta: SignedQuantity
-    reason: str
+    reason: str = Field(min_length=1)
     at: datetime = Field(default_factory=utcnow)
     close_id: str | None = None
 

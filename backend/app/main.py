@@ -38,6 +38,7 @@ def create_app(
     image = LimitedImageProvider(images or get_image_provider(settings.image_provider), slots)
 
     storage = None
+    # 하나라도 빠지면 저장소 묶음 전체를 만든다(`inventories`만 빼는 것은 테스트용: 세션·이미지 저장소도 새로 만들어진다).
     if store is None or assets is None or inventories is None:  # 연결은 만들 때가 아니라 서버가 시작할 때(lifespan) 한다
         storage = build_storage(
             settings.store,
@@ -66,7 +67,7 @@ def create_app(
     app.state.registry = HarnessRegistry(llm, image, app.state.assets)
     app.state.locks = SessionLocks()
     app.state.inventories = inventories or storage.inventories
-    app.state.inventory_locks = SessionLocks()  # 키는 owner(재고 묶음 하나)
+    app.state.inventory_locks = SessionLocks()  # 키는 owner id: 서로 다른 client id 수만큼만 늘고, 실패한 요청도 잠금을 만들 수 있다
     app.state.debug = settings.debug if debug is None else debug
     app.include_router(coaching.router)
     app.include_router(assets_api.router)

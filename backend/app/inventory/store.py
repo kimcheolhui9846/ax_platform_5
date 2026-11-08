@@ -88,6 +88,8 @@ class PostgresInventoryStore:
         return InventoryState.model_validate_json(row[0]) if row else None
 
     def save(self, state: InventoryState) -> None:
+        # 늦게 불러온다: app.core.postgres는 모듈 맨 위에서 psycopg_pool을 불러오므로,
+        # Postgres를 안 쓰는 경로(메모리·SQLite)가 이 모듈만 가져와도 psycopg가 필요해지지 않게 한다.
         from app.core.postgres import without_nul
 
         state.updated_at = utcnow()

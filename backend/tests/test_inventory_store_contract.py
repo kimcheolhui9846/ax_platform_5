@@ -4,6 +4,8 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.state import SessionState
+from app.core.store import SqliteSessionStore
 from app.inventory.models import CountEntry, InventoryState, Item, ItemKind, Procurement
 from app.inventory.store import InMemoryInventoryStore, PostgresInventoryStore, SqliteInventoryStore
 
@@ -67,3 +69,16 @@ def test_owners_are_separate(store):
     store.save(InventoryState(owner_id="client-bbbb"))
     assert len(store.get("client-aaaa").items) == 1
     assert store.get("client-bbbb").items == []
+
+
+def test_sqlite_session_and_inventory_stores_share_one_file(tmp_path):
+    path = tmp_path / "sessions.db"
+    sessions = SqliteSessionStore(path)
+    inventories = SqliteInventoryStore(path)
+    session = SessionState(task_type="t", raw_input="안녕", owner_id="client-aaaa")
+
+    sessions.save(session)
+    inventories.save(InventoryState(owner_id="client-aaaa", items=[_item()]))
+
+    assert sessions.get(session.session_id).raw_input == "안녕"
+    assert len(inventories.get("client-aaaa").items) == 1

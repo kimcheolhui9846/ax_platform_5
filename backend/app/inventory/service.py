@@ -152,7 +152,8 @@ def record_close(state: InventoryState, request: CloseRequest) -> Close:
     if not touched <= active:
         raise InventoryError(INVENTORY_UNKNOWN_ITEM_MESSAGE)
 
-    unconfirmed = [a for a in check_close(state, request.counts) if a.item_id not in set(request.confirmed)]
+    confirmed = set(request.confirmed)
+    unconfirmed = [a for a in check_close(state, request.counts) if a.item_id not in confirmed]
     if unconfirmed:
         raise InventoryError(unconfirmed_anomaly_message(find_item(state, a.item_id).name for a in unconfirmed))
 

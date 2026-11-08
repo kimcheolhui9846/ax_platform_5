@@ -1,20 +1,26 @@
+from datetime import date
 from decimal import Decimal as D
 
 import pytest
 
 from app.core.messages import (
+    INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
+    INVENTORY_EMPTY_CLOSE_MESSAGE,
     INVENTORY_ITEM_NOT_FOUND_MESSAGE,
+    INVENTORY_NEGATIVE_STOCK_MESSAGE,
     INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE,
     INVENTORY_TARGET_BELOW_MIN_MESSAGE,
     INVENTORY_UNIT_LOCKED_MESSAGE,
+    INVENTORY_UNKNOWN_ITEM_MESSAGE,
     INVENTORY_UNKNOWN_SUPPLIER_MESSAGE,
+    unconfirmed_anomaly_message,
     duplicate_item_message,
 )
 from app.inventory import service
 from app.inventory.errors import InventoryError, InventoryNotFound
-from app.inventory.models import CountEntry, InventorySettings, InventoryState, ItemKind, MockOutcome, Procurement, ReorderPolicy
-from app.inventory.rules import on_hand
-from app.schemas.inventory import ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
+from app.inventory.models import AdjustEntry, CountEntry, InventorySettings, InventoryState, MockOutcome, ReorderPolicy
+from app.inventory.rules import AnomalyKind, on_hand
+from app.schemas.inventory import Adjustment, CloseRequest, ItemDraft, ItemPatch, SupplierDraft, SupplierPatch
 
 
 def draft(name="에코백", **overrides) -> ItemDraft:
@@ -103,6 +109,44 @@ def test_update_item_rejects_becoming_a_duplicate():
         service.update_item(state, other.item_id, ItemPatch(name="에코백"))
 
 
+def test_update_item_unknown_supplier_is_rejected():
+    state = fresh()
+    [item] = service.add_items(state, [draft(procurement="purchase")])
+    with pytest.raises(InventoryError, match=INVENTORY_UNKNOWN_SUPPLIER_MESSAGE):
+        service.update_item(state, item.item_id, ItemPatch(supplier_id="sup_none"))
+
+
+def test_update_item_switching_to_make_clears_supplier():
+    state = fresh()
+    supplier = service.add_supplier(state, SupplierDraft(name="원단상회"))
+    [item] = service.add_items(state, [draft(procurement="purchase", supplier_id=supplier.supplier_id)])
+    service.update_item(state, item.item_id, ItemPatch(procurement="make"))
+    assert state.items[0].supplier_id is None
+
+
+def test_update_item_unarchiving_into_a_duplicate_is_rejected():
+    state = fresh()
+    [old] = service.add_items(state, [draft()])
+    service.update_item(state, old.item_id, ItemPatch(archived=True))
+    service.add_items(state, [draft()])  # 같은 이름·옵션이 숨김 뒤에 다시 등록됨
+    with pytest.raises(InventoryError):
+        service.update_item(state, old.item_id, ItemPatch(archived=False))
+
+
+def test_failed_update_item_leaves_state_untouched():
+    state = fresh()
+    [_, other] = service.add_items(state, [draft(quantity=D(1)), draft("원단", unit="m")])
+    before = state.model_copy(deep=True)
+    for item_id, patch in (
+        (other.item_id, ItemPatch(name="에코백")),  # 중복
+        (other.item_id, ItemPatch(supplier_id="sup_none", procurement="purchase")),  # 없는 거래처
+        (state.items[0].item_id, ItemPatch(unit="묶음")),  # 단위 잠김
+    ):
+        with pytest.raises(InventoryError):
+            service.update_item(state, item_id, patch)
+    assert state == before
+
+
 def test_suppliers_add_and_update():
     state = fresh()
     supplier = service.add_supplier(state, SupplierDraft(name="원단상회"))
@@ -133,19 +177,6 @@ def test_set_settings_replaces_settings():
     assert state.settings.address == "서울시 어딘가"
     assert state.settings.stale_days == 3
 
-
-from datetime import date  # noqa: E402
-
-from app.core.messages import (  # noqa: E402
-    INVENTORY_ADJUST_UNCOUNTED_MESSAGE,
-    INVENTORY_EMPTY_CLOSE_MESSAGE,
-    INVENTORY_NEGATIVE_STOCK_MESSAGE,
-    INVENTORY_UNKNOWN_ITEM_MESSAGE,
-    unconfirmed_anomaly_message,
-)
-from app.inventory.models import AdjustEntry  # noqa: E402
-from app.inventory.rules import AnomalyKind  # noqa: E402
-from app.schemas.inventory import Adjustment, CloseRequest  # noqa: E402
 
 DAY = date(2026, 11, 8)
 
@@ -245,3 +276,36 @@ def test_adjust_counted_in_same_close_is_allowed():
 def test_adjustment_delta_cannot_be_zero():
     with pytest.raises(ValueError):
         Adjustment(item_id="it_x", delta=D(0), reason="r")
+
+
+def test_two_adjustments_to_one_item_sum():
+    state, [a] = stocked(D(10))
+    service.record_close(
+        state,
+        CloseRequest(
+            close_date=DAY,
+            adjustments=[
+                Adjustment(item_id=a, delta=D(-2), reason="파손"),
+                Adjustment(item_id=a, delta=D("0.5"), reason="찾음"),
+            ],
+        ),
+    )
+    assert on_hand(state.ledger, a) == D("8.5")
+
+
+def test_adjust_item_counted_in_an_earlier_close():
+    state, [a, b] = stocked(D(10), D(10))
+    service.record_close(state, CloseRequest(close_date=DAY, counts={a: D(10)}))
+    service.record_close(
+        state,
+        CloseRequest(close_date=DAY, counts={b: D(10)}, adjustments=[Adjustment(item_id=a, delta=D(-1), reason="파손")]),
+    )
+    assert on_hand(state.ledger, a) == D(9)
+
+
+def test_unknown_id_only_in_adjustments_is_rejected():
+    state, _ = stocked(D(10))
+    with pytest.raises(InventoryError, match=INVENTORY_UNKNOWN_ITEM_MESSAGE):
+        service.record_close(
+            state, CloseRequest(close_date=DAY, adjustments=[Adjustment(item_id="it_none", delta=D(1), reason="r")])
+        )

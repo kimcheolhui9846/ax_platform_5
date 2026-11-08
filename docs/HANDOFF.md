@@ -4,7 +4,7 @@
 
 - 기준일: 2026-11-08
 - main: `b15f0cc` (PR #38까지 머지)
-- 테스트: 백엔드 999 passed, 프론트 495 passed, 빌드 OK
+- 테스트: 백엔드 1021 passed, 프론트 495 passed, 빌드 OK
 - 배포(개인 계정, 무료): 앱 https://ax-platform-5.vercel.app · 미리보기 https://ax-platform-5.vercel.app/preview · API https://ax-coaching-api.onrender.com (문서 `/docs`)
 
 새 세션에서는 "docs/HANDOFF.md 읽고 이어서 해"라고 하면 된다. 프로젝트 규칙은 `CLAUDE.md`, 팀 공유용 작업 현황은 `docs/WBS.xlsx`다.
@@ -52,9 +52,9 @@
 
 ## 다음 할 일 (WBS 순서)
 
-**재고 관리 묶음**: #41 주문·자동 주문·AI 기준 추천 → #42·#43 화면(디자인은 기능을 더 발전시킨 뒤 받는다).
+**재고 관리 묶음**: #40 재고 핵심(이 PR) → #41 주문·자동 주문·AI 기준 추천 → #42·#43 화면(디자인은 기능을 더 발전시킨 뒤 받는다).
 
-**진행 중인 묶음(2026-11-04 요청, 테스트 케이스 = 자동 테스트 + `docs/TEST-CASES.xlsx`)**: #36 IR 과제(완료) → #37 테스트 케이스 문서와(완료) TC2(외부 메모리 동적 참조 = README '설계 고민 기록' 1번: 무상태 처리 + 세션 저장소 + 동시 호출 상한)·TC4(과제별 하네스, IR 포함 5개)·TC5(호출 상한 503, 세션 불변)·TC6(모드별 컨텍스트)·TC7(이어가기 오류: 404·없는 버전·미리보기 실패·빼기·비공개 유지)·TC8(결과 생성·PDF/Word/HTML) → #38 TC1(화면 전환 계산 0.5ms 이하, 완료) → #39 TC3(OpenAI vs Claude 같은 시나리오 비교, 완료, 이 PR). 남은 것: 수동 TC8-7('PDF로 저장'을 실제 브라우저에서 확인 → YAML `manual_result`·`ran_on` → `scripts/test_cases.py run`).
+**끝난 묶음(2026-11-04 요청, 테스트 케이스 = 자동 테스트 + `docs/TEST-CASES.xlsx`)**: #36 IR 과제(완료) → #37 테스트 케이스 문서와(완료) TC2(외부 메모리 동적 참조 = README '설계 고민 기록' 1번: 무상태 처리 + 세션 저장소 + 동시 호출 상한)·TC4(과제별 하네스, IR 포함 5개)·TC5(호출 상한 503, 세션 불변)·TC6(모드별 컨텍스트)·TC7(이어가기 오류: 404·없는 버전·미리보기 실패·빼기·비공개 유지)·TC8(결과 생성·PDF/Word/HTML) → #38 TC1(화면 전환 계산 0.5ms 이하, 완료) → #39 TC3(OpenAI vs Claude 같은 시나리오 비교, 완료). 남은 것: 수동 TC8-7('PDF로 저장'을 실제 브라우저에서 확인 → YAML `manual_result`·`ran_on` → `scripts/test_cases.py run`).
 
 0. **Neon 가입·`DATABASE_URL` 입력(사용자)** — `docs/DEPLOY.md` "Neon 연결". PR #33 머지 전에 렌더 Environment에 넣는다(안 넣으면 서버가 시작하지 못한다). **후순위: 로그인(다른 기기에서 내 작업)·결과물 공유 링크**(WBS 4.10·4.11).
 1. **디자인 검수(디자이너)** — WBS 3.3·3.4

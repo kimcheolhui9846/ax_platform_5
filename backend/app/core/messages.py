@@ -58,6 +58,7 @@ INVENTORY_TARGET_BELOW_MIN_MESSAGE = "목표 재고는 최소 재고보다 작�
 INVENTORY_EMPTY_CLOSE_MESSAGE = "마감할 수량이나 조정을 하나 이상 입력해 주세요."
 INVENTORY_ADJUST_UNCOUNTED_MESSAGE = "수량을 센 적 없는 품목은 조정할 수 없습니다. 먼저 수량을 입력해 주세요."
 INVENTORY_NEGATIVE_STOCK_MESSAGE = "조정하면 수량이 0보다 작아집니다."
+INVENTORY_ZERO_ADJUST_MESSAGE = "조정 값은 0일 수 없습니다."
 
 
 def duplicate_item_message(name: str) -> str:

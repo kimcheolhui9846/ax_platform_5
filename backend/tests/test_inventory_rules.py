@@ -74,6 +74,7 @@ def test_item_status(qty, in_transit, pol, expected):
         (D(20), D(0), policy(), None),  # 부족 아님
         (None, D(0), policy(), None),  # 미입력
         (D(5), D(0), None, None),  # 기준 없음
+        (D(2), D(3), policy(), D(36)),  # 2+3 = 5 < 최소 10, 목표 30 − 2 = 28 → 12 단위로 올림 = 36
     ],
 )
 def test_suggested_quantity(qty, in_transit, pol, expected):
@@ -90,3 +91,15 @@ def test_find_anomalies_increase_and_drop_in_counts_order():
         Anomaly(item_id="b", previous=D(10), counted=D(4), kind=AnomalyKind.DROP),  # 60% 감소 > 50%
         Anomaly(item_id="a", previous=D(10), counted=D(11), kind=AnomalyKind.INCREASE),
     ]  # c는 정확히 50%라 아님, d는 직전 0, new는 센 적 없음
+
+
+def test_find_anomalies_equal_count_is_not_an_anomaly():
+    assert find_anomalies([count("10")], {"a": D(10)}, D("0.5")) == []
+
+
+def test_find_anomalies_uses_the_adjusted_baseline():
+    ledger = [count("10"), adjust("-2.5")]  # 직전 수량 7.5
+    assert find_anomalies(ledger, {"a": D("7.5")}, D("0.5")) == []
+    assert find_anomalies(ledger, {"a": D(3)}, D("0.5")) == [
+        Anomaly(item_id="a", previous=D("7.5"), counted=D(3), kind=AnomalyKind.DROP)  # 4.5/7.5 = 0.6 > 0.5
+    ]

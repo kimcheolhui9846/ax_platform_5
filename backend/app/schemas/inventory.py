@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.core.contract import ContractModel
+from app.core.messages import INVENTORY_ZERO_ADJUST_MESSAGE
 from app.inventory.models import (
     Close,
     InventorySettings,
@@ -79,7 +80,7 @@ class Adjustment(BaseModel):
     @classmethod
     def _not_zero(cls, value: Decimal) -> Decimal:
         if value == 0:
-            raise ValueError("조정 값은 0일 수 없습니다.")
+            raise ValueError(INVENTORY_ZERO_ADJUST_MESSAGE)
         return value
 
 
