@@ -75,3 +75,15 @@
   .inv-bulk-row > :first-child, .inv-bulk-row > button { grid-column: 1 / -1; }
   .inv-wrap > input, .inv-wrap > select { flex: 1 1 100%; }
 }
+
+/* 주문: 제안·확인 카드·주문 카드의 줄. 좁으면 줄을 바꾼다 */
+.inv-list, .inv-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.inv-line { display: flex; align-items: baseline; gap: var(--space-4); }
+.inv-line-name { flex: 1 1 0; min-width: 0; font-weight: var(--font-medium); }
+.inv-order-line { display: flex; align-items: center; gap: var(--space-3); }
+.inv-order-line > input[inputmode] { flex: 0 1 auto; min-width: 0; width: 100%; max-width: 12ch; }
+
+@container app (max-width: 719px) {
+  .inv-line > *, .inv-order-line > * { flex: 1 1 100%; }
+  .inv-order-line > input[inputmode] { max-width: none; }
+}

@@ -3,7 +3,9 @@ import { DataTable } from "../../components/DataTable";
 import type { DataColumn } from "../../components/DataTable";
 import type { StockModel, StockRow } from "../../inventory/screenModel";
 import { KIND_LABELS } from "../../lib/inventory/format";
+import type { InventoryCall } from "../../inventory/state";
 import { ItemFilter } from "./ItemFilter";
+import { OrderProposal } from "./OrderProposal";
 import type { FilterChange } from "./ItemFilter";
 
 type Props = {
@@ -14,6 +16,8 @@ type Props = {
   onFilter: (filter: FilterChange) => void;
   onStartClose: () => void;
   onOpenItems: () => void;
+  busy: InventoryCall | null;
+  onOpenOrder: (supplierId: string) => void;
 };
 
 function badgeClass(status: StockRow["status"]): string {
@@ -32,7 +36,7 @@ const COLUMNS: DataColumn<StockRow>[] = [
 ];
 
 /** S04 재고 현황. */
-export function StockScreen({ model, hasItems, filter, onFilter, onStartClose, onOpenItems }: Props) {
+export function StockScreen({ model, hasItems, filter, onFilter, onStartClose, onOpenItems, busy, onOpenOrder }: Props) {
   if (!hasItems) {
     return (
       <div className="card empty stack">
@@ -54,6 +58,7 @@ export function StockScreen({ model, hasItems, filter, onFilter, onStartClose, o
           하루 마감 하기
         </button>
       </div>
+      <OrderProposal groups={model.proposals} busy={busy} onOpen={onOpenOrder} />
       <ItemFilter query={filter.query} kind={filter.kind} onChange={onFilter} />
       <DataTable caption="재고 현황" columns={COLUMNS} rows={model.rows} rowKey={(r) => r.itemId} empty="조건에 맞는 품목이 없어요." />
     </div>

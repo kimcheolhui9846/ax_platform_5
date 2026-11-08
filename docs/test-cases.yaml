@@ -383,3 +383,77 @@ cases:
   expected: 제목·반영한 기준·섹션 본문이 PDF에 그대로 있고 파일 이름이 '{작업 이름}_V{n}'이다
   method: 수동
   note: 인쇄 창은 자동화 브라우저에서 열린 채 멈춰 자동 테스트에서 뺐다
+- id: TC9-1
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 등록 후 하루 마감으로 부족 상태와 제안 주문량이 나오고 미입력은 0이 아니다
+  precondition: 거래처 1곳, 배송지, 보충 기준(최소 20·목표 50·구매 단위 10)을 둔 품목 2개(현재 수량 10 / 수량 없음)
+  steps:
+  - 거래처·품목을 등록하고 기준을 저장한다
+  - 하루 마감에서 첫 품목을 5로 센다(줄어든 수량 확인)
+  expected: 첫 품목은 short이고 제안 주문량이 50(구매 단위로 올림), 세지 않은 품목은 uncounted이며 보유가 0이 아니라 비어 있다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_1_등록_마감_부족과_미입력
+- id: TC9-2
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 수동 주문은 같은 request_id로 두 번 보내도 한 번만 주문된다
+  precondition: 배송지와 기준이 있는 품목, 접수하는 거래처
+  steps:
+  - 수량 40을 주문한다
+  - 같은 request_id로 다시 주문한다
+  expected: 첫 응답은 접수이고 배송 중 40, 두 번째는 같은 주문 id이며 주문 수는 1
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_2_수동_주문은_같은_request_id로_두_번_보내도_한_번만
+- id: TC9-3
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 일부 입고와 '이미 마감에서 셌어요' 입고는 보유를 맞게 바꾼다
+  precondition: 수량 40 주문이 접수된 상태(보유 10)
+  steps:
+  - 15를 입고한다
+  - 남은 수량(25)보다 많은 26을 입고한다
+  - '남은 25를 ''이미 마감에서 셌어요''로 입고한다'
+  expected: 일부 입고는 partially_received이고 보유 25, 초과 입고는 422, 마지막은 received이고 보유는 25 그대로
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_3_일부_입고와_이미_마감에서_셌어요
+- id: TC9-4
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 자동 주문은 마감 직후 한 번 돌고 접수 불명 품목은 다시 주문하지 않고 보류한다
+  precondition: 동의하고 자동 주문을 켠 품목 2개(접수하는 거래처 / 접수 불명 거래처)
+  steps:
+  - 마감으로 두 품목을 모두 부족하게 만든다
+  - 같은 수량으로 마감을 다시 한다
+  expected: 첫 마감에서 한 품목은 접수, 다른 품목은 접수 불명과 unknown 보류, 두 번째 마감 뒤에도 주문은 2건 그대로(접수 불명 품목을 다시 주문하지 않음)
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_4_자동_주문은_마감_직후_한_번이고_접수_불명은_다시_주문하지_않고_보류
+- id: TC9-5
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 접수 불명은 재조회로 접수되고, 가격 변동 거절은 새 단가로 다시 주문해 해결한다
+  precondition: 접수 불명 거래처와 가격 변동 거래처, 각각의 품목
+  steps:
+  - 접수 불명 주문을 재조회한다
+  - 가격 변동 거래처에 주문해 거절과 새 단가를 확인한다
+  - 거래처를 접수로 바꾸고 새 단가(unit_price)로 다시 주문한다
+  - 보류를 해결한다
+  expected: 재조회하면 접수이고 그 보류가 풀리며, 가격 변동 주문은 거절·보류(새 단가), 다시 주문은 새 단가로 접수, 보류를 해결하면 미해결 보류가 0
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_5_보류_재조회와_해결
+- id: TC9-6
+  group: TC9
+  item: 재고 관리(주문·입고·자동 주문)
+  title: 한도를 넘는 자동 주문은 줄여 주문하지 않고 보류한다
+  precondition: 1회 한도(1원)가 주문 금액보다 작은 자동 주문 품목
+  steps:
+  - 마감으로 부족하게 만든다
+  expected: 주문은 만들어지지 않고 보류 limit_exceeded만 남는다
+  method: 자동
+  tests:
+  - backend:tests/acceptance/test_tc9_inventory.py::test_tc9_6_한도를_넘는_자동_주문은_줄이지_않고_보류

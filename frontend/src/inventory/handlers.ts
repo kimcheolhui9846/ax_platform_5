@@ -1,7 +1,8 @@
-import { addItems, addSupplier, applySuggestion, checkClose, getInventory, recordClose, setPolicy, setSettings, suggestPolicy, updateItem, updateSupplier } from "../api/inventory";
+import { addItems, addSupplier, applySuggestion, checkClose, getInventory, placeOrder, receive, recordClose, refreshOrder, resolveHold, setAutoOrder, setPolicy, setSettings, suggestPolicy, updateItem, updateSupplier } from "../api/inventory";
 import type { ApiResult } from "../api/inventory";
-import type { InventoryView } from "../api/types";
+import type { AutoOrderRequest, InventoryView } from "../api/types";
 import type { InventoryTab } from "../lib/routes";
+import { draftFromHold, draftFromProposal, orderConfirmModel, orderProposals } from "./orderModel";
 import type { InventoryRequest, InventoryRunner } from "./requests";
 import { hasUnsaved } from "./state";
 import type { InventoryAction, InventoryForm, InventoryState } from "./state";
@@ -13,6 +14,7 @@ type Deps = {
   run: InventoryRunner;
   dispatch: (action: InventoryAction) => void;
   navigate: (tab: InventoryTab) => void;
+  newRequestId: () => string; // 주문 초안의 request_id(멱등 키)를 만든다
   confirmLeave: () => boolean; // 저장하지 않은 입력을 두고 떠나도 되는지 묻는다(App이 window.confirm을 넘긴다)
 };
 
@@ -28,7 +30,7 @@ function saveRequest(form: InventoryForm, request: () => Promise<ApiResult<Inven
 }
 
 /** 버튼을 요청 또는 상태 변경으로 바꾼다(코칭 app/handlers.ts와 같은 모양). 저장 요청은 어느 양식인지 함께 알린다. */
-export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, confirmLeave }: Deps): InventoryHandlers {
+export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, newRequestId, confirmLeave }: Deps): InventoryHandlers {
   const { counts, adjustments, confirmed } = state.close;
   const entered = Object.fromEntries(Object.entries(counts).filter(([, text]) => text.trim() !== ""));
   const leave = (go: () => void) => {
@@ -38,14 +40,19 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
     }
     go();
   };
+  const onTab = (next: InventoryTab) => {
+    if (next === tab) return;
+    leave(() => {
+      if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
+      if (next === "orders" && state.orderResult !== null) dispatch({ type: "orderResultClosed" }); // 안내가 가리키는 탭에 왔다
+      navigate(next);
+    });
+  };
+  /** 응답을 받지 못한 주문이 있던 거래처는 그 번호를 다시 쓴다(서버가 이미 받았으면 같은 주문을 돌려준다). */
+  const requestIdFor = (supplierId: string): string => state.pendingOrderIds[supplierId] ?? newRequestId();
+
   return {
-    onTab: (next) => {
-      if (next === tab) return;
-      leave(() => {
-        if (state.close.result !== null) dispatch({ type: "closeReset" }); // 다시 마감 탭에 오면 새 마감으로 시작한다
-        navigate(next);
-      });
-    },
+    onTab,
     onLeave: leave,
     onRetry: () => void run(loadRequest()),
     onFilter: (filter) => dispatch({ type: "filterChanged", filter }),
@@ -83,6 +90,42 @@ export function makeInventoryHandlers({ state, tab, run, dispatch, navigate, con
     onSavePolicy: (itemId, request) => void run(saveRequest("policy", () => setPolicy(itemId, request))),
     onApplySuggestion: (itemId) => void run(saveRequest("policy", () => applySuggestion(itemId))),
     onSaveSettings: (request) => void run(saveRequest("settings", () => setSettings(request))),
+    onOpenOrder: (supplierId) => {
+      const group = state.view === null ? undefined : orderProposals(state.view).find((g) => g.supplierId === supplierId);
+      if (group !== undefined) dispatch({ type: "orderOpened", draft: draftFromProposal(group, requestIdFor(supplierId)) });
+    },
+    onOrderQuantity: (itemId, quantity) => dispatch({ type: "orderQuantityChanged", itemId, quantity }),
+    onOrderRemoveLine: (itemId) => dispatch({ type: "orderLineRemoved", itemId }),
+    onOrderCancel: () => dispatch({ type: "orderCancelled" }),
+    onOrderResultClose: () => dispatch({ type: "orderResultClosed" }),
+    onPlaceOrder: () => {
+      const { view, order } = state;
+      if (view === null || order === null || !orderConfirmModel(view, order).canSubmit) return;
+      void run({
+        kind: "order",
+        request: () =>
+          placeOrder({
+            request_id: order.requestId,
+            lines: order.lines.map((l) => ({
+              item_id: l.itemId,
+              quantity: l.quantity.trim(),
+              ...(order.repriced ? { unit_price: l.unitPrice } : {}),
+            })),
+          }),
+        done: (r, seq) => ({ type: "ordered", seq, order: r.order, view: r.inventory }),
+      });
+    },
+    onRefreshOrder: (orderId) =>
+      void run({ kind: "refresh", request: () => refreshOrder(orderId), done: (r, seq) => loaded(seq, r.inventory) }),
+    onReceive: (orderId, lines) =>
+      void run({ kind: "save", form: "receipt", request: () => receive(orderId, { lines }), done: (r, seq) => loaded(seq, r.inventory) }),
+    onResolveHold: (holdId) => void run({ kind: "resolve", request: () => resolveHold(holdId), done: (view, seq) => loaded(seq, view) }),
+    onReviewHold: (holdId) => {
+      const draft = state.view === null ? null : draftFromHold(state.view, holdId, "");
+      if (draft !== null) dispatch({ type: "orderOpened", draft: { ...draft, requestId: requestIdFor(draft.supplierId) } });
+    },
+    onSaveAutoOrder: (itemId, request: AutoOrderRequest) => void run(saveRequest("auto", () => setAutoOrder(itemId, request))),
+    onOpenOrders: () => onTab("orders"),
     onSuggest: (itemId) =>
       void run({
         kind: "suggest",

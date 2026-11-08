@@ -1,7 +1,7 @@
 import type { CarrySource } from "./carry";
 
-export type InventoryTab = "stock" | "close" | "items";
-export const INVENTORY_TABS: readonly InventoryTab[] = ["stock", "close", "items"];
+export type InventoryTab = "stock" | "close" | "orders" | "auto" | "items";
+export const INVENTORY_TABS: readonly InventoryTab[] = ["stock", "close", "orders", "auto", "items"];
 
 /**
  * 화면 주소(해시). 주소를 읽고 만드는 곳은 parseRoute·toHash 두 함수뿐이다.

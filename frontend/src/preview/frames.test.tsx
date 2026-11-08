@@ -61,6 +61,14 @@ describe("미리보기 프레임", () => {
       "inventory-close-check",
       "inventory-close-result",
       "inventory-items",
+      "inventory-stock-proposal",
+      "inventory-order-confirm",
+      "inventory-order-repriced",
+      "inventory-order-result",
+      "inventory-orders",
+      "inventory-orders-empty",
+      "inventory-auto",
+      "inventory-auto-edit",
     ]);
   });
 

@@ -1,13 +1,17 @@
-import type { ItemKind } from "../api/types";
+import type { AutoOrderRequest, ItemKind, ItemView } from "../api/types";
 import { AppShell } from "../layout/AppShell";
 import type { RailProps } from "../layout/Rail";
 import { INVENTORY_TABS } from "../lib/routes";
 import type { InventoryTab } from "../lib/routes";
+import { AutoOrderScreen } from "../screens/inventory/AutoOrderScreen";
 import { CloseScreen } from "../screens/inventory/CloseScreen";
 import type { CloseHandlers } from "../screens/inventory/CloseScreen";
 import { ItemsScreen } from "../screens/inventory/ItemsScreen";
 import type { ItemsHandlers } from "../screens/inventory/ItemsScreen";
+import { OrderConfirm, OrderResultNotice } from "../screens/inventory/OrderConfirm";
+import { OrdersScreen } from "../screens/inventory/OrdersScreen";
 import { StockScreen } from "../screens/inventory/StockScreen";
+import type { AutoModel, HoldRow, OrderCard, OrderPanel } from "./orderModel";
 import type { CloseModel, ItemsModel, StockModel } from "./screenModel";
 import type { InventoryCall } from "./state";
 
@@ -22,6 +26,8 @@ export type InventoryScreenModel =
   | { kind: "unavailable" }
   | { kind: "stock"; model: StockModel; hasItems: boolean; filter: Filter }
   | { kind: "close"; model: CloseModel; filter: Filter }
+  | { kind: "orders"; orders: OrderCard[]; holds: HoldRow[]; saved: number }
+  | { kind: "auto"; model: AutoModel; items: ItemView[]; saved: number; initialSelected?: string }
   | { kind: "items"; model: ItemsModel };
 
 /** 재고 화면이 부르는 모든 콜백(Task 7이 구현한다). 인자는 id·글·작은 값만. */
@@ -31,11 +37,25 @@ export type InventoryHandlers = CloseHandlers &
     /** 재고 화면 밖으로 가기 전(왼쪽 메뉴): 저장하지 않은 입력이 있으면 묻고, 떠나기로 하면 go를 부른다. */
     onLeave: (go: () => void) => void;
     onRetry: () => void;
+    onOpenOrder: (supplierId: string) => void;
+    onOrderQuantity: (itemId: string, quantity: string) => void;
+    onOrderRemoveLine: (itemId: string) => void;
+    onOrderCancel: () => void;
+    onOrderResultClose: () => void;
+    onPlaceOrder: () => void;
+    onRefreshOrder: (orderId: string) => void;
+    onReceive: (orderId: string, lines: { item_id: string; quantity: string; already_counted: boolean }[]) => void;
+    onResolveHold: (holdId: string) => void;
+    onReviewHold: (holdId: string) => void;
+    onSaveAutoOrder: (itemId: string, request: AutoOrderRequest) => void;
+    onOpenOrders: () => void;
   };
 
 type ViewProps = {
   tab: InventoryTab;
   model: InventoryScreenModel;
+  /** 모든 탭에서 탭 줄 아래에 보이는 주문 확인 카드와 결과 안내. */
+  panel: OrderPanel;
   /** 지금 기다리는 요청의 종류(없으면 null). 눌린 버튼에 '저장 중…' 같은 글을 보인다. */
   busy: InventoryCall | null;
   on: InventoryHandlers;
@@ -43,7 +63,13 @@ type ViewProps = {
   mainId?: string;
 };
 
-export const INVENTORY_TAB_LABELS: Record<InventoryTab, string> = { stock: "현황", close: "하루 마감", items: "품목·기준" };
+export const INVENTORY_TAB_LABELS: Record<InventoryTab, string> = {
+  stock: "현황",
+  close: "하루 마감",
+  orders: "주문·입고",
+  auto: "자동 주문",
+  items: "품목·기준",
+};
 
 /** 재고 화면 머리글 안내. */
 export const INVENTORY_HINT = "하루 마감에 수량을 세면 부족한 재고를 알려 드려요.";
@@ -87,6 +113,8 @@ function TabScreen({ tab, model, busy, on }: Pick<ViewProps, "tab" | "model" | "
         onFilter={on.onFilter}
         onStartClose={() => on.onTab("close")}
         onOpenItems={() => on.onTab("items")}
+        busy={busy}
+        onOpenOrder={on.onOpenOrder}
       />
     );
   }
@@ -100,11 +128,30 @@ function TabScreen({ tab, model, busy, on }: Pick<ViewProps, "tab" | "model" | "
       />
     );
   }
+  if (model.kind === "orders") return <OrdersScreen orders={model.orders} holds={model.holds} saved={model.saved} busy={busy} on={on} />;
+  if (model.kind === "auto") return <AutoOrderScreen model={model.model} items={model.items} saved={model.saved} busy={busy} on={on} initialSelected={model.initialSelected} />;
   return <ItemsScreen model={model.model} busy={busy} on={on} />;
 }
 
-/** 재고 화면: 뼈대 + 탭 줄 + 탭 화면. */
-export function InventoryView({ tab, model, busy, on, rail, mainId }: ViewProps) {
+/** 주문 확인 카드와 결과 안내(없으면 아무것도 그리지 않는다). */
+function OrderPanelView({ panel, busy, on }: Pick<ViewProps, "panel" | "busy" | "on">) {
+  if (panel.confirm === null && panel.result === null) return null;
+  return (
+    <div className="stack">
+      {panel.result !== null && <OrderResultNotice text={panel.result} onOpenOrders={on.onOpenOrders} onClose={on.onOrderResultClose} />}
+      {panel.confirm !== null && (
+        <OrderConfirm
+          model={panel.confirm}
+          busy={busy}
+          on={{ onQuantity: on.onOrderQuantity, onRemove: on.onOrderRemoveLine, onCancel: on.onOrderCancel, onPlace: on.onPlaceOrder, onOpenItems: () => on.onTab("items") }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 재고 화면: 뼈대 + 탭 줄 + 주문 확인 카드·안내 + 탭 화면. */
+export function InventoryView({ tab, model, panel, busy, on, rail, mainId }: ViewProps) {
   return (
     <AppShell
       rail={rail}
@@ -112,6 +159,7 @@ export function InventoryView({ tab, model, busy, on, rail, mainId }: ViewProps)
       mainId={mainId}
     >
       <TabBar tab={tab} onTab={on.onTab} />
+      <OrderPanelView panel={panel} busy={busy} on={on} />
       <TabScreen tab={tab} model={model} busy={busy} on={on} />
     </AppShell>
   );

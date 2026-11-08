@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { INVENTORY } from "../preview/fixtures";
-import { inventoryScreen } from "./screen";
+import { inventoryScreen, orderPanel } from "./screen";
 import { initialInventoryState } from "./state";
 
 describe("inventoryScreen", () => {
@@ -21,5 +21,30 @@ describe("inventoryScreen", () => {
     const view = { ...INVENTORY, items: INVENTORY.items.map((v) => ({ ...v, item: { ...v.item, archived: true } })) };
     const m = inventoryScreen({ ...initialInventoryState(), view }, "stock");
     expect(m.kind === "stock" && m.hasItems).toBe(false);
+  });
+});
+
+describe("주문·자동 주문 탭", () => {
+  it("모델과 현황의 제안", () => {
+    const state = { ...initialInventoryState("2026-11-08"), view: INVENTORY };
+    const orders = inventoryScreen(state, "orders");
+    expect(orders.kind === "orders" && orders.orders).toEqual([]);
+    const auto = inventoryScreen(state, "auto");
+    expect(auto.kind === "auto" && auto.items.length).toBe(INVENTORY.items.length);
+    const stock = inventoryScreen(state, "stock");
+    expect(stock.kind === "stock" && stock.model.proposals).toHaveLength(1);
+  });
+});
+
+describe("orderPanel and saved", () => {
+  it("panel is empty without a draft or result, saved counters reach the tab models", () => {
+    const base = { ...initialInventoryState("2026-11-08"), view: INVENTORY };
+    expect(orderPanel(base)).toEqual({ confirm: null, result: null });
+    expect(orderPanel({ ...base, orderResult: { status: "accepted", holdReason: null } }).result).toBe("주문이 접수됐어요");
+    const saved = { ...base.saved, receipt: 2, auto: 3 };
+    const orders = inventoryScreen({ ...base, saved }, "orders");
+    const auto = inventoryScreen({ ...base, saved }, "auto");
+    expect(orders.kind === "orders" && orders.saved).toBe(2);
+    expect(auto.kind === "auto" && auto.saved).toBe(3);
   });
 });

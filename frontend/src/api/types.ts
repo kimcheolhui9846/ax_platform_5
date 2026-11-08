@@ -60,6 +60,7 @@ export type MockOutcome = Schemas["MockOutcome"];
 export type Order = Schemas["Order"];
 export type OrderRequest = Schemas["OrderRequest"];
 export type OrderView = Schemas["OrderView"];
+export type OrderOrigin = Schemas["OrderOrigin"];
 export type OrderStatus = Schemas["OrderStatus"];
 export type ReceiptRequest = Schemas["ReceiptRequest"];
 export type Hold = Schemas["Hold"];
