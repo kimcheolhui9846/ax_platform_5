@@ -1,11 +1,24 @@
 """재고 API 요청·응답 스키마. 저장 모델은 app/inventory/models.py에 있다."""
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from app.inventory.models import ItemKind, MockOutcome, Procurement, Quantity, SignedQuantity
+from app.core.contract import ContractModel
+from app.inventory.models import (
+    Close,
+    InventorySettings,
+    Item,
+    ItemKind,
+    MockOutcome,
+    Procurement,
+    Quantity,
+    ReorderPolicy,
+    SignedQuantity,
+    Supplier,
+)
+from app.inventory.rules import Anomaly, StockStatus
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 OptionText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
@@ -81,3 +94,37 @@ class CloseRequest(BaseModel):
     counts: dict[str, Quantity] = Field(default_factory=dict)
     adjustments: list[Adjustment] = Field(default_factory=list)
     confirmed: list[str] = Field(default_factory=list)
+
+
+class InventorySettingsRequest(InventorySettings):
+    """요청 본문용 이름. 응답에도 같은 모델이 실려 이름이 같으면 OpenAPI가 -Input/-Output으로 갈라진다."""
+
+
+class ReorderPolicyRequest(ReorderPolicy):
+    """요청 본문용 이름(위와 같은 까닭)."""
+
+
+class ItemView(ContractModel):
+    item: Item
+    on_hand: Decimal | None  # None = 미입력
+    in_transit: Decimal
+    status: StockStatus
+    suggested_quantity: Decimal | None  # 부족할 때만. 제작 품목이면 '제작 필요' 수량
+    policy: ReorderPolicy | None
+    last_counted_at: datetime | None
+
+
+class InventoryView(ContractModel):
+    items: list[ItemView]  # 숨긴 품목 포함(item.archived). 화면이 거른다
+    suppliers: list[Supplier]
+    settings: InventorySettings
+    last_close: Close | None
+
+
+class CloseCheckView(ContractModel):
+    anomalies: list[Anomaly]
+
+
+class CloseView(ContractModel):
+    close: Close
+    inventory: InventoryView
