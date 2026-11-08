@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
+import { InventoryApp } from "../inventory/InventoryApp";
 import { Toast } from "../components/Toast";
 import { exportDocument } from "../lib/download";
 import { draftToRestore, inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
@@ -11,7 +12,7 @@ import { assetWork, assetsToLoad } from "./assets";
 import { createRunner, loadAsset, startLoad } from "./requests";
 import { inputDraftKey, screenModel } from "./screenModel";
 import { initialState, isBusy, reducer } from "./state";
-import { AppView, pageTitle } from "./view";
+import { AppView, pageTitle, railProps } from "./view";
 
 const TOAST_MS = 3500;
 
@@ -103,9 +104,18 @@ export default function App() {
     saveDraft: (key, text) => writeDraft(storage, key, text),
     exportDocument,
   });
+  const route = state.route;
   return (
     <>
-      <AppView route={state.route} model={model} busy={isBusy(state)} on={on} />
+      {route.name === "inventory" ? (
+        <InventoryApp
+          tab={route.tab}
+          rail={railProps(route, isBusy(state), on)}
+          onTab={(tab) => dispatch({ type: "navigated", route: { name: "inventory", tab } })}
+        />
+      ) : (
+        <AppView route={route} model={model} busy={isBusy(state)} on={on} />
+      )}
       <Toast message={state.toast} />
     </>
   );

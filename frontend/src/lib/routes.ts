@@ -1,5 +1,8 @@
 import type { CarrySource } from "./carry";
 
+export type InventoryTab = "stock" | "close" | "items";
+export const INVENTORY_TABS: readonly InventoryTab[] = ["stock", "close", "items"];
+
 /**
  * 화면 주소(해시). 주소를 읽고 만드는 곳은 parseRoute·toHash 두 함수뿐이다.
  * 과제 화면(요청·모드)은 세션 전이라 과제 이름으로, 세션 화면은 세션 id로 연다.
@@ -9,6 +12,7 @@ export type Route =
   | { name: "guide" }
   | { name: "work" }
   | { name: "documents" }
+  | { name: "inventory"; tab: InventoryTab }
   | { name: "request"; task: string; from: CarrySource | null }
   | { name: "mode"; task: string; from: CarrySource | null }
   | { name: "question"; sessionId: string }
@@ -49,6 +53,13 @@ function page(name: string): Route | null {
   }
 }
 
+/** `#/inventory[/{탭}]`. 탭을 모르면 null. */
+function inventoryView(tab: string | undefined): Route | null {
+  if (tab === undefined) return { name: "inventory", tab: "stock" };
+  const found = INVENTORY_TABS.find((t) => t === tab);
+  return found === undefined || found === "stock" ? null : { name: "inventory", tab: found };
+}
+
 /** `#/s/{id}/{view}` 모양의 세션 화면. */
 function sessionView(sessionId: string, view: string): Route | null {
   switch (view) {
@@ -76,6 +87,7 @@ function taskView(view: string, task: string, from: CarrySource | null): Route {
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decode);
   const [first, second, third, fourth] = parts;
+  if (first === "inventory" && parts.length <= 2) return inventoryView(second) ?? HOME;
   if (parts.length === 1) return page(first) ?? HOME;
   if (parts.length === 2 && first !== "s" && TASK_VIEWS.has(second)) {
     return taskView(second, first, null);
@@ -112,6 +124,8 @@ export function toHash(route: Route): string {
     case "work":
     case "documents":
       return `#/${route.name}`;
+    case "inventory":
+      return route.tab === "stock" ? "#/inventory" : `#/inventory/${route.tab}`;
     case "request":
     case "mode":
       return `#/${e(route.task)}/${route.name}${route.from ? `/from/${e(route.from.sessionId)}/${route.from.version}` : ""}`;
@@ -135,6 +149,7 @@ export function contextOf(route: Route): string {
     case "guide":
     case "work":
     case "documents":
+    case "inventory":
       return route.name;
     case "request":
     case "mode":

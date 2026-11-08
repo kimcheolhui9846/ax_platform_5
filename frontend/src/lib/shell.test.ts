@@ -18,22 +18,23 @@ describe("headerSteps", () => {
 });
 
 describe("railItems", () => {
-  it("홈·내 작업·결과물 순서이고, 활성과 사용 가능 여부를 표시한다", () => {
+  it("홈·내 작업·결과물·재고 순서이고, 활성과 사용 가능 여부를 표시한다", () => {
     expect(railItems("home", new Set(["home"]))).toEqual([
       { key: "home", label: "홈", active: true, disabled: false },
       { key: "work", label: "내 작업", active: false, disabled: true },
       { key: "documents", label: "결과물", active: false, disabled: true },
+      { key: "inventory", label: "재고", active: false, disabled: true },
     ]);
   });
 
   it("아무 것도 활성이 아닐 수 있다", () => {
-    expect(railItems(null, new Set(["home", "work", "documents"])).every((i) => !i.active && !i.disabled)).toBe(true);
+    expect(railItems(null, enabledNav(false)).every((i) => !i.active && !i.disabled)).toBe(true);
   });
 });
 
 describe("enabledNav", () => {
-  it("메뉴 세 개를 모두 연다", () => {
-    expect([...enabledNav(false)]).toEqual(["home", "work", "documents"]);
+  it("메뉴를 모두 연다", () => {
+    expect([...enabledNav(false)]).toEqual(["home", "work", "documents", "inventory"]);
   });
 
   // 요청 중에 다른 화면으로 떠나면 늦게 온 응답이 버려진다(헤더 '과제 선택'과 같은 규칙).
@@ -96,5 +97,13 @@ describe("문구 수정 화면", () => {
     const route: Route = { name: "edit", sessionId: "s", order: 1 };
     expect(routePhase(route)).toBe(2);
     expect(railActive(route)).toBe("documents");
+  });
+});
+
+describe("재고 메뉴", () => {
+  it("결과물 다음에 재고가 있고 재고 주소가 켜진다", () => {
+    expect(railItems(null, enabledNav(false)).map((i) => i.label)).toEqual(["홈", "내 작업", "결과물", "재고"]);
+    expect(railActive({ name: "inventory", tab: "stock" })).toBe("inventory");
+    expect(routePhase({ name: "inventory", tab: "close" })).toBeNull();
   });
 });

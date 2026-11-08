@@ -1,13 +1,13 @@
 import type { Route } from "./routes";
 
-export type NavKey = "home" | "work" | "documents";
+export type NavKey = "home" | "work" | "documents" | "inventory";
 export type Phase = 0 | 1 | 2;
 export type RailItem = { key: NavKey; label: string; active: boolean; disabled: boolean };
 
 export const HEADER_STEPS = ["내 요청", "함께 구체화", "결과 만들기"] as const;
 
-const NAV_LABELS: Record<NavKey, string> = { home: "홈", work: "내 작업", documents: "결과물" };
-const NAV_ORDER: readonly NavKey[] = ["home", "work", "documents"];
+const NAV_LABELS: Record<NavKey, string> = { home: "홈", work: "내 작업", documents: "결과물", inventory: "재고" };
+const NAV_ORDER: readonly NavKey[] = ["home", "work", "documents", "inventory"];
 
 /** 헤더의 3단계 표시. 과제 밖(null)에서는 단계를 보여 주지 않는다. */
 export function headerSteps(phase: Phase | null): { label: string; current: boolean }[] {
@@ -61,6 +61,8 @@ export function railActive(route: Route): NavKey {
     case "home":
     case "guide":
       return "home";
+    case "inventory":
+      return "inventory";
     case "documents":
     case "edit":
     case "evidence":

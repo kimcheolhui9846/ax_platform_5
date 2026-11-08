@@ -39,6 +39,7 @@ export function needsLoad(state: AppState): Load | null {
 
 function missing(state: AppState): Load | null {
   const { route } = state;
+  if (route.name === "inventory") return null; // 재고는 자기 데이터를 스스로 부른다
   if (state.tasks === null) return { kind: "tasks" };
   if (isListRoute(route)) return state.sessions === null ? { kind: "sessions" } : null;
   const task = taskOf(route);

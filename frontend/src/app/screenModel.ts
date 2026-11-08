@@ -62,6 +62,8 @@ function resolve(state: AppState): ScreenModel {
     }
     case "guide":
       return { kind: "guide" };
+    case "inventory":
+      return LOADING; // 재고 화면은 App이 따로 그린다
     case "work":
     case "documents":
       if (state.sessions === null) return LOADING;

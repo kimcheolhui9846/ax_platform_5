@@ -24,6 +24,7 @@ import { answerDraftKey, reviseDraftKey, sectionDraftKey } from "../lib/drafts";
 import { HOME } from "../lib/routes";
 import type { CarryScreen, Route } from "../lib/routes";
 import { resumeRoute } from "../lib/sessions";
+import type { NavKey } from "../lib/shell";
 import { PLAIN } from "./requests";
 import type { Runner } from "./requests";
 import type { Action, AppState } from "./state";
@@ -44,6 +45,13 @@ export function routeAfterSession(session: SessionView): Route {
     ? { name: "question", sessionId: session.session_id }
     : { name: "confirm", sessionId: session.session_id };
 }
+
+const NAV_ROUTES: Record<NavKey, Route> = {
+  home: HOME,
+  work: { name: "work" },
+  documents: { name: "documents" },
+  inventory: { name: "inventory", tab: "stock" },
+};
 
 type Deps = {
   state: Pick<AppState, "session" | "drafts" | "result" | "notices" | "exporting">;
@@ -98,7 +106,7 @@ export function makeHandlers({ state, carryScreen, run, dispatch, saveDraft, exp
   };
 
   return {
-    navigate: (key) => go(key === "home" ? HOME : key === "work" ? { name: "work" } : { name: "documents" }),
+    navigate: (key) => go(NAV_ROUTES[key]),
     guide: () => go({ name: "guide" }),
     goHome: () => go(HOME),
     retry: () => dispatch({ type: "retried" }),

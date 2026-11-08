@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 
 import type { NavKey, RailItem } from "../lib/shell";
-import { DocumentsIcon, HomeIcon, WorkIcon } from "./icons";
+import { DocumentsIcon, HomeIcon, InventoryIcon, WorkIcon } from "./icons";
 
 export type RailProps = {
   items: RailItem[];
@@ -10,7 +10,7 @@ export type RailProps = {
   guideDisabled?: boolean;
 };
 
-const ICONS: Record<NavKey, () => JSX.Element> = { home: HomeIcon, work: WorkIcon, documents: DocumentsIcon };
+const ICONS: Record<NavKey, () => JSX.Element> = { home: HomeIcon, work: WorkIcon, documents: DocumentsIcon, inventory: InventoryIcon };
 
 export function Rail({ items, onNavigate, onGuide, guideDisabled = false }: RailProps) {
   return (

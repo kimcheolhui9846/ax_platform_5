@@ -242,6 +242,12 @@ describe("makeHandlers — 요청", () => {
     expect(calls[0].done(nothing, 2)).toEqual({ type: "sessionLoaded", seq: 2, session: nothing, next: null, noticeConsumed: null, notice: NOTHING_LEFT_NOTICE });
   });
 
+  it("왼쪽 메뉴의 재고는 재고 탭 첫 화면을 연다", () => {
+    const { on, actions } = setup();
+    on.navigate("inventory");
+    expect(actions).toEqual([{ type: "navigated", route: { name: "inventory", tab: "stock" } }]);
+  });
+
   it("왼쪽 메뉴는 홈·내 작업·결과물을 연다", () => {
     const { on, actions } = setup();
     on.navigate("home");
