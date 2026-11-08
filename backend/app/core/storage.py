@@ -6,12 +6,14 @@ from pathlib import Path
 from app.core.assets import AssetStore, InMemoryAssetStore, LocalAssetStore
 from app.core.state import SessionState
 from app.core.store import InMemorySessionStore, SessionStore, SqliteSessionStore, StoreKind
+from app.inventory.store import InMemoryInventoryStore, InventoryStore, SqliteInventoryStore
 
 
 @dataclass(frozen=True)
 class Storage:
     sessions: SessionStore
     assets: AssetStore
+    inventories: InventoryStore
     open: Callable[[], None]  # 서버가 시작할 때 부른다(Postgres는 연결 풀을 열고 표를 만든다). 닫은 뒤 다시 열 수 없다(psycopg 풀): 수명 하나에 앱 인스턴스 하나
     close: Callable[[], None]  # 서버가 끝날 때 부른다(Postgres 연결 풀을 닫는다)
 
@@ -21,17 +23,25 @@ def _nothing() -> None:
 
 
 def build_storage(kind: StoreKind, database_path: Path, asset_dir: Path, database_url: str | None) -> Storage:
-    """memory: 둘 다 메모리. sqlite: 세션 파일 + 이미지 폴더. postgres: 풀 하나를 둘이 나눠 쓴다. 연결은 open()에서 한다."""
+    """memory: 둘 다 메모리. sqlite: 세션 파일 + 이미지 폴더. postgres: 풀 하나를 둘이 나눠 쓴다. 연결은 open()에서 한다. 재고 저장소도 같은 저장 방식으로 만든다."""
     if kind == "postgres":
         if not database_url:
             raise ValueError("STORE=postgres에는 DATABASE_URL이 필요합니다.")
         from app.core.postgres import PostgresAssetStore, PostgresSessionStore, make_pool, open_pool
 
+        from app.inventory.store import PostgresInventoryStore
+
         pool = make_pool(database_url)
-        return Storage(PostgresSessionStore(pool), PostgresAssetStore(pool), lambda: open_pool(pool), pool.close)
+        return Storage(
+            PostgresSessionStore(pool), PostgresAssetStore(pool), PostgresInventoryStore(pool),
+            lambda: open_pool(pool), pool.close,
+        )
     if kind == "sqlite":
-        return Storage(SqliteSessionStore(database_path), LocalAssetStore(asset_dir), _nothing, _nothing)
-    return Storage(InMemorySessionStore(), InMemoryAssetStore(), _nothing, _nothing)
+        return Storage(
+            SqliteSessionStore(database_path), LocalAssetStore(asset_dir), SqliteInventoryStore(database_path),
+            _nothing, _nothing,
+        )
+    return Storage(InMemorySessionStore(), InMemoryAssetStore(), InMemoryInventoryStore(), _nothing, _nothing)
 
 
 def read_all_sessions(kind: StoreKind, database_path: Path, asset_dir: Path, database_url: str | None) -> list[SessionState]:

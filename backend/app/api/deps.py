@@ -7,6 +7,7 @@ from app.api.owner import current_owner
 from app.core.assets import AssetStore
 from app.core.store import SessionStore
 from app.harness.registry import HarnessRegistry
+from app.inventory.store import InventoryStore
 
 
 def get_registry(request: Request) -> HarnessRegistry:
@@ -25,10 +26,20 @@ def get_assets(request: Request) -> AssetStore:
     return request.app.state.assets
 
 
+def get_inventories(request: Request) -> InventoryStore:
+    return request.app.state.inventories
+
+
+def get_inventory_locks(request: Request) -> SessionLocks:
+    return request.app.state.inventory_locks
+
+
 Registry = Annotated[HarnessRegistry, Depends(get_registry)]
 Store = Annotated[SessionStore, Depends(get_store)]
 Locks = Annotated[SessionLocks, Depends(get_locks)]
 Assets = Annotated[AssetStore, Depends(get_assets)]
+Inventories = Annotated[InventoryStore, Depends(get_inventories)]
+InventoryLocks = Annotated[SessionLocks, Depends(get_inventory_locks)]
 
 
 def require_debug(request: Request) -> None:

@@ -48,3 +48,22 @@ EVIDENCE_NOT_FOUND_MESSAGE = "그 근거 자료를 찾을 수 없습니다."
 EVIDENCE_NO_RECORD_MESSAGE = "결과에 반영할 점검 문구가 없는 자료입니다."
 
 PROMPT_LEAK_MESSAGE = "AI 응답에 내부 지침이 섞여 나와 반영하지 않았어요. 요청 글이나 답에 AI에게 내리는 지시가 있으면 빼고 다시 시도해 주세요."
+
+INVENTORY_ITEM_NOT_FOUND_MESSAGE = "그 품목을 찾을 수 없습니다."
+INVENTORY_SUPPLIER_NOT_FOUND_MESSAGE = "그 거래처를 찾을 수 없습니다."
+INVENTORY_UNKNOWN_SUPPLIER_MESSAGE = "없는 거래처를 골랐습니다."
+INVENTORY_UNKNOWN_ITEM_MESSAGE = "없거나 숨긴 품목이 들어 있습니다."
+INVENTORY_UNIT_LOCKED_MESSAGE = "수량 기록이 있는 품목은 단위를 바꿀 수 없습니다. 새 품목으로 등록해 주세요."
+INVENTORY_TARGET_BELOW_MIN_MESSAGE = "목표 재고는 최소 재고보다 작을 수 없습니다."
+INVENTORY_EMPTY_CLOSE_MESSAGE = "마감할 수량이나 조정을 하나 이상 입력해 주세요."
+INVENTORY_ADJUST_UNCOUNTED_MESSAGE = "수량을 센 적 없는 품목은 조정할 수 없습니다. 먼저 수량을 입력해 주세요."
+INVENTORY_NEGATIVE_STOCK_MESSAGE = "조정하면 수량이 0보다 작아집니다."
+INVENTORY_ZERO_ADJUST_MESSAGE = "조정 값은 0일 수 없습니다."
+
+
+def duplicate_item_message(name: str) -> str:
+    return f"같은 품목이 이미 있습니다: {name}"
+
+
+def unconfirmed_anomaly_message(names: Iterable[str]) -> str:
+    return f"확인이 필요한 수량이 있습니다: {', '.join(names)}"

@@ -25,6 +25,7 @@ from app.core.messages import (
     PROVIDER_FAILED_MESSAGE,
 )
 from app.harness.errors import GenerationFailed, HarnessError
+from app.inventory.errors import InventoryError, InventoryNotFound
 from app.providers.base import ProviderBusy, ProviderError
 
 BUSY_RETRY_AFTER_SECONDS = 5
@@ -68,6 +69,14 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HarnessError)
     async def harness_error(request: Request, exc: HarnessError) -> JSONResponse:
         return _error(422, str(exc))
+
+    @app.exception_handler(InventoryError)
+    async def inventory_error(request: Request, exc: InventoryError) -> JSONResponse:
+        return _error(422, str(exc))
+
+    @app.exception_handler(InventoryNotFound)
+    async def inventory_not_found(request: Request, exc: InventoryNotFound) -> JSONResponse:
+        return _error(404, str(exc))
 
     @app.exception_handler(ProviderBusy)  # 처리기는 예외 MRO 순서로 찾으므로 ProviderError(502)보다 먼저다
     async def provider_busy(request: Request, exc: ProviderBusy) -> JSONResponse:

@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS assets (
     mime TEXT NOT NULL,
     data BYTEA NOT NULL
 );
+CREATE TABLE IF NOT EXISTS inventories (
+    owner_id TEXT PRIMARY KEY,
+    updated_at TIMESTAMPTZ NOT NULL,
+    data JSONB NOT NULL
+);
 """
 
 
