@@ -1,4 +1,4 @@
-import type { ItemKind } from "../api/types";
+import type { ItemKind, ItemView } from "../api/types";
 import { AppShell } from "../layout/AppShell";
 import type { RailProps } from "../layout/Rail";
 import { INVENTORY_TABS } from "../lib/routes";
@@ -8,6 +8,7 @@ import type { CloseHandlers } from "../screens/inventory/CloseScreen";
 import { ItemsScreen } from "../screens/inventory/ItemsScreen";
 import type { ItemsHandlers } from "../screens/inventory/ItemsScreen";
 import { StockScreen } from "../screens/inventory/StockScreen";
+import type { AutoModel, HoldRow, OrderCard } from "./orderModel";
 import type { CloseModel, ItemsModel, StockModel } from "./screenModel";
 import type { InventoryCall } from "./state";
 
@@ -22,6 +23,8 @@ export type InventoryScreenModel =
   | { kind: "unavailable" }
   | { kind: "stock"; model: StockModel; hasItems: boolean; filter: Filter }
   | { kind: "close"; model: CloseModel; filter: Filter }
+  | { kind: "orders"; orders: OrderCard[]; holds: HoldRow[] }
+  | { kind: "auto"; model: AutoModel; items: ItemView[] }
   | { kind: "items"; model: ItemsModel };
 
 /** 재고 화면이 부르는 모든 콜백(Task 7이 구현한다). 인자는 id·글·작은 값만. */

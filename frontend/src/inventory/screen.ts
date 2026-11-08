@@ -1,5 +1,6 @@
 import type { InventoryTab } from "../lib/routes";
 import { closeModel, itemsModel, stockModel } from "./screenModel";
+import { autoModel, holdRows, orderCards } from "./orderModel";
 import type { InventoryState } from "./state";
 import type { InventoryScreenModel } from "./view";
 
@@ -13,8 +14,9 @@ export function inventoryScreen(state: InventoryState, tab: InventoryTab): Inven
     case "close":
       return { kind: "close", model: closeModel(view, state.close, filter), filter };
     case "orders":
+      return { kind: "orders", orders: orderCards(view), holds: holdRows(view) };
     case "auto":
-      return { kind: "loading" }; // 준비 중(Task 2·4가 바꾼다)
+      return { kind: "auto", model: autoModel(view), items: view.items };
     case "items":
       return { kind: "items", model: itemsModel(view, state.saved) };
   }

@@ -9,6 +9,8 @@ import {
   quantityText,
   STATUS_LABELS,
 } from "../lib/inventory/format";
+import { orderProposals } from "./orderModel";
+import type { ProposalGroup } from "./orderModel";
 import type { InventoryState } from "./state";
 
 type Filter = InventoryState["filter"];
@@ -39,7 +41,7 @@ export type StockRow = {
   suggested: string;
 };
 
-export type StockModel = { rows: StockRow[]; shortCount: number; uncountedCount: number; lastClose: string | null };
+export type StockModel = { rows: StockRow[]; shortCount: number; uncountedCount: number; lastClose: string | null; proposals: ProposalGroup[] };
 
 // in_transit과 ok는 같은 순위다(일부러): 둘 다 급하지 않아 이름순으로 섞는다.
 const STATUS_ORDER: Record<StockStatus, number> = { short: 0, uncounted: 1, in_transit: 2, ok: 2 };
@@ -67,6 +69,7 @@ export function stockModel(view: InventoryView, filter: Filter): StockModel {
     shortCount: all.filter((v) => v.status === "short").length,
     uncountedCount: all.filter((v) => v.status === "uncounted").length,
     lastClose: view.last_close?.close_date ?? null,
+    proposals: orderProposals(view),
   };
 }
 

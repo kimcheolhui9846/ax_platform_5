@@ -23,3 +23,15 @@ describe("inventoryScreen", () => {
     expect(m.kind === "stock" && m.hasItems).toBe(false);
   });
 });
+
+describe("주문·자동 주문 탭", () => {
+  it("모델과 현황의 제안", () => {
+    const state = { ...initialInventoryState("2026-11-08"), view: INVENTORY };
+    const orders = inventoryScreen(state, "orders");
+    expect(orders.kind === "orders" && orders.orders).toEqual([]);
+    const auto = inventoryScreen(state, "auto");
+    expect(auto.kind === "auto" && auto.items.length).toBe(INVENTORY.items.length);
+    const stock = inventoryScreen(state, "stock");
+    expect(stock.kind === "stock" && stock.model.proposals).toHaveLength(1);
+  });
+});
