@@ -1,0 +1,48 @@
+/* 재고 화면: 탭 줄, 표(좁으면 카드 목록), 상태 배지. 값은 tokens.css의 토큰만 쓴다. */
+.inv-tabs {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  border-bottom: var(--line-width) solid var(--color-line-soft);
+  margin-bottom: var(--space-4);
+}
+.inv-tab {
+  min-height: var(--control-height-compact); padding: 0 var(--space-4);
+  border: 0; border-bottom: var(--current-mark) solid transparent; background: transparent;
+  color: var(--color-muted); font: inherit; font-size: var(--text-sm); cursor: pointer;
+}
+.inv-tab[aria-current="page"], .inv-tab[aria-selected="true"] {
+  color: var(--color-ink); font-weight: var(--font-bold); border-bottom-color: var(--color-accent);
+}
+
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); line-height: var(--text-sm-line); }
+.data-table caption {
+  position: absolute; width: var(--line-width); height: var(--line-width); overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.data-table th, .data-table td {
+  padding: var(--space-3) var(--space-4); text-align: start;
+  border-bottom: var(--line-width) solid var(--color-line-soft);
+}
+.data-table th { color: var(--color-muted); font-weight: var(--font-medium); background: var(--color-tint); }
+.data-table .num { text-align: end; font-variant-numeric: tabular-nums; }
+.data-table-empty { color: var(--color-muted); padding: var(--space-6) var(--space-4); text-align: center; }
+
+.inv-badge {
+  display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-pill);
+  font-size: var(--text-xs); line-height: var(--text-xs-line); font-weight: var(--font-medium);
+  border: var(--line-width) solid var(--color-line); color: var(--color-muted); background: var(--color-soft);
+}
+.inv-badge.low { border-color: var(--color-accent); color: var(--color-on-accent); background: var(--color-accent); }
+.inv-badge.ok { color: var(--color-ink); }
+
+@container app (max-width: 719px) {
+  .data-table, .data-table tbody { display: block; }
+  .data-table thead { position: absolute; clip-path: inset(50%); overflow: hidden; width: var(--line-width); height: var(--line-width); }
+  .data-table tr {
+    display: block; margin-bottom: var(--space-3); background: var(--color-surface);
+    border: var(--line-width) solid var(--color-line-soft); border-radius: var(--radius-md);
+  }
+  .data-table td, .data-table .num {
+    display: flex; justify-content: space-between; gap: var(--space-3); text-align: end;
+  }
+  .data-table td::before { content: attr(data-label); color: var(--color-muted); text-align: start; }
+}
