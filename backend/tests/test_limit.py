@@ -111,7 +111,7 @@ def slots():
 
 @pytest.fixture
 def client(slots):
-    return api_client(create_app(provider=MockProvider(), slots=slots))
+    return api_client(create_app(provider=MockProvider(), slots=slots, debug=True))
 
 
 def _start(client):

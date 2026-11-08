@@ -67,7 +67,7 @@ def test_get_asset_api_serves_only_the_owner():
 
 
 def test_asset_route_documents_image_bodies_and_errors():
-    spec = api_client(create_app(provider=MockProvider())).get("/openapi.json").json()
+    spec = api_client(create_app(provider=MockProvider(), debug=True)).get("/openapi.json").json()
     responses = spec["paths"]["/api/v1/coaching/assets/{asset_id}"]["get"]["responses"]
     assert set(responses["200"]["content"]) == set(IMAGE_MIMES)
     assert {"404", "422", "500"} <= set(responses)

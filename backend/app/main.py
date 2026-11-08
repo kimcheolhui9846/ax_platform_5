@@ -59,10 +59,14 @@ def create_app(
             if storage:
                 storage.close()
 
+    debug_on = settings.debug if debug is None else debug
+    # 배포(DEBUG=false)에서는 API 문서를 닫는다. 프론트 타입 생성은 HTTP가 아니라 app.openapi()로 뽑으므로 영향이 없다.
+    docs = {} if debug_on else {"docs_url": None, "redoc_url": None, "openapi_url": None}
     app = FastAPI(
         title="AX Coaching Platform API",
         version="0.1.0",
         lifespan=lifespan,
+        **docs,
     )
     app.state.store = store or storage.sessions
     app.state.assets = assets or storage.assets
@@ -72,7 +76,7 @@ def create_app(
     app.state.locks = SessionLocks()
     app.state.inventories = inventories or storage.inventories
     app.state.inventory_locks = SessionLocks()  # 키는 owner id: 서로 다른 client id 수만큼만 늘고, 실패한 요청도 잠금을 만들 수 있다
-    app.state.debug = settings.debug if debug is None else debug
+    app.state.debug = debug_on
     app.include_router(coaching.router)
     app.include_router(assets_api.router)
     app.include_router(inventory_api.router)
