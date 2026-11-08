@@ -13,7 +13,7 @@ CASES = script.load_cases(ROOT / "docs" / "test-cases.yaml")
 
 
 def test_every_requirement_group_is_present():
-    assert {c.group for c in CASES} == {f"TC{n}" for n in range(1, 9)}
+    assert {c.group for c in CASES} == {f"TC{n}" for n in range(1, 10)}
 
 
 def test_backend_references_point_to_defined_tests():
