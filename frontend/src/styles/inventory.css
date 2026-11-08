@@ -1,0 +1,77 @@
+/* 재고 화면: 탭 줄, 표(좁으면 카드 목록), 상태 배지. 값은 tokens.css의 토큰만 쓴다. */
+.inv-tabs {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  border-bottom: var(--line-width) solid var(--color-line-soft);
+  margin-bottom: var(--space-4);
+}
+.inv-tab {
+  min-height: var(--control-height-compact); padding: 0 var(--space-4);
+  border: 0; border-bottom: var(--current-mark) solid transparent; background: transparent;
+  color: var(--color-muted); font: inherit; font-size: var(--text-sm); cursor: pointer;
+}
+.inv-tab[aria-current="page"], .inv-tab[aria-selected="true"] {
+  color: var(--color-ink); font-weight: var(--font-bold); border-bottom-color: var(--color-accent);
+}
+
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); line-height: var(--text-sm-line); }
+.data-table caption {
+  position: absolute; width: var(--line-width); height: var(--line-width); overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.data-table th, .data-table td {
+  padding: var(--space-3) var(--space-4); text-align: start;
+  border-bottom: var(--line-width) solid var(--color-line-soft);
+}
+.data-table th { color: var(--color-muted); font-weight: var(--font-medium); background: var(--color-tint); }
+.data-table .num { text-align: end; font-variant-numeric: tabular-nums; }
+.data-table-empty { color: var(--color-muted); padding: var(--space-6) var(--space-4); text-align: center; }
+
+.inv-badge {
+  display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-pill);
+  font-size: var(--text-xs); line-height: var(--text-xs-line); font-weight: var(--font-medium);
+  border: var(--line-width) solid var(--color-line); color: var(--color-muted); background: var(--color-soft);
+}
+.inv-badge.low { border-color: var(--color-accent); color: var(--color-on-accent); background: var(--color-accent); }
+.inv-badge.ok { color: var(--color-ink); }
+
+@container app (max-width: 719px) {
+  .data-table, .data-table tbody { display: block; }
+  .data-table thead { position: absolute; clip-path: inset(50%); overflow: hidden; width: var(--line-width); height: var(--line-width); }
+  .data-table tr {
+    display: block; margin-bottom: var(--space-3); background: var(--color-surface);
+    border: var(--line-width) solid var(--color-line-soft); border-radius: var(--radius-md);
+  }
+  .data-table td, .data-table .num {
+    display: flex; justify-content: space-between; gap: var(--space-3); text-align: end;
+  }
+  .data-table td::before { content: attr(data-label); color: var(--color-muted); text-align: start; }
+}
+
+/* 검색·분류: 좁으면 줄을 바꾸고 이름표는 한 줄로 둔다 */
+.inv-filter { flex-wrap: wrap; }
+.inv-filter > label { flex: none; white-space: nowrap; }
+.inv-filter > input { flex: 1 1 0; }
+
+/* 하루 마감 수량 줄: 이름표(품목·지난 수량)와 입력 칸 */
+.inv-count { display: flex; align-items: center; gap: var(--space-3); }
+.inv-count > label { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.inv-count > input { flex: 0 1 auto; min-width: 0; }
+.inv-count-list { list-style: none; margin: 0; padding: 0; }
+
+/* 품목 일괄 등록 줄: 넓으면 한 줄, 좁으면 두 칸씩(이름과 줄 빼기는 한 줄 전체) */
+.inv-bulk-row {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.5fr 1fr auto;
+  gap: var(--space-2); align-items: center;
+}
+.inv-bulk-row > * { min-width: 0; width: 100%; }
+/* 거래처 줄: 좁으면 줄을 바꾼다 */
+.inv-wrap { flex-wrap: wrap; }
+
+@container app (max-width: 719px) {
+  .inv-bulk-row {
+    grid-template-columns: 1fr 1fr; padding-bottom: var(--space-3);
+    border-bottom: var(--line-width) solid var(--color-line-soft);
+  }
+  .inv-bulk-row > :first-child, .inv-bulk-row > button { grid-column: 1 / -1; }
+  .inv-wrap > input, .inv-wrap > select { flex: 1 1 100%; }
+}

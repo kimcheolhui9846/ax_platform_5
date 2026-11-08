@@ -1,4 +1,5 @@
 import type { Handlers } from "../app/view";
+import type { InventoryHandlers } from "../inventory/view";
 
 const noop = () => {};
 
@@ -42,4 +43,29 @@ export const NOOP_HANDLERS: Handlers = {
   startNext: noop,
   dropCarry: noop,
   clearContext: noop,
+};
+
+/** 미리보기용 재고 핸들러. */
+export const NOOP_INVENTORY_HANDLERS: InventoryHandlers = {
+  onTab: noop,
+  onRetry: noop,
+  onFilter: noop,
+  onCount: noop,
+  onCheck: noop,
+  onConfirm: noop,
+  onAdjust: noop,
+  onSave: noop,
+  onDate: noop,
+  onReset: noop,
+  onOpenStock: noop,
+  onCreateItems: noop,
+  onUpdateItem: noop,
+  onCreateSupplier: noop,
+  onUpdateSupplier: noop,
+  onSavePolicy: noop,
+  onSuggest: noop,
+  onApplySuggestion: noop,
+  onSaveSettings: noop,
+  onEdited: noop,
+  onLeave: noop,
 };

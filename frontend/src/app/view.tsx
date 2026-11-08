@@ -5,6 +5,7 @@ import { FlowPanel } from "../components/FlowPanel";
 import { QuestionCard } from "../components/QuestionCard";
 import { ReviseCard } from "../components/ReviseCard";
 import { AppShell } from "../layout/AppShell";
+import type { RailProps } from "../layout/Rail";
 import { firstSectionOrder } from "../lib/document";
 import type { DocumentFile } from "../lib/document";
 import type { DocumentFormat } from "../lib/documentFormats";
@@ -364,6 +365,11 @@ export function pageTitle(model: ScreenModel): string {
   return project ? `창작자 AX · ${project}` : "창작자 AX";
 }
 
+/** 왼쪽 메뉴 props. 코칭 화면과 재고 화면이 같은 메뉴를 쓴다. */
+export function railProps(route: Route, busy: boolean, on: Pick<Handlers, "navigate" | "guide">): RailProps {
+  return { items: railItems(railActive(route), enabledNav(busy)), onNavigate: on.navigate, onGuide: on.guide, guideDisabled: busy };
+}
+
 type ViewProps = { route: Route; model: ScreenModel; busy: boolean; on: Handlers; mainId?: string };
 
 /** 뼈대까지 그린 화면 하나. 앱과 미리보기 갤러리가 같이 쓴다(갤러리는 프레임마다 mainId를 바꾼다). */
@@ -371,12 +377,7 @@ export function AppView({ route, model, busy, on, mainId }: ViewProps) {
   const { main, side } = renderScreen(model, busy, on);
   return (
     <AppShell
-      rail={{
-        items: railItems(railActive(route), enabledNav(busy)),
-        onNavigate: on.navigate,
-        onGuide: on.guide,
-        guideDisabled: busy,
-      }}
+      rail={railProps(route, busy, on)}
       header={{ project: projectOf(model), phase: routePhase(route), onPickTask: on.goHome, pickDisabled: busy }}
       side={side}
       mainId={mainId}

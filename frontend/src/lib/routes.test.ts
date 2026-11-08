@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { HOME, carryOf, carryScreenOf, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
+import { HOME, INVENTORY_TABS, carryOf, carryScreenOf, contextOf, isListRoute, isRouteHash, parseRoute, sessionIdOf, taskOf, toHash } from "./routes";
 import type { Route } from "./routes";
 
 const ROUTES: [Route, string][] = [
@@ -132,5 +132,25 @@ describe("이어가기 주소", () => {
     expect(carryOf({ name: "home" })).toBeNull();
     expect(carryScreenOf({ name: "mode", task: "branding", from })).toEqual({ screen: "mode", task: "branding", from });
     expect(carryScreenOf({ name: "home" })).toBeNull();
+  });
+});
+
+describe("재고 주소", () => {
+  it("탭을 읽고 왕복한다", () => {
+    expect(parseRoute("#/inventory")).toEqual({ name: "inventory", tab: "stock" });
+    expect(parseRoute("#/inventory/close")).toEqual({ name: "inventory", tab: "close" });
+    expect(parseRoute("#/inventory/items")).toEqual({ name: "inventory", tab: "items" });
+    expect(parseRoute("#/inventory/zzz")).toEqual(HOME);
+    for (const tab of INVENTORY_TABS) {
+      const route: Route = { name: "inventory", tab };
+      expect(parseRoute(toHash(route))).toEqual(route);
+    }
+    expect(toHash({ name: "inventory", tab: "stock" })).toBe("#/inventory");
+    expect(toHash({ name: "inventory", tab: "close" })).toBe("#/inventory/close");
+  });
+
+  it("묶음은 inventory이고 목록 화면이 아니다", () => {
+    expect(contextOf({ name: "inventory", tab: "items" })).toBe("inventory");
+    expect(isListRoute({ name: "inventory", tab: "stock" })).toBe(false);
   });
 });

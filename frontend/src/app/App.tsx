@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
+import { InventoryApp } from "../inventory/InventoryApp";
+import { inventoryTitle } from "../inventory/view";
 import { Toast } from "../components/Toast";
 import { exportDocument } from "../lib/download";
 import { draftToRestore, inputDraftWrites, readDraft, readInputDraft, writeDraft, writeInputDraft } from "../lib/drafts";
 import { carryScreenOf, isRouteHash, parseRoute, taskOf, toHash } from "../lib/routes";
 import { browserStorage } from "../lib/storage";
+import { TOAST_MS } from "../lib/toast";
 import { makeHandlers } from "./handlers";
 import { needsLoad } from "./load";
 import { assetWork, assetsToLoad } from "./assets";
 import { createRunner, loadAsset, startLoad } from "./requests";
 import { inputDraftKey, screenModel } from "./screenModel";
 import { initialState, isBusy, reducer } from "./state";
-import { AppView, pageTitle } from "./view";
-
-const TOAST_MS = 3500;
+import { AppView, pageTitle, railProps } from "./view";
 
 /** 앱 상태는 reducer 하나가 바꾼다. 여기서는 주소·불러오기·저장소·알림 같은 바깥과의 연결만 한다. */
 export default function App() {
@@ -90,7 +91,7 @@ export default function App() {
     }
   }, [pendingAssets, inFlightAssets]);
 
-  const title = pageTitle(model);
+  const title = state.route.name === "inventory" ? inventoryTitle(state.route.tab) : pageTitle(model); // 제목은 여기서만 정한다
   useEffect(() => {
     document.title = title;
   }, [title]);
@@ -103,10 +104,22 @@ export default function App() {
     saveDraft: (key, text) => writeDraft(storage, key, text),
     exportDocument,
   });
+  const route = state.route;
   return (
     <>
-      <AppView route={state.route} model={model} busy={isBusy(state)} on={on} />
-      <Toast message={state.toast} />
+      {route.name === "inventory" ? (
+        <InventoryApp
+          tab={route.tab}
+          rail={railProps(route, isBusy(state), on)}
+          onTab={(tab) => dispatch({ type: "navigated", route: { name: "inventory", tab } })}
+          confirmLeave={() => window.confirm("저장하지 않은 입력이 있어요. 떠나면 입력이 사라져요. 이동할까요?")}
+        />
+      ) : (
+        <>
+          <AppView route={route} model={model} busy={isBusy(state)} on={on} />
+          <Toast message={state.toast} />
+        </>
+      )}
     </>
   );
 }

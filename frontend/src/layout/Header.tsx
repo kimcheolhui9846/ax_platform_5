@@ -6,9 +6,11 @@ export type HeaderProps = {
   phase: Phase | null;
   onPickTask: () => void;
   pickDisabled?: boolean;
+  /** 단계가 없을 때 보이는 안내(기본은 코칭 시작 안내). */
+  hint?: string;
 };
 
-export function Header({ project, phase, onPickTask, pickDisabled = false }: HeaderProps) {
+export function Header({ project, phase, onPickTask, pickDisabled = false, hint = "하고 싶은 작업 하나부터 시작하세요." }: HeaderProps) {
   const steps = headerSteps(phase);
   return (
     <header className="app-header">
@@ -16,7 +18,7 @@ export function Header({ project, phase, onPickTask, pickDisabled = false }: Hea
       <div className="header-project">{project ?? "내 창작 작업 공간"}</div>
       <div className="header-steps">
         {steps.length === 0
-          ? "하고 싶은 작업 하나부터 시작하세요."
+          ? hint
           : steps.map(({ label, current }, i) => (
               <span key={label} className={current ? "header-step is-current" : "header-step"}>
                 {`${i + 1} ${label}`}

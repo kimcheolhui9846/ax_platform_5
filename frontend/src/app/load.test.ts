@@ -128,3 +128,9 @@ describe("needsLoad — 이어가기 미리보기", () => {
     expect(needsLoad(at({ name: "mode", task: "branding", from: null }, { form }))).toBeNull();
   });
 });
+
+describe("재고 주소", () => {
+  it("코칭 데이터를 부르지 않는다", () => {
+    expect(needsLoad(initialState({ name: "inventory", tab: "stock" }))).toBeNull();
+  });
+});

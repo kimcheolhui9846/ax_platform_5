@@ -1,15 +1,23 @@
 import type { JSX } from "react";
 
 import type { ScreenModel } from "../app/screenModel";
-import { AppView } from "../app/view";
+import { AppView, railProps } from "../app/view";
+import { closeModel, itemsModel, stockModel } from "../inventory/screenModel";
+import { INVENTORY_TAB_LABELS, InventoryView } from "../inventory/view";
+import type { InventoryScreenModel } from "../inventory/view";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { SupplementForm } from "../components/SupplementForm";
 import { nextTask } from "../lib/carry";
 import { sectionText } from "../lib/document";
 import { HOME } from "../lib/routes";
-import type { Route } from "../lib/routes";
+import type { InventoryTab, Route } from "../lib/routes";
 import {
   ANSWERED_USER,
+  CLOSE_CHECKED,
+  CLOSE_DONE,
+  CLOSE_INPUT,
+  INVENTORY,
+  INVENTORY_EMPTY,
   SESSION_QUESTION_PRIVATE,
   SESSION_READY_PRIVATE,
   SUPPLEMENT_PRIVATE,
@@ -41,7 +49,7 @@ import {
   TASKS,
 } from "./fixtures";
 import { DeleteConfirm, RenameForm } from "../components/WorkItemDialogs";
-import { NOOP_HANDLERS } from "./handlers";
+import { NOOP_HANDLERS, NOOP_INVENTORY_HANDLERS } from "./handlers";
 
 /** 미리보기는 저장소를 쓰지 않아 입력 초안 키는 자리값이다. */
 const PREVIEW_KEY = "input:preview";
@@ -81,6 +89,18 @@ const question: Route = { name: "question", sessionId: SESSION_ID };
 const confirm: Route = { name: "confirm", sessionId: SESSION_ID };
 const failed: Route = { name: "failed", sessionId: SESSION_ID };
 const result: Route = { name: "result", sessionId: SESSION_ID };
+
+const ALL = { query: "", kind: "all" } as const;
+
+/** 재고 화면 한 상태. 앱과 같은 InventoryView에 샘플 모델을 직접 넣어 그린다(네트워크 없음). */
+function inventoryFrame(id: string, title: string, tab: InventoryTab, model: InventoryScreenModel): Frame {
+  const route: Route = { name: "inventory", tab };
+  return {
+    id,
+    title: `재고 · ${INVENTORY_TAB_LABELS[tab]} · ${title}`,
+    render: (mainId) => <InventoryView tab={tab} model={model} busy={null} on={NOOP_INVENTORY_HANDLERS} rail={railProps(route, false, NOOP_HANDLERS)} mainId={mainId} />,
+  };
+}
 
 /** 갤러리에 그릴 화면 상태. 묶음이 늘 때마다 여기에 상태를 더한다. */
 export const FRAMES: Frame[] = [
@@ -215,4 +235,10 @@ export const FRAMES: Frame[] = [
   frame("documents-empty", "결과물 · 비어 있음", { name: "documents" }, { kind: "documents", sessions: [] }),
   frame("guide", "흐름 안내", { name: "guide" }, { kind: "guide" }),
   frame("unavailable", "불러오지 못함", question, { kind: "unavailable" }),
+  inventoryFrame("inventory-stock", "품목 있음(부족·미입력·배송 중)", "stock", { kind: "stock", model: stockModel(INVENTORY, ALL), hasItems: true, filter: ALL }),
+  inventoryFrame("inventory-stock-empty", "품목 없음", "stock", { kind: "stock", model: stockModel(INVENTORY_EMPTY, ALL), hasItems: false, filter: ALL }),
+  inventoryFrame("inventory-close", "수량 입력", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_INPUT, ALL), filter: ALL }),
+  inventoryFrame("inventory-close-check", "이상 수량 확인", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_CHECKED, ALL), filter: ALL }),
+  inventoryFrame("inventory-close-result", "저장 결과·자동 주문", "close", { kind: "close", model: closeModel(INVENTORY, CLOSE_DONE, ALL), filter: ALL }),
+  inventoryFrame("inventory-items", "등록·기준·설정", "items", { kind: "items", model: itemsModel(INVENTORY, { bulk: 0, item: 0, supplier: 0, policy: 0, settings: 0 }) }),
 ];
