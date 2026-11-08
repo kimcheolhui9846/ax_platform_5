@@ -10,6 +10,7 @@ export const NOOP_HANDLERS: Handlers = {
   retry: noop,
   start: noop,
   changeDraft: noop,
+  changeInput: noop,
   submitRequest: noop,
   editRequest: noop,
   pickMode: noop,

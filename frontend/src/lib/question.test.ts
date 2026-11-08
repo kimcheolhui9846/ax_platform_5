@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { exampleActions, questionHint, questionKicker } from "./question";
+import { ANSWER_MAX, exampleActions, questionHint, questionKicker } from "./question";
 
 const base = { level: 0, is_ai_proposal: false };
 const ladder = { level: 2, is_ai_proposal: false };
@@ -26,5 +26,11 @@ describe("질문 카드 문구", () => {
       { action: "easier", label: "다른 예시 보기" },
       { action: "original", label: "원래 예시 보기" },
     ]);
+  });
+});
+
+describe("ANSWER_MAX", () => {
+  it("백엔드 ANSWER_MAX와 같은 1200이다", () => {
+    expect(ANSWER_MAX).toBe(1200);
   });
 });

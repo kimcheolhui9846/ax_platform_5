@@ -33,7 +33,7 @@
    - 설정은 `render.yaml`에 다 있다: 루트 폴더 `backend`, 설치 `uv sync --frozen --no-dev`, 실행 `uvicorn`, 상태 확인 `/api/v1/coaching/tasks`, 환경 변수 `PROVIDER=mock`·`STORE=postgres`·`DEBUG=false`.
    - `DATABASE_URL`은 비밀 값이라 블루프린트 화면이 값을 물어본다. 아래 "Neon 연결"에서 만든 연결 문자열을 붙여 넣는다. API 키는 넣지 않는다.
 4. 첫 배포가 끝나면(몇 분) 서비스 주소를 확인한다. 보통 `https://ax-coaching-api.onrender.com`이다.
-   - 브라우저로 `https://<주소>/api/v1/coaching/tasks`를 열어 과제 5개가 JSON으로 나오면 성공이다. `/docs`는 API 문서다.
+   - 브라우저로 `https://<주소>/api/v1/coaching/tasks`를 열어 과제 5개가 JSON으로 나오면 성공이다. API 문서(`/docs`)는 개발용(`DEBUG=true`)에서만 열리고, 배포(`DEBUG=false`)에서는 닫힌다(404). 프론트 타입 생성은 문서 주소가 아니라 코드(`app.openapi()`)에서 뽑는다.
 5. **주소가 `ax-coaching-api.onrender.com`과 다르면**(이름이 이미 쓰여 뒤에 글자가 붙은 경우) `frontend/vercel.json`의 `rewrites` 주소를 그 주소로 고쳐 PR을 올린다.
 
 이후 main에 머지할 때마다 렌더가 자동으로 다시 배포한다(데이터는 Neon에 있어 지워지지 않는다).

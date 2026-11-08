@@ -125,3 +125,23 @@ def test_openapi_documents_debug_only_errors_as_optional(client):
     body = spec["components"]["schemas"]["RequestErrorBody"]
     assert body["required"] == ["detail"]
     assert "DEBUG" in body["properties"]["errors"]["description"]
+
+
+DOC_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+
+@pytest.mark.parametrize("path", DOC_PATHS)
+def test_api_docs_are_closed_when_not_debug(path):
+    response = api_client(create_app(provider=MockProvider(), debug=False)).get(path)
+    assert response.status_code == 404
+    assert isinstance(response.json()["detail"], str)
+
+
+@pytest.mark.parametrize("path", DOC_PATHS)
+def test_api_docs_are_open_when_debug(path):
+    assert api_client(create_app(provider=MockProvider(), debug=True)).get(path).status_code == 200
+
+
+def test_openapi_schema_is_available_in_code_even_when_docs_are_closed():
+    app = create_app(provider=MockProvider(), debug=False)
+    assert "/api/v1/coaching/tasks" in app.openapi()["paths"]

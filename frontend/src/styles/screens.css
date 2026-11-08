@@ -138,7 +138,7 @@
   border-radius: var(--radius-md);
 }
 .field-row label { font-size: var(--text-sm); }
-.field-row input {
+.field-row > input {  /* 값 입력칸만(비공개 체크박스는 .privacy-toggle 안이라 제외) */
   padding: 10px var(--space-3);
   border: var(--line-width) solid var(--color-line);
   border-radius: var(--radius-sm);
@@ -147,16 +147,18 @@
   background: var(--color-surface);
   font: inherit;
 }
-.field-actions { display: flex; gap: var(--space-2); grid-column: 2; }
-.field-row .privacy-toggle { grid-column: 2; }
+/* 버튼 줄과 비공개 체크는 라벨 칸까지 가로로 쓰는 한 줄(왼쪽 정렬, 모자라면 줄바꿈) */
+.field-tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--space-2) var(--space-4); }
+.field-actions { display: flex; gap: var(--space-2); }
 .dialog-footer { position: sticky; bottom: calc(-1 * var(--space-8)); background: var(--color-surface); padding-top: var(--space-3); }
 .edit-card { padding: var(--space-8); }
 .edit-card .composer { box-shadow: none; }
 
 /* 저장 완료·버전 보기 */
 .saved { padding: var(--space-8); gap: var(--space-6); }
-.saved-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-.saved-actions .btn { flex: 1 1 var(--saved-action-basis); }
+.saved-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3); }
+/* 자식 버튼과 내려받기 메뉴(세로 flex)가 같은 기준 폭을 나눠 가진다. 메뉴 안 버튼에는 걸지 않는다(세로 flex에서 flex-basis는 높이가 된다). */
+.saved-actions > .btn, .saved-actions > .download-menu { flex: 1 1 var(--saved-action-basis); }
 .version-notice { display: flex; align-items: center; gap: var(--space-3); }
 
 /* 흐름 안내 */
@@ -201,7 +203,6 @@
   .document-image { grid-template-columns: 1fr; gap: var(--space-4); padding: var(--space-3); }
   .edit-card, .dialog { padding: var(--space-5); }
   .field-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
-  .field-actions, .field-row .privacy-toggle { grid-column: 1; }
   .dialog-footer { bottom: calc(-1 * var(--space-5)); }
   .mode-view > .row { flex-wrap: wrap; }
   .mode-view > .row .grow { flex-basis: 100%; }

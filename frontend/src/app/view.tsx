@@ -44,6 +44,7 @@ export type Handlers = {
   retry: () => void;
   start: (task: string) => void;
   changeDraft: (task: string, text: string) => void;
+  changeInput: (key: string, text: string) => void; // 질문 답·답 고치기·문구 고치기 초안(키는 화면 모델의 draftKey)
   submitRequest: (task: string) => void;
   editRequest: (task: string) => void;
   pickMode: (task: string, mode: CoachingMode) => void;
@@ -185,6 +186,8 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <QuestionCard
             key={model.question.question_id}
             question={model.question}
+            text={model.draft}
+            onTextChange={(text) => on.changeInput(model.draftKey, text)}
             kicker={questionKicker(model.question, answeredBefore(model.session.flow))}
             request={model.session.raw_input}
             defaultPrivate={isPrivate(model.session.private_names, model.question.field)}
@@ -203,6 +206,8 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <ReviseCard
             key={questionId}
             item={model.item}
+            text={model.draft}
+            onTextChange={(text) => on.changeInput(model.draftKey, text)}
             defaultPrivate={isPrivate(model.session.private_names, model.item.field)}
             busy={busy}
             onRevise={(body) => on.revise(questionId, body)}
@@ -261,6 +266,8 @@ export function renderScreen(model: ScreenModel, busy: boolean, on: Handlers): S
           <EditMain
             key={`${model.result.version.version}-${order}`}
             section={model.section}
+            text={model.draft}
+            onTextChange={(text) => on.changeInput(model.draftKey, text)}
             busy={busy}
             onSubmit={(text) => on.submitEdit(order, text)}
             onBack={on.showResult}

@@ -1,17 +1,14 @@
-import { useState } from "react";
-
 import type { FlowItem, ResultSection, SupplementItem } from "../api/types";
 import { Composer } from "../components/Composer";
 import { FlowSummary } from "../components/FlowSummary";
 import { SupplementPanel } from "../components/SupplementPanel";
 import { sectionText } from "../lib/document";
 
-type MainProps = { section: ResultSection; busy: boolean; onSubmit: (text: string) => void; onBack: () => void };
+type MainProps = { section: ResultSection; text: string; onTextChange: (text: string) => void; busy: boolean; onSubmit: (text: string) => void; onBack: () => void };
 
-/** 결과 섹션 하나의 문구를 고친다. 입력 중인 글은 이 화면이 가진다(부모가 key로 새로 만든다). */
-export function EditMain({ section, busy, onSubmit, onBack }: MainProps) {
+/** 결과 섹션 하나의 문구를 고친다. 입력 중인 글(초안)은 부모가 가진다. */
+export function EditMain({ section, text, onTextChange, busy, onSubmit, onBack }: MainProps) {
   const current = sectionText(section);
-  const [text, setText] = useState(current);
   return (
     <section className="card edit-card stack" aria-label="문구 수정">
       <p className="small">{`소개 문구 수정 · ${section.heading}`}</p>
@@ -29,7 +26,7 @@ export function EditMain({ section, busy, onSubmit, onBack }: MainProps) {
         submitLabel="문구 반영하기"
         busy={busy}
         canSubmit={text.trim() !== current.trim()}
-        onChange={setText}
+        onChange={onTextChange}
         onSubmit={onSubmit}
       />
       <p className="muted">이 항목의 문구만 바꿔요. 선택한 답변, 보완 정보, 근거 검토 기록은 그대로예요.</p>

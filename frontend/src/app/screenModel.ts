@@ -10,7 +10,9 @@ import type {
   TaskSummary,
   VersionView,
 } from "../api/types";
+import { sectionText } from "../lib/document";
 import type { Images } from "../lib/document";
+import { answerDraftKey, reviseDraftKey, sectionDraftKey } from "../lib/drafts";
 import { carryKey, nextTask } from "../lib/carry";
 import { isEditable } from "../lib/flowView";
 import type { EditableFlowItem } from "../lib/flowView";
@@ -26,18 +28,23 @@ export type ScreenModel =
   | { kind: "documents"; sessions: SessionSummary[] }
   | { kind: "request"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean; noticeAcknowledged: boolean }
   | { kind: "mode"; task: TaskSummary; form: TaskForm; draft: string; context: SessionContext | null; carryFailed: boolean; noticeAcknowledged: boolean }
-  | { kind: "question"; task: TaskSummary; session: SessionView; question: Question }
-  | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem }
+  | { kind: "question"; task: TaskSummary; session: SessionView; question: Question; draft: string; draftKey: string }
+  | { kind: "revise"; task: TaskSummary; session: SessionView; item: EditableFlowItem; draft: string; draftKey: string }
   | { kind: "generating"; task: TaskSummary; session: SessionView }
   | { kind: "failed"; task: TaskSummary; session: SessionView }
   | { kind: "confirm"; task: TaskSummary; session: SessionView }
   | { kind: "result"; task: TaskSummary; session: SessionView; result: ResultView | null; images: Images }
-  | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection; images: Images }
+  | { kind: "edit"; task: TaskSummary; session: SessionView; result: ResultView; section: ResultSection; images: Images; draft: string; draftKey: string }
   | { kind: "evidence"; task: TaskSummary; session: SessionView; result: ResultView; items: EvidenceItem[] }
   | { kind: "saved"; task: TaskSummary; session: SessionView; version: VersionView; images: Images; next: TaskSummary | null }
   | { kind: "version"; task: TaskSummary; session: SessionView; version: VersionView; images: Images };
 
 const LOADING: ScreenModel = { kind: "loading" };
+
+/** [순수] 이 화면의 보내기 전 입력 초안 키(입력 칸이 없는 화면이면 null). */
+export function inputDraftKey(model: ScreenModel): string | null {
+  return model.kind === "question" || model.kind === "revise" || model.kind === "edit" ? model.draftKey : null;
+}
 
 /** [순수] 지금 그릴 화면. 데이터가 모자라면 loading, 불러오기가 실패했으면 unavailable이다. */
 export function screenModel(state: AppState): ScreenModel {
@@ -100,16 +107,22 @@ function resolve(state: AppState): ScreenModel {
         }
         // 없는 섹션 번호로 문구 수정 주소를 열었으면(직접 입력·지난 주소) 결과 화면으로 보여 준다
         const section = route.name === "edit" ? result.result.sections.find((s) => s.order === route.order) : undefined;
+        const draftKey = sectionDraftKey(session.session_id, result.version.version, section?.order ?? 0);
         return section
-          ? { kind: "edit", task, session, result, section, images: state.assets }
+          ? { kind: "edit", task, session, result, section, images: state.assets, draft: state.drafts[draftKey] ?? sectionText(section), draftKey }
           : { kind: "result", task, session, result, images: state.assets };
       }
       if (route.name === "revise") {
         const item = session.flow.find((i) => i.question?.question_id === route.questionId);
-        if (item !== undefined && isEditable(item)) return { kind: "revise", task, session, item };
+        if (item !== undefined && isEditable(item)) {
+          const draftKey = reviseDraftKey(session.session_id, item.question.question_id);
+          return { kind: "revise", task, session, item, draft: state.drafts[draftKey] ?? item.answer ?? "", draftKey };
+        }
       }
       if (route.name !== "confirm" && session.next_question !== null) {
-        return { kind: "question", task, session, question: session.next_question };
+        const question = session.next_question;
+        const draftKey = answerDraftKey(session.session_id, question.question_id);
+        return { kind: "question", task, session, question, draft: state.drafts[draftKey] ?? "", draftKey };
       }
       return { kind: "confirm", task, session };
     }

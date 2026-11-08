@@ -1,6 +1,6 @@
 """저장된 세션으로 평가 지표(기획서 14장 중 앱 기록으로 셀 수 있는 것)를 과제별 표로 낸다. 비용 0(AI를 부르지 않는다).
 
-실행(저장소 루트): uv run --directory backend python ../scripts/session_stats.py [--db 경로]
+실행(저장소 루트): uv run --directory backend python ../scripts/session_stats.py [--db 경로] [--exclude-owner ID ...]
 기본은 backend/.env의 STORE(sqlite면 DATABASE_PATH 파일, postgres면 DATABASE_URL)다. --db를 주면 그 SQLite 파일을 읽는다. 사용성 테스트는 STORE=sqlite로 띄운 로컬 서버에서 하고 끝나면 이 표를 본다.
 지표의 뜻과 한계는 docs/EVALUATION.md.
 """
@@ -14,13 +14,16 @@ from app.config import settings  # noqa: E402
 from app.core.storage import read_all_sessions  # noqa: E402
 from app.harness.policy import FieldKind  # noqa: E402
 from app.harness.registry import TASK_TYPES, build_harness  # noqa: E402
-from app.harness.stats import metrics_table, session_metrics  # noqa: E402
+from app.harness.stats import metrics_table, session_metrics, without_owners  # noqa: E402
 from app.providers.mock import MockProvider  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="저장된 세션의 평가 지표(비용 0)")
     parser.add_argument("--db", type=Path, default=None, help="SQLite 세션 파일(주면 STORE 설정 대신 이 파일을 읽는다)")
+    parser.add_argument(
+        "--exclude-owner", action="append", default=[], metavar="ID", help="통계에서 뺄 익명 사용자 ID(여러 번, 예: QA 측정용 qa-perf-20261108)"
+    )
     args = parser.parse_args(argv)
     if args.db is not None:
         kind, path, url = "sqlite", args.db, None
@@ -37,7 +40,7 @@ def main(argv: list[str]) -> int:
         task: frozenset(f.name for f in build_harness(task, MockProvider()).policy.fields if f.kind is FieldKind.MUST_CONFIRM)
         for task in TASK_TYPES
     }
-    states = read_all_sessions(kind, path, settings.asset_dir, url)
+    states = without_owners(read_all_sessions(kind, path, settings.asset_dir, url), set(args.exclude_owner))
     print(f"세션 {len(states)}개 · {path if kind == 'sqlite' else 'postgres'}")
     print(metrics_table(session_metrics(states, must_confirm)))
     return 0

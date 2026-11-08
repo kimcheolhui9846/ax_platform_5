@@ -50,20 +50,22 @@ export function SupplementForm({ titleId, items, busy, onSave, onCancel }: Props
               autoFocus={index === 0}
               onChange={(event) => set(item.name, event.target.value)}
             />
-            <div className="field-actions">
-              <button type="button" className="btn compact" disabled={item.example === ""} onClick={() => set(item.name, item.example)}>
-                예시 넣기
-              </button>
-              <button type="button" className="btn compact" onClick={() => set(item.name, "")}>
-                미확인으로
-              </button>
+            <div className="field-tools">
+              <div className="field-actions">
+                <button type="button" className="btn compact" disabled={item.example === ""} onClick={() => set(item.name, item.example)}>
+                  예시 넣기
+                </button>
+                <button type="button" className="btn compact" onClick={() => set(item.name, "")}>
+                  미확인으로
+                </button>
+              </div>
+              <PrivacyToggle
+                label="AI에 보내지 않기"
+                checked={hidden[item.name] ?? false}
+                disabled={busy}
+                onChange={(checked) => setHidden((current) => ({ ...current, [item.name]: checked }))}
+              />
             </div>
-            <PrivacyToggle
-              label="AI에 보내지 않기"
-              checked={hidden[item.name] ?? false}
-              disabled={busy}
-              onChange={(checked) => setHidden((current) => ({ ...current, [item.name]: checked }))}
-            />
           </div>
         );
       })}

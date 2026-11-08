@@ -32,9 +32,7 @@ export function SavedMain({ task, version, next, onDocuments, onOpen, onDownload
         <button type="button" className="btn" onClick={onOpen}>
           저장한 결과 다시 보기
         </button>
-      </div>
-      <div className="saved-actions">
-        <DownloadMenu onDownload={onDownload} />
+        <DownloadMenu full onDownload={onDownload} />
       </div>
       {next && <p className="small muted">다음 작업에는 현재 결과의 핵심 내용과 보완 정보를 전달해요. 가져온 내용은 제외할 수 있습니다.</p>}
     </section>

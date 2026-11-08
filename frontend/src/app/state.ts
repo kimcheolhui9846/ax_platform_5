@@ -19,7 +19,7 @@ export type AppState = {
   carry: { task: string; key: string; context: SessionContext } | null; // 이어 갈 이전 작업에서 가져올 내용 미리보기(요청·모드 화면)
   evidence: { sessionId: string; items: EvidenceItem[] } | null; // 근거 검토 화면의 자료
   assets: Images; // 결과 이미지(asset_id → data URL). 화면 불러오기와 따로 받는다
-  drafts: Record<string, string>; // 과제별 쓰다 만 요청 글
+  drafts: Record<string, string>; // 쓰다 만 글: 과제별 요청 글(키=과제)과 입력 초안(키=lib/drafts의 answerDraftKey 등)
   notices: Record<string, boolean>; // 과제별 외부 전송 고지 확인(세션을 만들 때 서버에 알린다)
   inflight: Inflight | null;
   stalled: string | null; // 실패한 불러오기(loadKey). 같은 화면에서는 다시 부르지 않는다
@@ -34,8 +34,8 @@ export type Action =
   | { type: "tasksLoaded"; seq: number; tasks: TaskSummary[] }
   | { type: "sessionsLoaded"; seq: number; sessions: SessionSummary[] }
   | { type: "formLoaded"; seq: number; form: TaskForm }
-  | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; noticeConsumed: string | null; notice: string | null } // noticeConsumed: 세션을 새로 만든 과제(그 과제의 안내 확인을 지운다)
-  | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null }
+  | { type: "sessionLoaded"; seq: number; session: SessionView; next: Route | null; noticeConsumed: string | null; notice: string | null; clearedDraft?: string } // clearedDraft: 보내기가 성공해 비울 입력 초안 키. noticeConsumed: 세션을 새로 만든 과제(그 과제의 안내 확인을 지운다)
+  | { type: "resultLoaded"; seq: number; result: ResultView; next: Route | null; outdatesSession: boolean; notice: string | null; clearedDraft?: string }
   | { type: "versionLoaded"; seq: number; version: VersionView }
   | { type: "versionSaved"; seq: number; version: VersionView; next: Route | null }
   | { type: "sessionDeleted"; seq: number; sessionId: string; notice: string }
@@ -44,7 +44,7 @@ export type Action =
   | { type: "evidenceLoaded"; seq: number; sessionId: string; items: EvidenceItem[] }
   | { type: "assetRequested"; assetId: string }
   | { type: "assetLoaded"; assetId: string; url: string | null }
-  | { type: "draftChanged"; task: string; text: string }
+  | { type: "draftChanged"; key: string; text: string }
   | { type: "noticeChanged"; task: string; acknowledged: boolean }
   | { type: "noticed"; message: string }
   | { type: "toastClosed" }
@@ -89,7 +89,7 @@ export function reducer(state: AppState, action: Action): AppState {
       // 버튼 요청은 이전 알림을 지운다. 불러오기는 지우지 않는다(생성 실패 알림 뒤 곧바로 세션을 다시 받는다)
       return { ...state, inflight: { seq: action.seq, load: action.load, generating: action.generating }, toast: action.load === null ? null : state.toast };
     case "draftChanged":
-      return { ...state, drafts: { ...state.drafts, [action.task]: action.text } };
+      return { ...state, drafts: { ...state.drafts, [action.key]: action.text } };
     case "noticeChanged":
       return { ...state, notices: { ...state.notices, [action.task]: action.acknowledged } };
     case "noticed":
@@ -156,6 +156,13 @@ function sameVersion(version: VersionView | null, route: Route): boolean {
   );
 }
 
+/** 키의 초안을 뺀 목록(키가 없으면 그대로). 빈 글을 남기지 않고 빼야 고치기 화면이 지금 값으로 다시 채워진다. */
+function withoutDraft(drafts: Record<string, string>, key: string | undefined): Record<string, string> {
+  if (key === undefined || !(key in drafts)) return drafts;
+  const { [key]: _removed, ...rest } = drafts;
+  return rest;
+}
+
 function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
   switch (action.type) {
     case "failed":
@@ -181,6 +188,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         // 세션을 새로 만들 때마다 안내를 새로 확인한다(기존 세션 열기·답하기는 확인을 그대로 둔다)
         notices: action.noticeConsumed === null ? done.notices : { ...done.notices, [action.noticeConsumed]: false },
         result: matchingResult(done.result, action.session),
+        drafts: withoutDraft(done.drafts, action.clearedDraft),
         toast: action.notice ?? done.toast,
       };
     case "resultLoaded":
@@ -189,6 +197,7 @@ function settle(done: AppState, inflight: Inflight, action: Settled): AppState {
         route: action.next ?? done.route,
         result: action.result,
         sessionOutdated: done.sessionOutdated || action.outdatesSession,
+        drafts: withoutDraft(done.drafts, action.clearedDraft),
         toast: action.notice ?? done.toast,
       };
     case "sessionDeleted": {

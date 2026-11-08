@@ -93,18 +93,22 @@ class SessionContext(ContractModel):
     items: list[ContextItem]
 
 
+ANSWER_MAX = 1200  # 화면 QuestionCard·ReviseCard의 maxLength와 맞춘 값. 어긋나면 화면이 허용한 글을 서버가 거절한다.
+OPTION_IDS_MAX = 20
+
+
 class AnswerRequest(RequestModel):
     question_id: str
     answer_type: AnswerType
-    value: str | None = None
-    option_ids: list[str] = Field(default_factory=list)
+    value: str | None = Field(default=None, max_length=ANSWER_MAX)
+    option_ids: list[str] = Field(default_factory=list, max_length=OPTION_IDS_MAX)
     private: bool | None = None  # 이 답을 비공개로 정한다(없으면 그대로)
 
 
 class ReviseAnswerRequest(RequestModel):
     answer_type: Literal[AnswerType.OPTION, AnswerType.FREE_TEXT]
-    value: str | None = None
-    option_ids: list[str] = Field(default_factory=list)
+    value: str | None = Field(default=None, max_length=ANSWER_MAX)
+    option_ids: list[str] = Field(default_factory=list, max_length=OPTION_IDS_MAX)
     private: bool | None = None
 
 
